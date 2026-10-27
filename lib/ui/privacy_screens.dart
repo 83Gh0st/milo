@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/providers.dart';
-import 'theme.dart';
 
 class MemoryScreen extends ConsumerStatefulWidget { const MemoryScreen({super.key}); @override ConsumerState<MemoryScreen> createState() => _MemState(); }
 class _MemState extends ConsumerState<MemoryScreen> {

@@ -8,7 +8,7 @@ import 'theme.dart';
 class Pin {
   static int _wrong = 0;
   static DateTime _until = DateTime(2000);
-  static String _h(String salt, String pin) { var d = utf8.encode('$salt:$pin'); for (var i = 0; i < 20000; i++) { d = sha256.convert(d).bytes; } return base64Encode(d); }
+  static String _h(String salt, String pin) { var d = utf8.encode('$salt:$pin'); for (var i = 0; i < 20000; i++) { d = Uint8List.fromList(sha256.convert(d).bytes); } return base64Encode(d); }
   static Future<bool> isSet(SecureStore s) async => await s.read('pin.hash') != null;
   static Future<void> set(SecureStore s, String pin) async { final salt = DateTime.now().microsecondsSinceEpoch.toRadixString(36); await s.write('pin.salt', salt); await s.write('pin.hash', _h(salt, pin)); }
   static Future<bool> check(SecureStore s, String pin) async {

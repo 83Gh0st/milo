@@ -44,7 +44,7 @@ class _EState extends ConsumerState<ExpressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final d = ref.watch(directorProvider), ladder = ref.watch(ladderProvider);
+    final ladder = ref.watch(ladderProvider);
     ref.listen<String>(expressTextProvider, (_, n) { if (n.isNotEmpty) { setState(() { strip = n.split(' '); kb.text = n; }); ref.read(expressTextProvider.notifier).state = ''; } });
     final text = strip.join(' ');
     Widget quick(String l, String s, {bool help = false}) => Expanded(child: TextButton(onPressed: () => _speak(s, help: help, view: false), child: Text(l, style: const TextStyle(color: T.coral, fontWeight: FontWeight.w800))));

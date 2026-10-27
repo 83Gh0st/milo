@@ -1,0 +1,6 @@
+# Milo ships its own analysis options so `flutter create` never injects the
+# default `package:flutter_lints/flutter.yaml` include (which is not a
+# dependency of this project) into CI checkouts.
+analyzer:
+  exclude:
+    - build/**

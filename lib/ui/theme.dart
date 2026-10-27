@@ -20,7 +20,7 @@ ThemeData miloTheme(Director d) {
     textTheme: ThemeData.light().textTheme.apply(bodyColor: hc ? Colors.black : T.ink, displayColor: hc ? Colors.black : T.ink, fontFamily: d.font),
     filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(64, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600))),
     outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size(64, 56), side: const BorderSide(color: T.line), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)))),
-    cardTheme: CardTheme(color: Colors.white, elevation: 0, margin: const EdgeInsets.symmetric(vertical: 5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: T.line))),
+    cardTheme: CardThemeData(color: Colors.white, elevation: 0, margin: const EdgeInsets.symmetric(vertical: 5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: T.line))),
     navigationBarTheme: NavigationBarThemeData(backgroundColor: Colors.white, indicatorColor: T.priSoft, labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
     inputDecorationTheme: InputDecorationTheme(filled: true, fillColor: T.priSoft, border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
   );

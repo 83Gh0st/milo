@@ -20,7 +20,7 @@ import '../ui/screen.dart' show openScreen;
 
 final storeProvider = Provider<SecureStore>((_) => throw UnimplementedError('override in main'));
 final dbProvider = Provider<MiloDb>((_) => throw UnimplementedError('override in main'));
-final apiProvider = Provider((ref) {
+final Provider<MiloApi> apiProvider = Provider((ref) {
   final api = MiloApi(ref.read(dbProvider), ref.read(storeProvider));
   api.vaultAuth = () async {
     // Family-keyed inference only when the trusted adult switched it on AND sync (the family identity) is on.

@@ -43,7 +43,7 @@ class _OState extends ConsumerState<Onboarding> {
     widget.onDone();
   }
 
-  Widget _page(String title, List<Widget> body, {String? say, String next = 'Next', bool showMilo = true, bool scroll = true}) => Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+  Widget _page(String title, List<Widget> body, {String? say, String next = 'Next'}) => Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
     Row(children: [SizedBox(width: 44, child: i > 0 ? IconButton(onPressed: _back, icon: const Icon(Icons.chevron_left, size: 30)) : null), Expanded(child: Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800))),
       SizedBox(width: 44, child: say == null ? null : IconButton(tooltip: 'Hear it', onPressed: () => _say(say), icon: const Icon(Icons.volume_up, color: T.pri)))]),
     const SizedBox(height: 8), Expanded(child: ListView(children: body)),

@@ -16,6 +16,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=android,ios --project-name milo .
+      - run: rm -f test/widget_test.dart # generated sample references MyApp, which this app does not have
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
@@ -30,4 +31,4 @@ jobs:
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=ios --project-name milo .
       - run: flutter pub get
-      - run: flutter build ios --no-codesign --dart-define=API_BASE=https://api.example.com
+      - run: flutter build ios --simulator --no-codesign --dart-define=API_BASE=https://api.example.com

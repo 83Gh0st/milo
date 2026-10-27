@@ -70,5 +70,5 @@ class MemoryManager extends ChangeNotifier {
     return msg;
   }
 
-  Future<List<Map<String, String>>> forRequest(String activity) async => paused ? [] : db.forRequest(memKeysFor(activity));
+  Future<List<Map<String, String>>> forRequest(String activity) async => paused ? [] : await db.forRequest(memKeysFor(activity));
 }

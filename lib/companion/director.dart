@@ -233,7 +233,7 @@ class Director extends ChangeNotifier {
     final baseF = faces[cfg.base]!;
     final base = Face.lerp(faces['calm']!, baseF, cfg.bias, baseF);
     final te = quiet ? 'calm' : drowsy ? 'sleepy' : emo;
-    final di = quiet ? 0 : drowsy ? .6 : inten; // drowsy reads even after the last feeling faded
+    final double di = quiet ? 0 : drowsy ? .6 : inten; // drowsy reads even after the last feeling faded
     final tgt = Face.lerp(base, faces[te]!, di, faces[di > .5 ? te : cfg.base]!);
     face = Face.lerp(face, tgt, 1 - math.exp(-3 * dt), tgt);
 
