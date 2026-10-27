@@ -10,7 +10,7 @@ class MiloPainter extends CustomPainter {
   MiloPainter(this.d) : super(repaint: d.frame);
   static const ink = Color(0xFF1F2340);
 
-  Color _sh(Color c, double l) { final h = HSLColor.fromColor(c); return h.withLightness((h.lightness + l).clamp(0.0, 1.0)).toColor(); }
+  Color _sh(Color c, double l) { final h = HSLColor.fromColor(c); return h.withLightness((h.lightness + l).clamp(0.0, 1.0).toDouble()).toColor(); }
   void _t(Canvas c, String s, Offset o, double sz, Color col) {
     final tp = TextPainter(text: TextSpan(text: s, style: TextStyle(fontSize: sz, color: col)), textDirection: TextDirection.ltr)..layout();
     tp.paint(c, o - Offset(tp.width / 2, tp.height / 2));
@@ -83,7 +83,7 @@ class MiloPainter extends CustomPainter {
       }
       final by = ey - 21 + f.browY;
       c.drawLine(Offset(ex - i * 8.0, by - f.browA * 6), Offset(ex + i * 8.0, by + f.browA * 6), Paint()..color = ink..strokeWidth = 3.5..strokeCap = StrokeCap.round);
-      c.drawOval(Rect.fromCenter(center: Offset(i * 40.0, 10), width: 15, height: 9), Paint()..color = const Color(0xFFFF7A7A).withAlpha((f.blush * 170).round().clamp(0, 255)));
+      c.drawOval(Rect.fromCenter(center: Offset(i * 40.0, 10), width: 15, height: 9), Paint()..color = const Color(0xFFFF7A7A).withAlpha((f.blush * 170).round().clamp(0, 255).toInt()));
     }
     _mouth(c, f);
   }
@@ -115,7 +115,8 @@ class MiloPainter extends CustomPainter {
       }
     }
     if (f == 'arcs') {
-      final al = ((math.sin(t * 5) + 1) / 2 * 150 + 60).round();
+      final m = d.state == CState.listening ? (.45 + .55 * d.micLevel.clamp(0.0, 1.0)) : 1.0; // listening rings breathe with the voice
+      final al = (((math.sin(t * 5) + 1) / 2 * 150 + 60) * m).round();
       for (final r in [92.0, 106.0]) {
         final p = Paint()..color = const Color(0xFF5B6CFF).withAlpha(al)..style = PaintingStyle.stroke..strokeWidth = 4..strokeCap = StrokeCap.round;
         final rect = Rect.fromCircle(center: const Offset(0, -80), radius: r);

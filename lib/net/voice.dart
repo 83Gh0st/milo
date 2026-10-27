@@ -18,7 +18,7 @@ double micRms(Uint8List b) {
     sum += v * v;
     n++;
   }
-  return n == 0 ? 0 : (math.sqrt(sum / n) * 4).clamp(0.0, 1.0);
+  return n == 0 ? 0 : (math.sqrt(sum / n) * 4).clamp(0.0, 1.0).toDouble();
 }
 
 /// Push-to-talk voice input: 24 kHz mono PCM16 -> gateway -> Muse Voice Transcribe. Audio is never stored on the phone.

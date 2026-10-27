@@ -75,8 +75,15 @@ class MiloSettingsScreen extends ConsumerWidget {
       const Section('Presence'),
       _chips<Presence?>([null, ...Presence.values], d.presenceOverride, (p) => p == null ? 'Auto' : p.name[0].toUpperCase() + p.name.substring(1), d.setPresence),
       const Padding(padding: EdgeInsets.only(top: 6), child: Text('Auto: Stage on Home, Buddy for reading and tasks, Chip on the communication board.', style: TextStyle(fontSize: 12, color: T.mute))),
-      const Section('Voice'),
-      _chips<String>(const ['Friendly', 'Calm', 'Energetic', 'Device'], d.voice, (s) => s, (v) { d.set(() => d.voice = v); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.')); }),
+      const Section('Voice style'),
+      _chips<String>(const ['Friendly', 'Calm', 'Energetic', 'Device'], d.voice, (s) => s, (v) { d.set(() => d.voice = v); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.', tone: 'warm')); }),
+      const Section('Milo’s voice (this phone)'),
+      if (d.ttsVoices.isEmpty) const Padding(padding: EdgeInsets.all(8), child: Text('Using this phone’s default voice.', style: TextStyle(color: T.mute)))
+      else Wrap(spacing: 8, runSpacing: 8, children: [for (final v in d.ttsVoices) ChoiceChip(
+          label: Text('${v['name']!.length > 20 ? '${v['name']!.substring(0, 20)}…' : v['name']!} · ${v['locale']!}', style: TextStyle(fontWeight: FontWeight.w700, color: v['name'] == d.ttsVoice ? Colors.white : T.pri)),
+          selected: v['name'] == d.ttsVoice, selectedColor: T.pri, backgroundColor: T.priSoft, side: BorderSide.none, showCheckmark: false,
+          onSelected: (_) => d.selectVoice(v['name']!, v['locale']!))]),
+      const Padding(padding: EdgeInsets.all(8), child: Text('Choosing plays a preview. Phones do not offer a true child voice; Milo picks the warmest match.', style: TextStyle(fontSize: 12, color: T.mute))),
       Slider(value: d.voiceSpeed, min: .6, max: 1.4, onChanged: (v) => d.set(() => d.voiceSpeed = v)),
       const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Slower', style: TextStyle(fontSize: 12, color: T.mute)), Text('Faster', style: TextStyle(fontSize: 12, color: T.mute))]),
       const Section('Milo’s colour'),
@@ -96,7 +103,7 @@ class LanguageScreen extends ConsumerWidget {
     final d = ref.watch(directorProvider);
     return MiloScreen(title: 'Language', body: ListView(padding: const EdgeInsets.all(16), children: [
       for (final e in kLangNames.entries) Card(child: ListTile(title: Text(e.value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)), subtitle: const Text('Speech and listening'), trailing: d.lang == e.key ? const Icon(Icons.check_circle, color: T.pri) : IconButton(tooltip: 'Hear ${e.value}', icon: const Icon(Icons.volume_up), onPressed: () => d.previewLang(e.key)),
-          onTap: () => d.set(() => d.lang = e.key))),
+          onTap: () { d.set(() => d.lang = e.key); d.refreshVoices(); })),
       const Padding(padding: EdgeInsets.all(8), child: Text('Voices come from your phone. Download extra voices in your phone’s text-to-speech settings.', style: TextStyle(color: T.mute))),
     ]));
   }

@@ -209,7 +209,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
         body = ListView(padding: const EdgeInsets.all(16), children: [
           Text(q == null ? 'What is the main idea?' : '${q['q']}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)), const SizedBox(height: 14),
           for (var i = 0; i < (q == null ? 3 : (q['options'] as List).length); i++) Card(child: RadioListTile<int>(value: i, groupValue: picked == 'q$i' ? i : -1, title: Text(q == null ? ['It is about one big idea', 'It lists many facts', 'It is not important'][i] : '${(q['options'] as List)[i]}', style: const TextStyle(fontSize: 17)),
-            onChanged: (_) { setState(() => picked = 'q$i'); final right = q == null || i == (q['answer_index'] as int? ?? 0); d.emote('encouraging', i: .8, hold: 3, force: true); d.speak(right ? 'Nice thinking.' : 'Let’s look at this part again.'); ref.read(dbProvider).progress('check'); })),
+            onChanged: (_) { setState(() => picked = 'q$i'); final right = q == null || i == (q['answer_index'] as int? ?? 0); d.emote('encouraging', i: .8, hold: 3, force: true); d.speak(right ? 'Nice thinking.' : 'Let’s look at this part again.', tone: right ? 'warm' : 'calm'); ref.read(dbProvider).progress('check'); })),
           const SizedBox(height: 10), const Center(child: Text('No scores. Effort is celebrated.', style: TextStyle(color: T.mute, fontWeight: FontWeight.w700))), const SizedBox(height: 14),
           BigButton('Next', () { d.celebrate(); setState(() { step = _S.bring; picked = null; }); }), const SizedBox(height: 150)]);
     }
@@ -233,7 +233,7 @@ class _BigWordState extends ConsumerState<BigWordScreen> {
   Widget build(BuildContext context) {
     final d = ref.read(directorProvider);
     if (widget.words.isEmpty) return MiloScreen(title: 'Big words', body: const Center(child: Text('No words to show yet.')));
-    final w = widget.words[i.clamp(0, widget.words.length - 1)];
+    final w = widget.words[i.clamp(0, widget.words.length - 1).toInt()];
     final meaning = widget.meanings[w.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '')];
     void hear({bool again = false}) => d.speak(again ? w : (meaning == null ? w : '$w. $meaning'), rate: slow ? .6 : 1);
     return MiloScreen(title: 'Big words (${i + 1}/${widget.words.length})', body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [

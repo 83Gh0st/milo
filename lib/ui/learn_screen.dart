@@ -38,7 +38,7 @@ class _LearnState extends ConsumerState<LearnScreen> {
       final c = (s.data?[0] ?? <String, int>{}) as Map<String, int>, goals = ((s.data?[1] as String?) ?? '');
       Widget goal(String t, String sub, int n, int of, int col) => Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [Expanded(child: Text(t, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))), Icon(Icons.flag, color: T.strong[col])]), Text(sub, style: const TextStyle(fontSize: 12, color: T.mute)), const SizedBox(height: 8),
-        ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: (n / of).clamp(0.0, 1.0), minHeight: 8, color: T.strong[col], backgroundColor: T.line))])));
+        ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: (n / of).clamp(0.0, 1.0).toDouble(), minHeight: 8, color: T.strong[col], backgroundColor: T.line))])));
       return ListView(padding: const EdgeInsets.all(16), children: [
         goal('Read a story', '${min(c['read'] ?? 0, 5)} of 5 stories', c['read'] ?? 0, 5, 0), goal('Reading fluency', 'Practise aloud', c['read'] ?? 0, 10, 3),
         goal('Vocabulary', '${c['word'] ?? 0} words learned', c['word'] ?? 0, 20, 1), goal('Comprehension', 'Quick checks', c['check'] ?? 0, 10, 2),
@@ -113,7 +113,7 @@ class _StoryState extends ConsumerState<StoryTime> {
       if (p != null) Text(p.$2, style: TextStyle(fontSize: 21, height: d.lineSpacing), textAlign: TextAlign.center)
       else Container(padding: const EdgeInsets.all(16), width: double.infinity, decoration: BoxDecoration(color: T.amberSoft, borderRadius: BorderRadius.circular(18)), child: Column(children: [
         const Text('What do you think she found?', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)), const Text('Say it, tap it, or skip.', style: TextStyle(color: T.mute)), const SizedBox(height: 10),
-        Wrap(spacing: 8, children: [for (final a in ['A pearl', 'A map', 'A friend']) ActionChip(label: Text(a), onPressed: () { setState(() => asked = true); d.emote('encouraging', i: .8, hold: 3, force: true); d.speak('What a lovely idea!'); })])])),
+        Wrap(spacing: 8, children: [for (final a in ['A pearl', 'A map', 'A friend']) ActionChip(label: Text(a), onPressed: () { setState(() => asked = true); d.emote('encouraging', i: .8, hold: 3, force: true); d.speak('What a lovely idea!', tone: 'warm'); })])])),
       const Spacer(),
       Row(children: [Expanded(child: BigButton('Listen', () => d.speak(p?.$2 ?? 'What do you think she found?'), kind: BK.soft)), const SizedBox(width: 12), Expanded(child: BigButton(p == null ? 'Finish' : 'Next', () async {
         if (p != null) { setState(() => page++); } else { await ref.read(dbProvider).progress('read'); d.celebrate(goal: true); if (context.mounted) Navigator.pop(context); }

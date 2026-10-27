@@ -25,6 +25,39 @@ const kProfiles = {
   Profile.discreet: ProfileCfg(.45, .6, .5, 'calm', 'Hello. I’m Milo, an AI companion.', 'none'),
 };
 
+/// Ranks an on-device TTS voice for Milo: the saved choice wins, then the
+/// current language, then English, then a warm feminine voice. No platform
+/// ships a true child voice; this picks the closest honest option.
+int voiceScore(Map<String, String> v, String lang, String? preferred) {
+  var s = 0;
+  final loc = (v['locale'] ?? '').toLowerCase().replaceAll('_', '-'), ln = lang.toLowerCase();
+  if (preferred != null && preferred.isNotEmpty && v['name'] == preferred) s += 100;
+  if (loc == ln || (ln.isNotEmpty && loc.startsWith('$ln-'))) { s += 10; } else if (loc.startsWith('en')) { s += 3; }
+  final n = (v['name'] ?? '').toLowerCase();
+  if (n.contains('child') || n.contains('kid')) { s += 6; }
+  else if (n.contains('female') || n.contains('feminine') || n.contains('woman') || n.contains('girl') || n.contains('samantha') || n.contains('zira')) { s += 2; }
+  if (n.contains('male') || n.contains('masculine') || n.contains('david')) s -= 1;
+  return s;
+}
+
+Map<String, String>? pickVoice(List<Map<String, String>> voices, String lang, String? preferred) {
+  Map<String, String>? best;
+  var bestScore = -999;
+  for (final v in voices) {
+    final s = voiceScore(v, lang, preferred);
+    if (s > bestScore) { bestScore = s; best = v; }
+  }
+  return best;
+}
+
+/// Delivery tone per emotion: warm by default, playful only when the feeling
+/// already is, calm and gentle when the child struggles or is distressed.
+String? toneForEmotion(String emo) => const {
+  'encouraging': 'warm', 'happy': 'warm', 'proud': 'warm', 'curious': 'warm',
+  'playful': 'playful', 'excited': 'playful', 'surprised': 'playful',
+  'concerned': 'gentle', 'calm': 'calm', 'sleepy': 'calm', 'thinking': 'calm', 'listening': 'calm',
+}[emo];
+
 class Spring {
   double x, v = 0, t, k, c;
   Spring(this.k, this.c, [double x0 = 0]) : x = x0, t = x0;
@@ -51,7 +84,15 @@ class Director extends ChangeNotifier {
   double br = 0, _bp = 0, bf = 1, _bl = 0, _nb = 2, pulse = 0, mouth = 0, _nf = 6, _nw = 2, _nj = .5;
   bool _dbl = false, vis = false;
   double micLevel = 0; // 0..1 live microphone amplitude while listening (decays in tick); never stored
+  double _lastAlive = 0; // clock time of the last interaction; long untouched idles drift drowsy
+  String? _sayTone; // delivery tone for the sentences currently streaming
+  double _presetPitch = 1.15;
+  List<Map<String, String>> ttsVoices = []; // on-device voices, best first
+  String ttsVoice = '', ttsLocale = ''; // saved TTS voice choice (empty = platform default)
   StreamSubscription? _accel;
+
+  /// The person (or Milo's own speech) did something: Milo is awake.
+  void markActive() { _lastAlive = clock; }
   String _lastFid = '';
   final _fidAt = <String, double>{}, _gAt = <String, double>{};
   Offset _wander = Offset.zero, _jit = Offset.zero;
@@ -119,8 +160,7 @@ class Director extends ChangeNotifier {
         final i = _words.indexWhere((m) => m.end > s);
         _pulseWord(i < 0 ? 0 : i);
       });
-      await applyVoice();
-      try { final v = await _tts!.getVoices; ttsReady = (v as List?)?.isNotEmpty ?? true; } catch (_) {}
+      await refreshVoices();
     } catch (_) { _tts = null; ttsReady = false; } // no TTS engine: visual-only level of the offline ladder
     try { _accel = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(_onAccel, onError: (_) {}); } catch (_) {}
     Timer(const Duration(milliseconds: 900), () { if (emo == 'sleepy') emote('happy', i: .7, hold: 3); }); // wake up
@@ -137,8 +177,43 @@ class Director extends ChangeNotifier {
 
   Future<void> applyVoice() async {
     final v = {'Friendly': [1.15, .475], 'Calm': [1.0, .425], 'Energetic': [1.25, .525], 'Device': [1.0, .5]}[voice] ?? [1.15, .475];
-    _presetRate = v[1];
-    try { await _tts?.setPitch(v[0]); await _tts?.setSpeechRate(v[1]); } catch (_) {}
+    _presetPitch = (v[0] as num).toDouble();
+    _presetRate = (v[1] as num).toDouble();
+    try {
+      await _tts?.setLanguage(ttsLocale.isNotEmpty ? ttsLocale : lang);
+      if (ttsVoice.isNotEmpty) await _tts?.setVoice({'name': ttsVoice, 'locale': ttsLocale.isNotEmpty ? ttsLocale : lang});
+      await _tts?.setPitch(_presetPitch);
+      await _tts?.setSpeechRate(_presetRate);
+    } catch (_) {}
+  }
+
+  /// Lists the phone's real TTS voices (best first), keeps the saved choice
+  /// when it still exists, and applies everything. Empty list with no engine
+  /// error means "default voice only": still usable, said honestly in the UI.
+  Future<void> refreshVoices() async {
+    try {
+      final v = await _tts?.getVoices;
+      ttsReady = v == null ? true : (v as List).isNotEmpty;
+      final all = [for (final e in (v as List?) ?? []) {'name': '${e['name'] ?? ''}', 'locale': '${e['locale'] ?? ''}'}]
+          .where((m) => m['name']!.isNotEmpty)
+          .toList();
+      all.sort((a, b) => voiceScore(b, lang, ttsVoice.isEmpty ? null : ttsVoice).compareTo(voiceScore(a, lang, ttsVoice.isEmpty ? null : ttsVoice)));
+      ttsVoices = all.take(8).toList();
+      if (ttsVoice.isNotEmpty && !ttsVoices.any((m) => m['name'] == ttsVoice)) {
+        ttsVoice = ''; ttsLocale = ''; // saved voice is gone (OS update): fall through to a fresh pick
+      }
+      final pick = pickVoice(ttsVoices, lang, ttsVoice.isEmpty ? null : ttsVoice);
+      if (pick != null && ttsVoice.isEmpty) { ttsVoice = pick['name']!; ttsLocale = pick['locale']!; persist?.call(); }
+      await applyVoice();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// Trusted choice from the voice list: persists, applies, and previews.
+  Future<void> selectVoice(String name, String locale) async {
+    set(() { ttsVoice = name; ttsLocale = locale; });
+    await applyVoice();
+    await speak('Hello, I’m Milo.', tone: 'warm');
   }
 
   // ───────────────────────── per-frame update ─────────────────────────
@@ -149,13 +224,17 @@ class Director extends ChangeNotifier {
     final rm = reduce || forceReduce, aac = _aac, a = amp;
     final still = quiet || aac || breathing; // blink and breathe only
 
-    // L3 emotion: rises ~1.5 s, half-life 8 s back to the profile baseline
+    // L3 emotion: rises ~1.5 s, half-life 8 s back to the profile baseline.
+    // Untouched for two minutes while truly idle, Milo drifts drowsy (smooth:
+    // the same lerp) and wakes the instant anything happens.
     _hold -= dt;
     if (_hold < 0) inten *= math.pow(.5, dt / 8).toDouble();
+    final drowsy = state == CState.idle && !_speaking && clock - _lastAlive > 120;
     final baseF = faces[cfg.base]!;
     final base = Face.lerp(faces['calm']!, baseF, cfg.bias, baseF);
-    final te = quiet ? 'calm' : emo;
-    final tgt = Face.lerp(base, faces[te]!, quiet ? 0 : inten, faces[inten > .5 ? te : cfg.base]!);
+    final te = quiet ? 'calm' : drowsy ? 'sleepy' : emo;
+    final di = quiet ? 0 : drowsy ? .6 : inten; // drowsy reads even after the last feeling faded
+    final tgt = Face.lerp(base, faces[te]!, di, faces[di > .5 ? te : cfg.base]!);
     face = Face.lerp(face, tgt, 1 - math.exp(-3 * dt), tgt);
 
     // L0 breathing (slower and deeper during a break)
@@ -163,7 +242,7 @@ class Director extends ChangeNotifier {
     br = math.sin(_bp);
 
     // L1 ambient: blinks every 2-6 s (12% double), micro eye movement, fidgets
-    if (clock > _nb) { _bl = .001; _nb = clock + _rnd(2, 6); _dbl = _r.nextDouble() < .12; }
+    if (clock > _nb) { _bl = .001; _nb = clock + _rnd(2, 6) * (state == CState.idle && !_speaking && clock - _lastAlive > 120 ? 1.8 : 1); _dbl = _r.nextDouble() < .12; }
     if (_bl > 0) { _bl += dt; if (_bl > .16) { if (_dbl) { _dbl = false; _bl = .001; } else { _bl = 0; } } }
     bf = _bl > 0 ? 1 - math.sin(math.pi * (_bl / .16).clamp(0.0, 1.0)) : 1.0;
     if (clock > _nw) { _wander = Offset(_rnd(-.5, .5), _rnd(-.3, .25)); _nw = clock + _rnd(2, 5); }
@@ -182,7 +261,8 @@ class Director extends ChangeNotifier {
     final g = still ? Offset.zero : _gaze();
     final range = rm ? .4 : 1.0;
     eyeX.t = g.dx * range; eyeY.t = g.dy * range;
-    headX.t = g.dx * 6 * range; headY.t = g.dy * 3 * range + ch.dip * a;
+    headX.t = g.dx * 6 * range;
+    headY.t = g.dy * 3 * range + ch.dip * a + (state == CState.listening ? micLevel * 4 * range : 0); // the head rides the voice while listening
 
     // L0 physics targets
     final tiltDev = (reactions && profile != Profile.discreet && !rm) ? _tilt : 0.0;
@@ -275,11 +355,12 @@ class Director extends ChangeNotifier {
     final c = miloCenter ?? Offset(screenW / 2, 300);
     return Offset(((p.dx - c.dx) / 200).clamp(-1.0, 1.0).toDouble(), ((p.dy - c.dy) / 200).clamp(-1.0, 1.0).toDouble());
   }
-  void pointerAt(Offset global) { touch = _norm(global); touchUntil = clock + 2.5; }
+  void pointerAt(Offset global) { markActive(); touch = _norm(global); touchUntil = clock + 2.5; }
   void lookAtGlobal(Offset global, {double secs = 1.2}) { content = _norm(global); contentUntil = clock + secs; }
 
   // L6 reactions (local, no AI, <100 ms)
   void tapMilo() {
+    markActive();
     if (_speaking && !_aac) { // barge-in
       cancelSpeech(); _turn++;
       emote('listening', i: .9, hold: 8, force: true); _set(CState.listening); _cap('I’m listening. Type or tap what you want.');
@@ -295,14 +376,16 @@ class Director extends ChangeNotifier {
     gesture('giggle', force: true); sq.v -= 2.2;
   }
   void petMilo() {
+    markActive();
     if (!reactions || quiet || _aac || profile == Profile.discreet) return;
     HapticFeedback.mediumImpact(); clips.add(Clip('pet', 1.5, 1)); emote('happy', i: 1, hold: 2.5, force: true);
   }
   void sproutTap() {
+    markActive();
     if (!reactions || quiet || _aac || profile == Profile.discreet) return;
     s1.v += 7; s2.v += 9; _burst('✦', 3);
   }
-  void dragTo(Offset n) { touch = n; touchUntil = clock + 1.5; _dragLean = n.dx * .05; }
+  void dragTo(Offset n) { markActive(); touch = n; touchUntil = clock + 1.5; _dragLean = n.dx * .05; }
   void endDrag() => _dragLean = 0;
 
   void _onAccel(AccelerometerEvent e) {
@@ -340,14 +423,20 @@ class Director extends ChangeNotifier {
     Future.delayed(Duration(milliseconds: ((120 + _words[i].group(0)!.length * 55) / rate).round()), () => _est(gen, i + 1, rate));
   }
 
-  Future<void> speak(String text, {void Function(int)? onWord, bool aac = false, double rate = 1}) async {
+  /// Delivery tone: [pitch, rate] multipliers around the voice preset.
+  /// Small on purpose: warmth comes from the voice and the words, not falsetto.
+  static const _tones = {'playful': [1.06, 1.1], 'warm': [1.0, 1.0], 'calm': [.95, .88], 'gentle': [.92, .8]};
+
+  Future<void> speak(String text, {void Function(int)? onWord, bool aac = false, double rate = 1, String? tone}) async {
+    markActive();
     final gen = ++_gen;
     _words = RegExp(r'\S+').allMatches(text).toList(); _onWord = onWord; _gotP = false; _speaking = true; _aac = aac;
-    if (aac) clips.clear();
+    if (aac) clips.clear(); // AAC speech stays neutral: clarity first, no performance
     _set(CState.speaking);
     final t0 = DateTime.now(), est = _words.length * 330;
     Future.delayed(const Duration(milliseconds: 450), () => _est(gen, 0, rate));
-    if (voiceOn && _tts != null) { try { await _tts!.setSpeechRate(_presetRate * _paceRate * voiceSpeed); await _tts!.speak(text); } catch (_) {} }
+    final tp = (!aac && tone != null) ? (_tones[tone] ?? [1.0, 1.0]) : [1.0, 1.0];
+    if (voiceOn && _tts != null) { try { await _tts!.setPitch((_presetPitch * (tp[0] as num)).clamp(.5, 1.6).toDouble()); await _tts!.setSpeechRate(_presetRate * _paceRate * voiceSpeed * rate * (tp[1] as num)); await _tts!.speak(text); } catch (_) {} }
     final el = DateTime.now().difference(t0).inMilliseconds;
     if (gen == _gen && el < est * .5) await Future.delayed(Duration(milliseconds: (est * .7 - el).round())); // visual-only: keep caption up
     if (gen == _gen) { _gen++; _speaking = false; _aac = false; _onWord = null; _nb = clock; if (state == CState.speaking) _set(CState.idle); }
@@ -357,17 +446,18 @@ class Director extends ChangeNotifier {
   void cancelSpeech() { _gen++; _speaking = false; _aac = false; try { _tts?.stop(); } catch (_) {} }
 
   /// Language-screen speaker preview: a short greeting in that language's
-  /// voice, then the TTS language is restored. Only en/hi/ml have a reviewed
+  /// voice, then the saved voice is restored. Only en/hi/ml have a reviewed
   /// translation; other languages preview the voice with the English sample.
   static const _previews = {'en': 'Hello! I’m Milo.', 'hi': 'नमस्ते! मैं मीलो हूँ।', 'ml': 'ഹലോ! ഞാൻ മിലോ ആണ്.'};
   Future<void> previewLang(String code) async {
     try { await _tts?.setLanguage(code); } catch (_) {}
-    await speak(_previews[code] ?? _previews['en']!);
-    try { await _tts?.setLanguage(lang); } catch (_) {}
+    await speak(_previews[code] ?? _previews['en']!, tone: 'warm');
+    await applyVoice();
   }
 
   // ───────────────────────── brain loop ─────────────────────────
   Future<void> ask(String text) async {
+    markActive();
     final id = ++_turn;
     cancelSpeech(); choices = []; supportActive = false;
     _set(CState.thinking); emote('thinking', i: .8, hold: 60, force: true); gesture('think', force: true); _cap('…');
@@ -388,7 +478,7 @@ class Director extends ChangeNotifier {
     Future<void> pump() async {
       if (busy) return;
       busy = true;
-      while (q.isNotEmpty && id == _turn) { final s = q.removeAt(0); _cap(s); onSaid?.call(s); await speak(s); }
+      while (q.isNotEmpty && id == _turn) { final s = q.removeAt(0); _cap(s); onSaid?.call(s); await speak(s, tone: _sayTone); }
       busy = false;
     }
     await for (final e in events) {
@@ -398,18 +488,18 @@ class Director extends ChangeNotifier {
         case 'risk': if (d['level'] != 'none') { await performSupport(); return; }
         case 'body':
           final em = d['emotion'];
-          if (em is Map) emote('${em['name']}', i: (em['intensity'] as num?)?.toDouble() ?? .6, hold: 6, force: true);
+          if (em is Map) { emote('${em['name']}', i: (em['intensity'] as num?)?.toDouble() ?? .6, hold: 6, force: true); _sayTone = toneForEmotion('${em['name']}'); }
           if (d['gesture'] is String) gesture(d['gesture'] as String, force: true);
           final g = d['gaze'];
           if (g is Map && '${g['id']}'.isNotEmpty) onGaze?.call('${g['id']}');
           _paceRate = d['pace'] == 'slow' ? .8 : 1;
         case 'say': q.add('${d['text']}'); unawaited(pump());
         case 'ui':
-          if (d['action'] == 'offer_choices') { choices = [for (final c in d['choices'] as List) '$c']; notifyListeners(); }
+          if (d['action'] == 'offer_choices') { choices = [for (final c in d['choices'] as List) '$c']; notifyListeners(); gesture('nod'); }
           if (d['action'] == 'open_screen') onOpenScreen?.call('${d['screen']}');
           if (d['action'] == 'highlight') onHighlight?.call('${d['span']}');
           if (d['action'] == 'show_image') unawaited(onShowImage?.call('${d['concept']}') ?? Future.value());
-          if (d['action'] == 'set_timer' && d['seconds'] is int) { final s = (d['seconds'] as int).clamp(5, 3600); breakSecs = s; notifyListeners(); }
+          if (d['action'] == 'set_timer' && d['seconds'] is int) { breakSecs = (d['seconds'] as int).clamp(5, 3600).toInt(); notifyListeners(); }
         case 'memory': onMemoryProposal?.call(d);
         case 'key_point' || 'simple' || 'vocab' || 'check': onUnderstand?.call(e.type, d);
         case 'error': throw StreamError('${d['code']}');
@@ -418,12 +508,13 @@ class Director extends ChangeNotifier {
     }
     while ((busy || q.isNotEmpty) && id == _turn) { await Future.delayed(const Duration(milliseconds: 80)); }
     if (id != _turn) return;
-    _paceRate = 1; relax();
+    _paceRate = 1; _sayTone = null; relax();
     _set(wait || choices.isNotEmpty ? CState.waiting : CState.idle);
     if (wait || choices.isNotEmpty) _armNudge();
   }
 
   void setListening(bool on) {
+    markActive();
     if (on) { cancelSpeech(); _turn++; emote('listening', i: .9, hold: 60, force: true); _set(CState.listening); } else { relax(); _set(CState.idle); }
   }
 
@@ -438,13 +529,13 @@ class Director extends ChangeNotifier {
     quiet = s['quiet'] == '1'; reactions = s['reactions'] != '0'; voiceOn = s['voiceOn'] != '0'; forceReduce = s['reduce'] == '1';
     paceSecs = int.tryParse(s['pace'] ?? '') ?? 3; preReader = s['prereader'] == '1'; lang = s['lang'] ?? 'en';
     highContrast = s['hc'] == '1'; haptics = s['haptics'] != '0'; captions = s['captions'] != '0'; textScale = double.tryParse(s['tscale'] ?? '') ?? 1.0;
-    lineSpacing = double.tryParse(s['lspace'] ?? '') ?? 1.5; font = s['font'] ?? 'Lexend'; breakNudgeMin = int.tryParse(s['breaknudge'] ?? '') ?? 0; greetings = s['greetings'] != '0'; voiceSpeed = double.tryParse(s['vspeed'] ?? '') ?? 1.0; offlineForced = s['offline.forced'] == '1'; ignoreTaps = s['ignoretaps'] == '1'; leftHanded = s['lefthand'] == '1';
+    lineSpacing = double.tryParse(s['lspace'] ?? '') ?? 1.5; font = s['font'] ?? 'Lexend'; breakNudgeMin = int.tryParse(s['breaknudge'] ?? '') ?? 0; greetings = s['greetings'] != '0'; voiceSpeed = double.tryParse(s['vspeed'] ?? '') ?? 1.0; offlineForced = s['offline.forced'] == '1'; ignoreTaps = s['ignoretaps'] == '1'; leftHanded = s['lefthand'] == '1'; ttsVoice = s['tts.voice'] ?? ''; ttsLocale = s['tts.locale'] ?? '';
     presence = presenceOverride ?? _auto();
     applyVoice();
     notifyListeners();
   }
   Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voice, 'color': '${color.value}',
-    'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0'};
+    'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale};
 
   /// Body first (emotion + gesture), then words, sentence by sentence.
   Future<void> perform(BrainTurn t) async {
@@ -457,10 +548,12 @@ class Director extends ChangeNotifier {
     if (t.highlight != null) onHighlight?.call(t.highlight!);
     if (t.showImage != null) unawaited(onShowImage?.call(t.showImage!) ?? Future.value());
     if (t.timerSeconds != null) { breakSecs = t.timerSeconds!; notifyListeners(); }
+    if (t.choices.isNotEmpty) gesture('nod'); // acknowledgement: Milo nods as it offers choices
+    final tone = toneForEmotion(t.emotion);
     for (final s in t.say) {
       if (id != _turn) return;
       _cap(s); onSaid?.call(s);
-      await speak(s);
+      await speak(s, tone: tone);
     }
     if (id != _turn) return;
     relax();
@@ -484,7 +577,7 @@ class Director extends ChangeNotifier {
     if (c.gesture != 'none') gesture(c.gesture, force: true);
     emote('happy', i: .9);
     _cap(c.greet);
-    await speak(c.greet);
+    await speak(c.greet, tone: 'warm');
     _set(CState.idle);
   }
 

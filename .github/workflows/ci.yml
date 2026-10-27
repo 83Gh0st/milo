@@ -20,6 +20,8 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --release --dart-define=API_BASE=https://api.example.com
+      - uses: actions/upload-artifact@v4
+        with: {name: milo-android-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: error}
   ios-compile-check:
     runs-on: macos-latest
     steps:

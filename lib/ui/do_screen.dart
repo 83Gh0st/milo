@@ -115,7 +115,7 @@ class _DState extends ConsumerState<DoScreen> {
           if (isCall) { final n = await db.get('local.doctor_phone') ?? await db.get('local.trusted_phone'); if (n != null && n.isNotEmpty && context.mounted) { await confirmCall(context, (await db.get('local.doctor_name')) ?? 'the doctor', n); } } // always a visible confirmation
           final last = step + 1 >= steps.length;
           setState(() => step++); _save(); d.celebrate(goal: last); await db.progress(last ? 'task' : 'step');
-          if (last) { d.speak(d.profile.name == 'discreet' ? 'Done.' : 'You did it!'); ref.read(chipsProvider.notifier).clearKind('task'); } else { d.gesture('point', force: true); }
+          if (last) { final dis = d.profile.name == 'discreet'; d.speak(dis ? 'Done.' : 'You did it!', tone: dis ? 'calm' : 'playful'); ref.read(chipsProvider.notifier).clearKind('task'); } else { d.gesture('point', force: true); }
         }, kind: BK.mint), const SizedBox(height: 10),
         Row(children: [Expanded(child: BigButton('Help me', () { db.progress('help'); d.ask('I need help with: ${s[1]}'); }, kind: BK.soft)), const SizedBox(width: 10), Expanded(child: BigButton('Skip', () { setState(() => step++); _save(); }, kind: BK.outline))]),
         const SizedBox(height: 6), const Text('Take your time.', style: TextStyle(color: T.mute)), const SizedBox(height: 90),
