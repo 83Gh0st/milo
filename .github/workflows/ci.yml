@@ -35,4 +35,10 @@ jobs:
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=ios --project-name milo .
       - run: flutter pub get
+      - run: |
+          cd ios && pod install # explicit: makes the integration state inspectable; flutter build's own install becomes a no-op
+          echo "=== versions ==="; pod --version; xcodebuild -version | head -2
+          echo "=== workspace ==="; cat Runner.xcworkspace/contents.xcworkspacedata
+          echo "=== runner-pods-refs ==="; grep -c 'Pods_Runner' Runner.xcodeproj/project.pbxproj || echo NO_PODS_RUNNER_REF
+          echo "=== pods-support ==="; ls Pods/Target\ Support\ Files/ 2>&1 || echo NOPODSUPPORTFILES
       - run: flutter build ios --simulator --no-codesign --dart-define=API_BASE=https://api.example.com
