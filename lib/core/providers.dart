@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart' as c;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
 import '../contracts/brain_contract.dart';
+import '../contracts/events.dart';
 import '../data/db.dart';
 import '../data/secure_store.dart';
 import '../net/api.dart';
@@ -18,7 +20,15 @@ import '../ui/screen.dart' show openScreen;
 
 final storeProvider = Provider<SecureStore>((_) => throw UnimplementedError('override in main'));
 final dbProvider = Provider<MiloDb>((_) => throw UnimplementedError('override in main'));
-final apiProvider = Provider((ref) => MiloApi(ref.read(dbProvider), ref.read(storeProvider)));
+final apiProvider = Provider((ref) {
+  final api = MiloApi(ref.read(dbProvider), ref.read(storeProvider));
+  api.vaultAuth = () async {
+    // Family-keyed inference only when the trusted adult switched it on AND sync (the family identity) is on.
+    if ((await ref.read(dbProvider).get('ai.family_key'))?.isNotEmpty != true) return {};
+    return await ref.read(syncProvider).vaultHeaders() ?? {};
+  };
+  return api;
+});
 final voiceProvider = Provider((ref) => VoiceClient(ref.read(apiProvider)));
 final memoryProvider = ChangeNotifierProvider((ref) => MemoryManager(ref.read(dbProvider)));
 final tabProvider = StateProvider<int>((_) => 0);
@@ -61,10 +71,25 @@ class LadderNotifier extends StateNotifier<Ladder> {
     if (r.contains(ConnectivityResult.none)) { state = Ladder.offline; return; }
     state = await api.healthy() ? Ladder.full : Ladder.resting;
   }
-  void failed(String code) => state = (code == 'budget_exhausted' || code == 'rate_limited') ? Ladder.resting : Ladder.offline;
+  void failed(String code) => state = (code == 'budget_exhausted' || code == 'rate_limited' || code == 'timeout') ? Ladder.resting : Ladder.offline;
   void ok() => state = Ladder.full;
 }
 final ladderProvider = StateNotifierProvider<LadderNotifier, Ladder>((ref) => LadderNotifier(ref.read(dbProvider), ref.read(apiProvider)));
+
+// ---- Explainer pictures (concept -> PNG bytes), fetched on demand, memory-only ----
+class VisualNotifier extends StateNotifier<Map<String, Uint8List>> {
+  VisualNotifier() : super(const {});
+  void put(String concept, Uint8List png) => state = {...state, concept: png};
+  void clear() => state = const {};
+}
+final visualProvider = StateNotifierProvider<VisualNotifier, Map<String, Uint8List>>((_) => VisualNotifier());
+
+// ---- Sync status: null when fine, a short generic message otherwise (never content) ----
+final syncBannerProvider = StateProvider<String?>((_) => null);
+
+/// Maps a sync failure to safe UI text. Sync paused by offline mode or a
+/// disabled cloud needs no banner: the ladder banner already says that.
+String? syncBannerFor(Object e) => e is CloudDisabled ? null : 'Couldn’t sync just now.';
 
 // ---- Understand result ----
 class UState {
@@ -129,8 +154,17 @@ class CoreRouter {
       if (_recent.length > 6) _recent.removeRange(0, _recent.length - 6);
       await db.progress('message');
     } on CloudDisabled { await d.perform(validateTurn(pocketBrain(text, d.profile.name, cloud: 'off'))); }
-    on ApiError catch (e) { ref.read(ladderProvider.notifier).failed(e.code); await d.perform(validateTurn(pocketBrain(text, d.profile.name, cloud: e.code == 'budget_exhausted' || e.code == 'rate_limited' ? 'resting' : 'offline'))); }
+    on ApiError catch (e) { await _cloudFailed(e.code, text, d); }
+    on StreamError catch (e) { await _cloudFailed(e.code, text, d); }
     catch (_) { ref.read(ladderProvider.notifier).failed('offline'); await d.perform(validateTurn(pocketBrain(text, d.profile.name, cloud: 'offline'))); }
+  }
+
+  /// One mapping for REST and stream failures: the ladder and the pocket
+  /// fallback always agree about what happened.
+  Future<void> _cloudFailed(String code, String text, Director d) async {
+    ref.read(ladderProvider.notifier).failed(code);
+    final cloud = code == 'budget_exhausted' || code == 'rate_limited' ? 'resting' : code == 'timeout' ? 'timeout' : 'offline';
+    await d.perform(validateTurn(pocketBrain(text, d.profile.name, cloud: cloud)));
   }
 
   Future<void> _memory(MemCmd c, Director d) async {
@@ -145,14 +179,23 @@ class CoreRouter {
     }
   }
 
-  /// Understand: cache first (works offline), then Spark. [imageB64] is a resized, EXIF-free JPEG; the person's text chip stays local for photos.
+  /// Understand: the saved explanation first (instant, free, works offline),
+  /// then Spark for anything new. [imageB64] is a resized, EXIF-free JPEG;
+  /// the person's text chip stays local for photos. The reading screen owns
+  /// [Director.onHighlight]; this method must not clobber it.
   Future<void> explain(Director d, String text, {String strategy = 'default', String? imageB64}) async {
     final db = ref.read(dbProvider), api = ref.read(apiProvider), ust = ref.read(understandProvider.notifier);
     final hash = c.sha256.convert(utf8.encode(imageB64 ?? text)).toString();
     ust.start();
     d.onUnderstand = ust.add;
     d.onMemoryProposal = ref.read(memoryProvider).propose;
-    d.onHighlight = (_) {};
+    final hit = await db.cacheGet(hash, strategy, d.lang);
+    if (hit != null) {
+      ust.load(hit);
+      await db.progress('read');
+      await d.perform(const BrainTurn(emotion: 'happy', say: ['I remember this one.']));
+      return;
+    }
     try {
       final body = {...await _body('Please help me understand this.', 'understand', d, dropDocument: true),
         'content_text': imageB64 == null ? (text.length > 6000 ? text.substring(0, 6000) : text) : null, 'image_b64': imageB64, 'strategy': strategy}..removeWhere((k, v) => v == null);
@@ -162,8 +205,10 @@ class CoreRouter {
       ref.read(ladderProvider.notifier).ok();
       await db.progress('read');
     } catch (e) {
-      final cached = await db.cacheGet(hash, strategy, d.lang) ?? await db.cacheGet(hash, 'default', d.lang);
+      // Same-strategy cache already missed above; fall back to the default-strategy copy if one exists.
+      final cached = await db.cacheGet(hash, 'default', d.lang);
       if (e is ApiError) ref.read(ladderProvider.notifier).failed(e.code);
+      if (e is StreamError) ref.read(ladderProvider.notifier).failed(e.code);
       if (cached != null) { ust.load(cached); await d.perform(const BrainTurn(emotion: 'calm', say: ['Here is the explanation I saved earlier.'])); }
       else { ust.done(); if (e is CloudDisabled) { await d.perform(validateTurn(pocketBrain('', d.profile.name, cloud: 'off'))); } else { openScreen('unreachable'); } }
     }
@@ -178,6 +223,18 @@ final directorProvider = ChangeNotifierProvider<Director>((ref) {
   d.persist = () { final m = d.toSettings(); for (final e in m.entries) { db.put(e.key, e.value); } };
   d.onMemoryProposal = ref.read(memoryProvider).propose;
   d.onSaid = (t) => ref.read(chatProvider.notifier).said(t);
+  d.onShowImage = (c) async {
+    if (ref.read(visualProvider).containsKey(c)) return;
+    try {
+      ref.read(visualProvider.notifier).put(c, await ref.read(apiProvider).visual(c));
+    } catch (_) {} // a missing picture never breaks the turn; the reader keeps its placeholder
+  };
+  ref.listen<Ladder>(ladderProvider, (p, n) { // network status reaches the body: subtle, never alarming
+    if (p == n) return;
+    if (n == Ladder.full) d.emote('happy', i: .5, hold: 2);
+    if (n == Ladder.offline || n == Ladder.cloudOff) d.emote('calm', i: .6, hold: 4);
+    if (n == Ladder.resting) d.emote('sleepy', i: .4, hold: 4);
+  });
   db.allSettings().then((s) => d.loadSettings(s));
   d.init();
   ref.onDispose(d.dispose);

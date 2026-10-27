@@ -35,6 +35,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/
+    - assets/learn/
+    - assets/fonts/OFL-Atkinson.txt
+    - assets/fonts/OFL-Lexend.txt
+    - assets/fonts/OFL-OpenDyslexic.txt
   fonts:
     - family: Lexend
       fonts:

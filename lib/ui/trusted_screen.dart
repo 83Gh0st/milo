@@ -17,8 +17,9 @@ class TrustedScreen extends ConsumerWidget {
     return MiloScreen(title: 'Trusted adult', body: ListView(padding: const EdgeInsets.all(16), children: [
       const Center(child: Icon(Icons.lock, color: T.pri, size: 34)), const Center(child: Padding(padding: EdgeInsets.all(8), child: Text('Grown-up area', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)))),
       RowCard(icon: Icons.grid_view, title: 'Words and symbols', subtitle: 'Add, edit, order', onTap: () => go(const WordsEditor())),
-      RowCard(icon: Icons.menu_book_outlined, title: 'Reading support', subtitle: 'Level, speed, voice', color: 1, onTap: () => openScreen('home')),
+      RowCard(icon: Icons.menu_book_outlined, title: 'Reading support', subtitle: 'Text size, font, spacing, contrast', color: 1, onTap: () => openScreen('accessibility')),
       RowCard(icon: Icons.cloud_outlined, title: 'Cloud and privacy', subtitle: 'Cloud on or off, memory', color: 2, onTap: () => go(const LedgerScreen())),
+      RowCard(icon: Icons.key_outlined, title: 'Family AI key', subtitle: 'Use your own Meta account', color: 3, onTap: () => go(const ProviderKeyScreen())),
       RowCard(icon: Icons.bedtime_outlined, title: 'Gentle time limits', subtitle: d.breakNudgeMin == 0 ? 'Off' : 'Break nudge every ${d.breakNudgeMin} min', color: 3, onTap: () => go(const TimeLimits())),
       RowCard(icon: Icons.insights, title: 'Weekly summary', subtitle: 'Progress only, no chats', onTap: () => go(const WeeklySummary())),
       RowCard(icon: Icons.phone_outlined, title: 'Trusted contacts', subtitle: 'Used by the Help me sheet', color: 1, onTap: () => go(const Contacts())),
@@ -80,6 +81,87 @@ class WeeklySummary extends ConsumerWidget {
 }
 
 class _SwitchRow extends StatelessWidget { const _SwitchRow(this.t, this.v, this.f); final String t; final bool v; final void Function(bool) f; @override Widget build(BuildContext c) => Card(child: SwitchListTile(title: Text(t), value: v, onChanged: f)); }
+
+/// Family BYOK (trusted adults only): paste the family's own Meta API key once.
+/// It is sent over TLS, stored encrypted on the Milo server, and never kept
+/// on this phone. Needs sync on: the sync vault is the family identity.
+class ProviderKeyScreen extends ConsumerStatefulWidget { const ProviderKeyScreen({super.key}); @override ConsumerState<ProviderKeyScreen> createState() => _PKState(); }
+class _PKState extends ConsumerState<ProviderKeyScreen> {
+  final key = TextEditingController();
+  bool? syncOn, useFamily;
+  Map<String, dynamic>? status;
+  bool busy = false;
+  String? error;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    final sync = ref.read(syncProvider), db = ref.read(dbProvider), api = ref.read(apiProvider);
+    final on = await sync.enabled;
+    if (!mounted) return;
+    setState(() => syncOn = on);
+    if (!on) return;
+    final vh = await sync.vaultHeaders();
+    if (vh == null || !mounted) return;
+    try {
+      final st = await api.providerKeyStatus(vh['X-Vault-Id']!, vh['X-Vault-Key']!);
+      final flag = await db.get('ai.family_key');
+      if (mounted) setState(() { status = st; useFamily = (flag ?? '').isNotEmpty; key.clear(); error = null; });
+    } catch (_) { if (mounted) setState(() => error = 'Could not reach the server.'); }
+  }
+
+  Future<void> _save() async {
+    final k = key.text.trim();
+    if (k.length < 8) { setState(() => error = 'That key looks too short.'); return; }
+    setState(() { busy = true; error = null; });
+    try {
+      final vh = (await ref.read(syncProvider).vaultHeaders())!;
+      await ref.read(apiProvider).setProviderKey(vh['X-Vault-Id']!, vh['X-Vault-Key']!, 'meta', k);
+      await ref.read(dbProvider).put('ai.family_key', 'meta');
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Family key saved. AI now uses your account.')));
+    } catch (_) { if (mounted) setState(() => error = 'Could not save the key.'); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> _remove() async {
+    setState(() { busy = true; error = null; });
+    try {
+      final vh = (await ref.read(syncProvider).vaultHeaders())!;
+      await ref.read(apiProvider).deleteProviderKey(vh['X-Vault-Id']!, vh['X-Vault-Key']!);
+      await ref.read(dbProvider).put('ai.family_key', '');
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Family key removed.')));
+    } catch (_) { if (mounted) setState(() => error = 'Could not remove the key.'); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final db = ref.read(dbProvider);
+    return MiloScreen(title: 'Family AI key', body: ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Milo can use your own Meta AI account instead of the shared one. Meta may charge your account for use. The key is sent once over an encrypted connection, stored encrypted on the Milo server, and never kept on this phone.', style: TextStyle(fontSize: 15)),
+      const SizedBox(height: 12),
+      if (syncOn == false) ...[const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Turn on sync first, in Data and privacy. The sync vault identifies your family.', style: TextStyle(fontSize: 16)))),
+        BigButton('Back', () => Navigator.pop(context), kind: BK.soft)]
+      else if (syncOn == null || useFamily == null) ...[const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))]
+      else ...[
+        Card(child: ListTile(leading: Icon(status == null ? Icons.key_off : Icons.key, color: T.pri),
+            title: Text(status == null ? 'No family key' : 'Key ${status!['hint']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(status == null ? 'AI uses the shared key' : 'Provider: Meta'))),
+        Card(child: SwitchListTile(title: const Text('Use our family key for AI', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: const Text('When off, AI uses the shared key'), value: useFamily!, onChanged: status == null ? null : (v) async { await db.put('ai.family_key', v ? 'meta' : ''); setState(() => useFamily = v); })),
+        const Section('Save or replace the key'),
+        TextField(controller: key, obscureText: true, decoration: const InputDecoration(hintText: 'Paste the Meta API key here')),
+        const SizedBox(height: 10),
+        BigButton(busy ? 'Working…' : 'Save family key', busy ? null : _save),
+        if (status != null) ...[const SizedBox(height: 10), BigButton('Remove family key', busy ? null : _remove, kind: BK.outline)],
+        if (error != null) Padding(padding: const EdgeInsets.all(12), child: Text(error!, style: const TextStyle(color: T.coral))),
+      ],
+    ]));
+  }
+}
 
 class Contacts extends ConsumerStatefulWidget { const Contacts({super.key}); @override ConsumerState<Contacts> createState() => _ContactsState(); }
 class _ContactsState extends ConsumerState<Contacts> {

@@ -65,7 +65,14 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
     _sync();
     Future.delayed(const Duration(seconds: 3), () { if (mounted && !d.ttsReady) openScreen('novoice'); });
   }
-  Future<void> _sync() async { try { await ref.read(syncProvider).syncNow(); } catch (_) {} }
+  Future<void> _sync() async {
+    try {
+      await ref.read(syncProvider).syncNow();
+      ref.read(syncBannerProvider.notifier).state = null;
+    } catch (e) {
+      ref.read(syncBannerProvider.notifier).state = syncBannerFor(e); // generic text only, never content
+    }
+  }
   void _breakNudge() {
     final d = ref.read(directorProvider);
     if (d.breakNudgeMin > 0 && DateTime.now().difference(_started).inMinutes >= d.breakNudgeMin && !d.quiet) { _started = DateTime.now(); d.speak('Would you like a little break?'); d.set(() => d.choices = ['Take a break', 'Keep going']); }
@@ -78,7 +85,7 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final d = ref.watch(directorProvider);
-    final tab = ref.watch(tabProvider), ladder = ref.watch(ladderProvider);
+    final tab = ref.watch(tabProvider), ladder = ref.watch(ladderProvider), syncBanner = ref.watch(syncBannerProvider);
     ref.listen<int>(tabProvider, (_, n) => d.setTab(n));
     final banner = switch (ladder) { Ladder.offline => 'Offline. Your essentials are ready.', Ladder.resting => 'My thinking cloud is resting. I can still help with what is on your phone.', _ => null };
     return Listener(
@@ -94,6 +101,8 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
         ]),
         body: SafeArea(child: Overlays(bottomPad: 8, child: Column(children: [
           if (banner != null) Container(width: double.infinity, color: T.amberSoft, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), child: Row(children: [const Icon(Icons.cloud_off, size: 18), const SizedBox(width: 8), Expanded(child: Text(banner, style: const TextStyle(fontWeight: FontWeight.w600)))])),
+          if (syncBanner != null) Container(width: double.infinity, color: T.amberSoft, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), child: Row(children: [const Icon(Icons.sync_problem, size: 18), const SizedBox(width: 8), Expanded(child: Text(syncBanner, style: const TextStyle(fontWeight: FontWeight.w600))),
+            TextButton(onPressed: _sync, child: const Text('Retry')), IconButton(tooltip: 'Dismiss', onPressed: () => ref.read(syncBannerProvider.notifier).state = null, icon: const Icon(Icons.close, size: 18))])),
           Padding(padding: const EdgeInsets.fromLTRB(12, 2, 8, 0), child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             IconButton(tooltip: 'Break', onPressed: () => openScreen('break'), icon: const Icon(Icons.bedtime_outlined)),
             FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me')),

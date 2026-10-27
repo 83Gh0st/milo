@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     image_model: str = "muse-image-1.0"
     brain_mode: str = "json"               # json | lines
     jwt_secret: str = ""
+    key_enc_secret: str = ""             # encrypts family BYOK keys at rest; required (>=32 chars) in prod
     token_ttl_s: int = 900
     database_url: str = "sqlite+aiosqlite:///./milo.db"
     rate_per_min: int = 30
@@ -52,6 +53,8 @@ def validate_runtime(s: Settings) -> None:
     if s.env == "prod":
         if len(s.jwt_secret) < 32:
             raise RuntimeError("JWT_SECRET must be at least 32 characters in prod")
+        if len(s.key_enc_secret) < 32:
+            raise RuntimeError("KEY_ENC_SECRET must be at least 32 characters in prod (it encrypts family API keys)")
         if s.provider != "meta" or not s.model_api_key:
             raise RuntimeError("prod requires PROVIDER=meta and MODEL_API_KEY")
         if s.database_url.startswith("sqlite"):

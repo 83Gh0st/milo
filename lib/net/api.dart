@@ -19,12 +19,28 @@ class MiloApi {
   MiloApi(this.db, this.store);
   final MiloDb db;
   final SecureStore store;
+  /// Vault headers for family-keyed (BYOK) inference, or empty for the
+  /// deployer key. Wired by the app; the provider key itself is never here.
+  Future<Map<String, String>> Function()? vaultAuth;
   final Dio _dio = Dio(BaseOptions(baseUrl: Env.apiBase, connectTimeout: const Duration(seconds: 8), sendTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 15)));
   String? _tok;
   DateTime _exp = DateTime(2000);
+  Future<String>? _pending; // a refresh in flight: concurrent callers share it instead of stampeding /v1/session
 
   Future<String> token({bool force = false}) async {
     if (!force && _tok != null && DateTime.now().isBefore(_exp)) return _tok!;
+    final p = _pending;
+    if (!force && p != null) return p;
+    final fut = _issue();
+    if (!force) _pending = fut;
+    try {
+      return await fut;
+    } finally {
+      if (!force) _pending = null;
+    }
+  }
+
+  Future<String> _issue() async {
     try {
       final info = await PackageInfo.fromPlatform();
       final r = await _dio.post('/v1/session', data: {'install_id': await store.installId(), 'app_version': info.version, 'platform': Platform.isIOS ? 'ios' : 'android'});
@@ -39,7 +55,8 @@ class MiloApi {
     if (e is DioException) {
       final s = e.response?.statusCode;
       if (s == 429) return ApiError('rate_limited');
-      if (s == 503 || s == 504) return ApiError('budget_exhausted'); // resting: budget, provider or timeout
+      if (s == 503) return ApiError('budget_exhausted'); // daily spend guard: the cloud is resting
+      if (s == 504) return ApiError('timeout'); // the model took too long: retryable, not a budget problem
       return s != null ? ApiError('http_$s') : ApiError('offline');
     }
     return ApiError('error');
@@ -51,9 +68,10 @@ class MiloApi {
   }
 
   Future<Response<T>> _send<T>(String method, String path, {Object? body, ResponseType? rt, Map<String, String> extra = const {}}) async {
+    final vault = await vaultAuth?.call() ?? const <String, String>{};
     for (var attempt = 0;; attempt++) {
       try {
-        return await _dio.request<T>(path, data: body, options: Options(method: method, responseType: rt, headers: {'Authorization': 'Bearer ${await token(force: attempt > 0)}', ...extra}));
+        return await _dio.request<T>(path, data: body, options: Options(method: method, responseType: rt, headers: {'Authorization': 'Bearer ${await token(force: attempt > 0)}', ...vault, ...extra}));
       } on DioException catch (e) { if (e.response?.statusCode == 401 && attempt == 0) continue; throw _map(e); }
     }
   }
@@ -120,4 +138,22 @@ class MiloApi {
     return (await _send<Map<String, dynamic>>('POST', '/v1/sync/records', body: {'records': recs}, extra: _vh(vid, key))).data!;
   }
   Future<void> syncDelete(String vid, String key) async { await _send('DELETE', '/v1/sync/vault', extra: _vh(vid, key)); }
+
+  // ---- family BYOK key management (trusted-adult flow; the key is sent once, never stored on this phone) ----
+  Future<void> setProviderKey(String vid, String key, String provider, String apiKey) async {
+    await _send('POST', '/v1/sync/provider-key', body: {'provider': provider, 'api_key': apiKey}, extra: _vh(vid, key));
+    await db.ledger('/v1/sync/provider-key', 'sync', 'family AI key saved (the key itself is never written here)', 0, false, false);
+  }
+  Future<Map<String, dynamic>?> providerKeyStatus(String vid, String key) async {
+    try {
+      return (await _send<Map<String, dynamic>>('GET', '/v1/sync/provider-key', extra: _vh(vid, key))).data!;
+    } on ApiError catch (e) {
+      if (e.code == 'http_404') return null;
+      rethrow;
+    }
+  }
+  Future<void> deleteProviderKey(String vid, String key) async {
+    await _send('DELETE', '/v1/sync/provider-key', extra: _vh(vid, key));
+    await db.ledger('/v1/sync/provider-key', 'sync', 'family AI key removed', 0, false, false);
+  }
 }

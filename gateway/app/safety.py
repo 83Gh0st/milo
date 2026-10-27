@@ -1,6 +1,6 @@
 """Server-side safety (defence in depth; the app has its own local pre-filter that runs first)."""
 import re
-from .contract import (ALL_MEM_KEYS, EMOTIONS, FOLLOWUPS, GAZE, GESTURES, MEM_SOURCES, RISKS, SCREENS)
+from .contract import (ALL_MEM_KEYS, CONCEPTS, EMOTIONS, FOLLOWUPS, GAZE, GESTURES, MEM_SOURCES, RISKS, SCREENS)
 
 # English + Hindi + Malayalam starter patterns. HAVE A FLUENT SPEAKER REVIEW THESE before real users (docs/LAUNCH_CHECKLIST.md).
 CRISIS = re.compile(
@@ -114,6 +114,8 @@ class Assembler:
                     out.append(("ui", {"action": a, "span": v["span"]}))
                 elif a == "set_timer" and isinstance(v.get("seconds"), int) and 5 <= v["seconds"] <= 3600:
                     out.append(("ui", {"action": a, "seconds": v["seconds"]}))
+                elif a == "show_image" and isinstance(v.get("concept"), str) and v["concept"].strip().lower() in CONCEPTS:
+                    out.append(("ui", {"action": a, "concept": v["concept"].strip().lower()}))
             elif key == "memory_proposals" and isinstance(v, dict) and self.n["mem"] < 3:
                 # Proposals only, and only for things the person said or confirmed. Inferred facts are rejected.
                 if MEM_CUE.search(self.user_text) and v.get("source") in MEM_SOURCES and v.get("key") in ALL_MEM_KEYS and v.get("type") in ("preference", "approved_fact") and clean(v.get("value", ""), 80):

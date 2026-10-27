@@ -7,6 +7,7 @@ import '../core/payload.dart';
 import '../companion/director.dart';
 import '../companion/milo_view.dart';
 import '../core/providers.dart';
+import 'theme.dart';
 
 class Bubble extends StatelessWidget {
   final String text;
@@ -91,10 +92,16 @@ void showSettings(BuildContext context) {
   );
 }
 
-Future<void> _call(BuildContext c, String label, String number) async {
-  final ok = await showDialog<bool>(context: c, builder: (_) => AlertDialog(title: Text('Call $label?'), content: Text(number, style: const TextStyle(fontSize: 22)),
-      actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')), FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Call'))]));
-  if (ok == true) await launchUrl(Uri(scheme: 'tel', path: number)); // opens the phone's own dialer; Milo never places a call itself
+/// The one call-confirmation sheet in the app: Milo opens the phone's own dialer
+/// only after an explicit tap, and never places a call itself.
+Future<void> callConfirm(BuildContext c, String label, String number) async {
+  final ok = await showModalBottomSheet<bool>(context: c, builder: (_) => Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+    const Icon(Icons.phone_iphone, size: 36, color: T.pri), const SizedBox(height: 8),
+    Text('Open the phone to call\n$label?', textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+    const SizedBox(height: 6), const Text('Milo opens your phone app. You press call yourself.', style: TextStyle(color: T.mute)), const SizedBox(height: 16),
+    Row(children: [Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel'))), const SizedBox(width: 12), Expanded(child: FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Open phone')))]),
+  ])));
+  if (ok == true) await launchUrl(Uri(scheme: 'tel', path: number));
 }
 
 /// Shown when the support flow is active: large buttons for a trusted contact and the configured helpline.
@@ -109,8 +116,8 @@ class SupportBar extends ConsumerWidget {
       builder: (_, s) => Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('You are not alone.', style: TextStyle(fontSize: 20, color: Color(0xFF1F2340), fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        if ((s.data ?? '').isNotEmpty) FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 64)), onPressed: () => _call(context, 'my trusted person', s.data!), child: const Text('Call my trusted person', style: TextStyle(fontSize: 18))),
-        if (Env.helpline.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 64)), onPressed: () => _call(context, 'the helpline', Env.helpline), child: Text('Helpline ${Env.helpline}', style: const TextStyle(fontSize: 18)))),
+        if ((s.data ?? '').isNotEmpty) FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 64)), onPressed: () => callConfirm(context, 'my trusted person', s.data!), child: const Text('Call my trusted person', style: TextStyle(fontSize: 18))),
+        if (Env.helpline.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(double.infinity, 64)), onPressed: () => callConfirm(context, 'the helpline', Env.helpline), child: Text('Helpline ${Env.helpline}', style: const TextStyle(fontSize: 18)))),
         TextButton(onPressed: () => d.set(() => d.supportActive = false), child: const Text('I’m okay for now')),
       ]),
     )));

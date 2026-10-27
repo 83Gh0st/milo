@@ -28,6 +28,7 @@ class MoreScreen extends ConsumerWidget {
           value: d.offlineForced, onChanged: (v) async { await db.putFlag('offline.forced', v); d.set(() => d.offlineForced = v); ref.read(ladderProvider.notifier).refresh(); })),
       RowCard(icon: Icons.lock_outline, title: 'Data and privacy', subtitle: 'Memory, cloud ledger, sync, delete', onTap: () => go(const DataPrivacyScreen())),
       RowCard(icon: Icons.shield_outlined, title: 'Trusted adult', subtitle: 'PIN protected', color: 1, onTap: () async { if (await Pin.gate(context, ref.read(storeProvider))) { if (context.mounted) go(const TrustedScreen()); } }),
+      RowCard(icon: Icons.info_outline, title: 'About Milo', subtitle: 'Version and licences', color: 2, onTap: () => go(const AboutScreen())),
       const Padding(padding: EdgeInsets.all(12), child: Text('Milo is an AI companion. It is not a person, a therapist or a doctor.', textAlign: TextAlign.center, style: TextStyle(color: T.mute))),
       const SizedBox(height: 120),
     ]);
@@ -55,6 +56,8 @@ class AccessibilityScreen extends ConsumerWidget {
       _toggle('Reduce motion', d.forceReduce, (v) => d.set(() => d.forceReduce = v), sub: 'Also follows your phone setting'),
       _toggle('Captions on all speech', d.captions, (v) => d.set(() => d.captions = v)),
       _toggle('Haptics', d.haptics, (v) => d.set(() => d.haptics = v)),
+      _toggle('Ignore repeated taps', d.ignoreTaps, (v) => d.set(() => d.ignoreTaps = v), sub: 'Taps within half a second count once (tremor)'),
+      _toggle('Left-handed layout', d.leftHanded, (v) => d.set(() => d.leftHanded = v), sub: 'Milo and choices move to the left'),
       _toggle('Read everything aloud (picture mode)', d.preReader, (v) => d.set(() => d.preReader = v)),
     ]));
   }
@@ -92,7 +95,7 @@ class LanguageScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final d = ref.watch(directorProvider);
     return MiloScreen(title: 'Language', body: ListView(padding: const EdgeInsets.all(16), children: [
-      for (final e in kLangNames.entries) Card(child: ListTile(title: Text(e.value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)), subtitle: const Text('Speech and listening'), trailing: d.lang == e.key ? const Icon(Icons.check_circle, color: T.pri) : IconButton(icon: const Icon(Icons.volume_up), onPressed: () {}),
+      for (final e in kLangNames.entries) Card(child: ListTile(title: Text(e.value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)), subtitle: const Text('Speech and listening'), trailing: d.lang == e.key ? const Icon(Icons.check_circle, color: T.pri) : IconButton(tooltip: 'Hear ${e.value}', icon: const Icon(Icons.volume_up), onPressed: () => d.previewLang(e.key)),
           onTap: () => d.set(() => d.lang = e.key))),
       const Padding(padding: EdgeInsets.all(8), child: Text('Voices come from your phone. Download extra voices in your phone’s text-to-speech settings.', style: TextStyle(color: T.mute))),
     ]));
@@ -120,6 +123,20 @@ class _ProfState extends ConsumerState<ProfileScreen> {
       BigButton('Delete everything', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DataPrivacyScreen())), kind: BK.outline),
     ]));
   }
+}
+
+/// About page (launch checklist): version, AI disclosure, and the bundled font licences.
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+  static const _licenses = {'Lexend': 'assets/fonts/OFL-Lexend.txt', 'Atkinson Hyperlegible': 'assets/fonts/OFL-Atkinson.txt', 'OpenDyslexic': 'assets/fonts/OFL-OpenDyslexic.txt'};
+  @override
+  Widget build(BuildContext context) => MiloScreen(title: 'About Milo', body: ListView(padding: const EdgeInsets.all(16), children: [
+    const Center(child: Padding(padding: EdgeInsets.all(8), child: Text('Milo Companion 1.0.0', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)))),
+    const Padding(padding: EdgeInsets.all(8), child: Text('Milo is an AI companion for learning and communication. It is not a person, a therapist or a doctor.', textAlign: TextAlign.center, style: TextStyle(color: T.mute))),
+    const Section('Font licences (SIL Open Font License)'),
+    for (final e in _licenses.entries) Card(child: ExpansionTile(title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w700)), children: [
+      FutureBuilder(future: DefaultAssetBundle.of(context).loadString(e.value), builder: (_, s) => Padding(padding: const EdgeInsets.all(16), child: Text((s.data ?? 'Loading…').split('\n').take(12).join('\n'), style: const TextStyle(fontSize: 12))))])),
+  ]));
 }
 
 class DataPrivacyScreen extends ConsumerStatefulWidget { const DataPrivacyScreen({super.key}); @override ConsumerState<DataPrivacyScreen> createState() => _DPState(); }

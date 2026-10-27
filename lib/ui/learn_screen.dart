@@ -1,10 +1,32 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/milo_view.dart';
 import '../core/providers.dart';
 import 'screen.dart';
 import 'theme.dart';
+
+/// Validates `assets/learn/words.json` (a list, or {"words": [...]}, of
+/// {word, emoji}). Anything malformed is skipped; never throws.
+List<(String, String)> parseLearnWords(String raw) {
+  final out = <(String, String)>[];
+  try {
+    final j = jsonDecode(raw);
+    final list = j is List ? j : (j is Map ? j['words'] : null);
+    if (list is! List) return out;
+    final seen = <String>{};
+    for (final e in list) {
+      if (e is! Map) continue;
+      final w = '${e['word'] ?? ''}'.trim().toLowerCase(), em = '${e['emoji'] ?? ''}'.trim();
+      if (!RegExp(r'^[a-z]{2,12}$').hasMatch(w) || em.isEmpty || em.length > 8 || !seen.add(w)) continue;
+      out.add((w, em));
+      if (out.length >= 60) break;
+    }
+  } catch (_) {}
+  return out;
+}
 
 /// Learn (wireframe 5.x): bundled content, fully offline, no timer, no lives, no streaks, unlimited hints.
 class LearnScreen extends ConsumerStatefulWidget { const LearnScreen({super.key}); @override ConsumerState<LearnScreen> createState() => _LearnState(); }
@@ -34,22 +56,31 @@ const _words = [('tree', '🌳'), ('moon', '🌙'), ('fish', '🐟'), ('apple', 
 class WordBuilder extends ConsumerStatefulWidget { const WordBuilder({super.key}); @override ConsumerState<WordBuilder> createState() => _WBState(); }
 class _WBState extends ConsumerState<WordBuilder> {
   int w = 0, filled = 0, tilt = -1;
+  List<(String, String)> all = List.of(_words); // bundled words plus validated JSON extras
   late List<String> letters = _shuffle();
   late List<bool> used = List.filled(letters.length, false);
-  List<String> _shuffle() => (_words[w].$1.split('')..shuffle(Random()));
-  void _next() { setState(() { w = (w + 1) % _words.length; filled = 0; letters = _shuffle(); used = List.filled(letters.length, false); }); }
+  @override
+  void initState() {
+    super.initState();
+    rootBundle.loadString('assets/learn/words.json').then((raw) {
+      final extra = [for (final e in parseLearnWords(raw)) if (!all.any((a) => a.$1 == e.$1)) e];
+      if (extra.isNotEmpty && mounted) setState(() => all = [...all, ...extra]);
+    }).catchError((_) {});
+  }
+  List<String> _shuffle() => (all[w].$1.split('')..shuffle(Random()));
+  void _next() { setState(() { w = (w + 1) % all.length; filled = 0; letters = _shuffle(); used = List.filled(letters.length, false); }); }
 
   void _tap(int i) {
-    final d = ref.read(directorProvider), target = _words[w].$1;
+    final d = ref.read(directorProvider), target = all[w].$1;
     if (used[i]) return;
     if (letters[i] == target[filled]) { setState(() { used[i] = true; filled++; }); d.speak(letters[i]); d.emote('happy', i: .7, hold: 2); } // cheer the tile
     else { setState(() => tilt = i); d.gesture('shrug', force: true); Future.delayed(const Duration(milliseconds: 400), () { if (mounted) setState(() => tilt = -1); }); } // tilts when it does not fit
   }
   @override
   Widget build(BuildContext context) {
-    final d = ref.read(directorProvider), target = _words[w].$1, done = filled == target.length;
+    final d = ref.read(directorProvider), target = all[w].$1, done = filled == target.length;
     return MiloScreen(title: 'Word builder', kind: 'learn', body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
-      Container(height: 150, width: 170, decoration: BoxDecoration(color: T.mintSoft, borderRadius: BorderRadius.circular(22)), alignment: Alignment.center, child: Text(_words[w].$2, style: const TextStyle(fontSize: 72))),
+      Container(height: 150, width: 170, decoration: BoxDecoration(color: T.mintSoft, borderRadius: BorderRadius.circular(22)), alignment: Alignment.center, child: Text(all[w].$2, style: const TextStyle(fontSize: 72))),
       const SizedBox(height: 22),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (var i = 0; i < target.length; i++) Container(margin: const EdgeInsets.all(4), width: 56, height: 62, alignment: Alignment.center, decoration: BoxDecoration(color: i < filled ? T.priSoft : Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: T.pri, width: 2)), child: Text(i < filled ? target[i].toUpperCase() : '', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)))]),
       const SizedBox(height: 22),

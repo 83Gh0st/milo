@@ -57,6 +57,7 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
     final v = ref.read(voiceProvider), d = ref.read(directorProvider);
     d.setListening(true);
     await v.start(lang: kLangNames[d.lang] ?? 'English',
+      onLevel: (l) => d.micLevel = l, // field only: the frame clock repaints, no rebuilds
       onPartial: (t) { if (mounted) setState(() { text = t; c.text = t; }); },
       onFinal: (t) { d.setListening(false); if (mounted) { Navigator.pop(context); } if (t.trim().isNotEmpty) { ref.read(chatProvider.notifier).user(t); d.ask(t); } },
       onError: (e) { d.setListening(false); if (mounted) setState(() => error = switch (e) { 'mic_denied' => 'The microphone is off. You can type instead.', 'cloud_off' => 'Voice needs cloud AI. Turn it on in Privacy, or type.', _ => 'Voice is not available right now. You can type instead.' }); });
@@ -74,7 +75,10 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
       Text(error ?? 'You can edit what I heard.', style: const TextStyle(color: T.mute)),
       if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: c, autofocus: true, onSubmitted: (t) { Navigator.pop(context); ref.read(chatProvider.notifier).user(t); d.ask(t); }, decoration: const InputDecoration(hintText: 'Type here'))),
       const Spacer(),
-      SizedBox(height: 60, child: AnimatedBuilder(animation: d.frame, builder: (_, __) => Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (var i = 0; i < 28; i++) Container(width: 5, margin: const EdgeInsets.symmetric(horizontal: 2), height: 10 + 38 * (.5 + .5 * math.sin(d.clock * 7 + i * .6)) * (d.state == CState.listening ? 1 : .2), decoration: BoxDecoration(color: T.pri, borderRadius: BorderRadius.circular(3)))]))),
+      SizedBox(height: 60, child: AnimatedBuilder(animation: d.frame, builder: (_, __) {
+        final live = d.state == CState.listening, lvl = live ? (.2 + .8 * d.micLevel.clamp(0.0, 1.0)) : .2;
+        return Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (var i = 0; i < 28; i++) Container(width: 5, margin: const EdgeInsets.symmetric(horizontal: 2), height: 10 + 38 * (.5 + .5 * math.sin(d.clock * 7 + i * .6)) * lvl, decoration: BoxDecoration(color: T.pri, borderRadius: BorderRadius.circular(3)))]);
+      })),
       const SizedBox(height: 16),
       GestureDetector(onTap: () async { await ref.read(voiceProvider).stop(); if (text.trim().isNotEmpty && mounted) { Navigator.pop(context); ref.read(chatProvider.notifier).user(text); d.ask(text); } else if (mounted) { Navigator.pop(context); } },
           child: Container(width: 84, height: 84, decoration: const BoxDecoration(color: T.coral, shape: BoxShape.circle), child: const Icon(Icons.stop, color: Colors.white, size: 40))),

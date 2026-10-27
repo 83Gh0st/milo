@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../companion/director.dart';
 import '../companion/milo_view.dart';
 import '../core/providers.dart';
@@ -23,7 +22,8 @@ void openScreen(String name, {bool replace = false}) {
   final w = switch (name) {
     'understand' => const UnderstandScreen(), 'express' => const ExpressScreen(), 'do' => const DoScreen(), 'learn' => const LearnScreen(),
     'break' => const BreakTimeScreen(), 'checkin' => const CheckInScreen(), 'memory' => const MemoryScreen(), 'privacy' => const LedgerScreen(),
-    'context' => const ContextScreen(), 'unreachable' => const CloudUnreachableScreen(), 'novoice' => const NoVoiceScreen(), _ => null };
+    'context' => const ContextScreen(), 'unreachable' => const CloudUnreachableScreen(), 'novoice' => const NoVoiceScreen(),
+    'accessibility' => const AccessibilityScreen(), _ => null };
   final nav = navKey.currentState;
   if (nav == null) return;
   if (w == null) { nav.popUntil((r) => r.isFirst); return; }
@@ -39,12 +39,12 @@ class Overlays extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final d = ref.watch(directorProvider);
-    final buddy = d.presence == Presence.buddy;
+    final buddy = d.presence == Presence.buddy, left = d.leftHanded;
     return Stack(children: [
       child,
-      if (buddy) Positioned(right: 6, bottom: bottomPad, width: 110, height: 128, child: const IgnorePointer(ignoring: false, child: MiloView())),
-      if (buddy && d.captions && d.caption.isNotEmpty && d.state != CState.idle) Positioned(right: 118, bottom: bottomPad + 56, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 210), child: Speech(d.caption))),
-      if (d.choices.isNotEmpty) Positioned(left: 12, right: buddy ? 124 : 12, bottom: bottomPad, child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.ask(c))])),
+      if (buddy) Positioned(left: left ? 6 : null, right: left ? null : 6, bottom: bottomPad, width: 110, height: 128, child: const IgnorePointer(ignoring: false, child: MiloView())),
+      if (buddy && d.captions && d.caption.isNotEmpty && d.state != CState.idle) Positioned(left: left ? 118 : null, right: left ? null : 118, bottom: bottomPad + 56, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 210), child: Speech(d.caption))),
+      if (d.choices.isNotEmpty) Positioned(left: buddy && left ? 124 : 12, right: buddy && !left ? 124 : 12, bottom: bottomPad, child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.ask(c))])),
       Positioned(left: 12, right: 12, bottom: bottomPad + 70, child: const MemoryConfirm()),
       const Positioned(left: 0, right: 0, top: 0, child: SupportBar()),
     ]);
@@ -74,16 +74,7 @@ class _MiloScreenState extends ConsumerState<MiloScreen> {
         Expanded(child: widget.body)]))));
 }
 
-Future<void> _callConfirm(BuildContext c, String label, String number) async {
-  final ok = await showModalBottomSheet<bool>(context: c, builder: (_) => Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-    const Icon(Icons.phone_iphone, size: 36, color: T.pri), const SizedBox(height: 8),
-    Text('Open the phone to call\n$label?', textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-    const SizedBox(height: 6), const Text('Milo opens your phone app. You press call yourself.', style: TextStyle(color: T.mute)), const SizedBox(height: 16),
-    Row(children: [Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel'))), const SizedBox(width: 12), Expanded(child: FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Open phone')))]),
-  ])));
-  if (ok == true) await launchUrl(Uri(scheme: 'tel', path: number)); // Milo never calls or sends alone
-}
-Future<void> confirmCall(BuildContext c, String label, String number) => _callConfirm(c, label, number);
+Future<void> confirmCall(BuildContext c, String label, String number) => callConfirm(c, label, number);
 
 /// "Help me" sheet: one tap from every screen (wireframe 2.5).
 void showHelpSheet(BuildContext context, WidgetRef ref) {

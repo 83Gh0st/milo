@@ -9,8 +9,9 @@ class MockReasoning:
     def __init__(self, delay: float = 0.0):
         self.delay, self.calls = delay, 0
 
-    async def stream(self, messages, *, schema=None, effort="low", max_tokens=900):
+    async def stream(self, messages, *, schema=None, effort="low", max_tokens=900, api_key=None):
         self.calls += 1
+        self.last_api_key = api_key  # mock ignores keys, but tests can observe which key was routed
         last = messages[-1]["content"]
         text = last if isinstance(last, str) else last[0]["text"]
         t = text.lower()
@@ -57,8 +58,9 @@ class MockImage:
     def __init__(self):
         self.calls = 0
 
-    async def generate(self, prompt: str, size: str = "1024x1024") -> bytes:
+    async def generate(self, prompt: str, size: str = "1024x1024", api_key=None) -> bytes:
         self.calls += 1
+        self.last_api_key = api_key
         return PNG
 
 
@@ -81,5 +83,6 @@ class _S:
 
 
 class MockVoice:
-    async def open(self, language_bias=None, keywords=None):
+    async def open(self, language_bias=None, keywords=None, api_key=None):
+        self.last_api_key = api_key
         return _S()

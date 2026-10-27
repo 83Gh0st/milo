@@ -8,15 +8,19 @@ const kRisks = ['none','check_in','crisis'];
 class BrainTurn {
   final String risk, emotion, followup;
   final double intensity;
-  final String? gesture, openScreen;
+  final String? gesture, openScreen, highlight, showImage;
+  final int? timerSeconds;
   final List<String> say, choices;
-  const BrainTurn({this.risk='none', this.emotion='calm', this.intensity=.5, this.gesture, this.say=const [], this.choices=const [], this.openScreen, this.followup='none'});
+  const BrainTurn({this.risk='none', this.emotion='calm', this.intensity=.5, this.gesture, this.say=const [], this.choices=const [], this.openScreen, this.highlight, this.showImage, this.timerSeconds, this.followup='none'});
 }
 
 final _unsafe = RegExp(r'(https?://\S+|www\.\S+|\+?\d[\d\s\-]{6,}\d)');
+final _span = RegExp(r'^w\d{1,4}$');
 
 /// Unknown values are dropped, intensity clamped, <=4 sentences, <=3 choices,
-/// no URLs or phone numbers. Nothing here can touch files, storage or the OS.
+/// no URLs or phone numbers. highlight/show_image/set_timer are validated
+/// against the same closed lists the gateway enforces. Nothing here can touch
+/// files, storage or the OS.
 BrainTurn validateTurn(Map<String, dynamic> j) {
   String pick(dynamic v, List<String> ok, String d) => ok.contains(v) ? v as String : d;
   final em = j['emotion'];
@@ -25,17 +29,22 @@ BrainTurn validateTurn(Map<String, dynamic> j) {
   final say = (j['say'] is List ? j['say'] as List : <dynamic>[])
       .whereType<String>().map((s) => s.replaceAll(_unsafe, '').trim()).where((s) => s.isNotEmpty).take(4).toList();
   var choices = <String>[];
-  String? open;
+  String? open, span, concept;
+  int? secs;
   for (final u in (j['ui'] is List ? j['ui'] as List : <dynamic>[])) {
     if (u is! Map) continue;
     if (u['action'] == 'offer_choices' && u['choices'] is List) choices = (u['choices'] as List).whereType<String>().take(3).toList();
     if (u['action'] == 'open_screen' && kScreens.contains(u['screen'])) open = u['screen'] as String;
+    if (u['action'] == 'highlight' && u['span'] is String && _span.hasMatch(u['span'])) span = u['span'] as String;
+    if (u['action'] == 'show_image' && u['concept'] is String) { final c = (u['concept'] as String).trim().toLowerCase(); if (kVisualConcepts.contains(c)) concept = c; }
+    if (u['action'] == 'set_timer' && u['seconds'] is int && u['seconds'] >= 5 && u['seconds'] <= 3600) secs = u['seconds'] as int;
   }
   final g = j['gesture'];
   return BrainTurn(
     risk: pick(j['risk'], kRisks, 'none'), emotion: pick(name, kEmotions, 'calm'),
     intensity: inten.clamp(0.0, 1.0).toDouble(), gesture: kGestures.contains(g) ? g as String : null,
-    say: say, choices: choices, openScreen: open, followup: pick(j['followup'], ['wait','ask','none'], 'none'));
+    say: say, choices: choices, openScreen: open, highlight: span, showImage: concept, timerSeconds: secs,
+    followup: pick(j['followup'], ['wait','ask','none'], 'none'));
 }
 
 /// Memory keys each activity may send to the cloud (whitelist, mirrors contracts/brain_contract.json).

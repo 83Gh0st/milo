@@ -118,6 +118,16 @@ class MiloDb {
   }
   Future<void> deleteTile(String id) async { await db.delete('board_items', where: 'id=?', whereArgs: [id]); await touch('board_items', id, deleted: true); }
 
+  // ---- saved documents (plan 8.1): rows exist only if the person chose to save ----
+  Future<String> addDocument(String title, String text) async {
+    final id = newId(), t = now();
+    await db.insert('documents', {'id': id, 'profile_id': kProfile, 'title': title, 'text': text, 'saved_by_user': 1, 'created_at': t, 'updated_at': t});
+    await touch('documents', id);
+    return id;
+  }
+  Future<List<Map<String, Object?>>> documents() => db.query('documents', orderBy: 'created_at DESC');
+  Future<void> deleteDocument(String id) async { await db.delete('documents', where: 'id=?', whereArgs: [id]); await touch('documents', id, deleted: true); }
+
   // ---- progress (counts only, never content) ----
   Future<void> progress(String type) => db.insert('progress_events', {'profile_id': kProfile, 'type': type, 'ts': now()});
   Future<Map<String, int>> counts({int days = 7}) async {

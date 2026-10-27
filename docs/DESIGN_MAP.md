@@ -9,14 +9,14 @@ Design tokens (periwinkle `#5B6CFF`, pastel tiles, ink `#1F2340`), the LOCAL / C
 | 2 Home and presence | 2.1 Stage, 2.2 Buddy, 2.3 Chip, 2.4 Discreet, 2.5 Help me | `ui/home_screen.dart`, `ui/screen.dart` (`Overlays`, `showHelpSheet`), `ui/express_screen.dart` | Continue card appears only for an unfinished plan |
 | 3 Understand | 3.1 to 3.6 | `ui/understand_screen.dart` | 3.2 resizes and strips EXIF but has no draggable crop box; add `image_cropper` if wanted |
 | 4 Express | 4.1 to 4.5 | `ui/express_screen.dart` | Symbols tab uses emoji (ARASAAC is non-commercial); keyboard tab uses the system keyboard with on-device word prediction |
-| 5 Learn (P1) | 5.1 to 5.3 | `ui/learn_screen.dart` | Bundled content: 6 words, 1 story. Add more as JSON |
+| 5 Learn (P1) | 5.1 to 5.3 | `ui/learn_screen.dart`, `assets/learn/words.json` | Bundled content: 6 words, 1 story, plus validated JSON extras (malformed entries skipped) |
 | 6 Do things | 6.1 to 6.5 | `ui/do_screen.dart`, `ui/screen.dart` (`confirmCall`) | Plan review supports reorder, delete, add |
-| 7 Chat and context | 7.1 to 7.3 | `ui/chat_screen.dart` | Waveform on 7.2 is decorative; transcript chips are real |
+| 7 Chat and context | 7.1 to 7.3 | `ui/chat_screen.dart`, `net/voice.dart` | Waveform on 7.2 follows live mic amplitude; transcript chips are real |
 | 8 Progress (P1) | 8.1 to 8.4 | `ui/progress_screen.dart` | Wardrobe row is display-only |
 | 9 Calm (P1) | 9.1 to 9.3 | `ui/calm_screens.dart` | Check-in answers are not stored |
 | 10 Memory, privacy, trusted adult | 10.1 to 10.5 | `ui/pin.dart`, `ui/trusted_screen.dart`, `ui/privacy_screens.dart` | No fingerprint/face unlock yet; no photo tiles |
-| 11 Settings | 11.1 to 11.4 | `ui/more_screen.dart` | Not built: "ignore repeated taps", left-handed layout, time-of-day behaviour |
-| 12 Pre-reader (P1) | 12.1 to 12.3 | `ui/home_screen.dart`, `ui/onboarding.dart`, reader in `understand_screen.dart` | No dedicated large single-word view yet |
+| 11 Settings | 11.1 to 11.4 | `ui/more_screen.dart` | Built: ignore-repeated-taps, left-handed layout, language speaker preview, About/licences page. Not built: time-of-day behaviour (needs a product decision) |
+| 12 Pre-reader (P1) | 12.1 to 12.3 | `ui/home_screen.dart`, `ui/onboarding.dart`, reader + `BigWordScreen` in `understand_screen.dart` | Large single-word view built (Listen/Again/Slower, offline) |
 | 13 Offline and failure | 13.1 to 13.4 | banner in `main.dart`, tags in `explore_screen.dart`, `ui/failure_screens.dart` | 13.2 is the normal Express screen, which already works offline |
 | 14 System integration (P2) | widget, share, keyboard, screen help | not built | Headless Core API is ready for it (plan 7.13) |
 

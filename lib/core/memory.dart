@@ -21,7 +21,10 @@ class Pending { final String kind, label; final Map<String, String> data; const 
 
 /// Lifecycle: propose -> confirm in plain words -> write (one transaction, with a consent_log entry) -> use (whitelist, max 5) -> review -> forget.
 class MemoryManager extends ChangeNotifier {
-  MemoryManager(this.db) { db.flag('local.memory_paused').then((v) { paused = v; notifyListeners(); }); }
+  MemoryManager(this.db) {
+    db.flag('local.memory_paused').then((v) { paused = v; notifyListeners(); });
+    db.get('local.memory_last_id').then((v) { if (v != null && v.isNotEmpty) lastId = v; });
+  }
   final MiloDb db;
   bool paused = false;
   Pending? pending;
@@ -47,7 +50,7 @@ class MemoryManager extends ChangeNotifier {
         : Pending('remember', 'Want me to remember: “$text”? It will stay on this phone.', {'type': 'approved_fact', 'key': 'note', 'value': text, 'source': 'user_stated', 'scope': 'local_only'}));
   }
 
-  void askForgetLast() { if (lastId != null) _ask(Pending('forget', 'Forget the last thing I remembered?', {'id': lastId!})); }
+  void askForgetLast() { if (lastId != null && lastId!.isNotEmpty) _ask(Pending('forget', 'Forget the last thing I remembered?', {'id': lastId!})); }
   void askForgetAll() => _ask(const Pending('forgetAll', 'Forget everything I remember about you?'));
 
   /// Executes after the person says Yes. Returns what Milo should say AFTER the operation succeeded.
@@ -58,9 +61,10 @@ class MemoryManager extends ChangeNotifier {
     switch (p.kind) {
       case 'remember':
         lastId = await db.addMemory(p.data['type']!, p.data['key']!, p.data['value']!, p.data['source']!, scope: p.data['scope'] ?? 'may_send', ttlDays: p.data['type'] == 'activity_state' ? 7 : null);
+        await db.put('local.memory_last_id', lastId!); // device-local pointer: survives restarts, never syncs
         msg = 'Okay. I will remember that.';
-      case 'forget': await db.forget(p.data['id']!); lastId = null; msg = 'Done. I’ve forgotten that.';
-      case 'forgetAll': await db.forgetAll(); lastId = null; msg = 'Done. I’ve forgotten everything.';
+      case 'forget': await db.forget(p.data['id']!); lastId = null; await db.put('local.memory_last_id', ''); msg = 'Done. I’ve forgotten that.';
+      case 'forgetAll': await db.forgetAll(); lastId = null; await db.put('local.memory_last_id', ''); msg = 'Done. I’ve forgotten everything.';
     }
     notifyListeners();
     return msg;

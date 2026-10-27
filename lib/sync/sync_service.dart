@@ -4,6 +4,10 @@ import '../data/secure_store.dart';
 import '../net/api.dart';
 import 'sync_crypto.dart';
 
+/// Sync record envelope version. Records sealed with a newer version are
+/// skipped on pull, so a future schema never corrupts an older client.
+const kSyncVersion = 1;
+
 /// Optional end-to-end encrypted sync (doc 8.5). Off by default; a separate permission from cloud AI.
 class SyncService {
   SyncService(this.db, this.api, this.store);
@@ -15,6 +19,14 @@ class SyncService {
   bool busy = false;
 
   Future<bool> get enabled => db.flag('local.sync');
+
+  /// Vault credentials for family-keyed inference. Null unless sync is on:
+  /// the sync vault is the family identity for BYOK.
+  Future<Map<String, String>?> vaultHeaders() async {
+    if (!await enabled) return null;
+    final k = await _keys();
+    return k == null ? null : {'X-Vault-Id': k.vaultId, 'X-Vault-Key': k.authKey};
+  }
   Future<SyncKeys?> _keys() async {
     if (_k != null) return _k;
     final s = await store.read('sync.secret');
@@ -64,10 +76,10 @@ class SyncService {
       for (final o in box) {
         final t = o['tbl'] as String, pk = o['pk'] as String, ts = o['updated_at'] as int, del = o['deleted'] == 1;
         Map<String, dynamic> payload;
-        if (del) { payload = {'t': t, 'k': pk, 'del': true}; } else {
+        if (del) { payload = {'v': kSyncVersion, 't': t, 'k': pk, 'del': true}; } else {
           final row = await db.rowJson(t, pk);
           if (row == null) { await db.clearOutbox(t, pk, ts); continue; }
-          payload = {'t': t, 'k': pk, 'row': row};
+          payload = {'v': kSyncVersion, 't': t, 'k': pk, 'row': row};
         }
         final rid = await k.recordId(t, pk);
         recs.add({'record_id': rid, 'updated_at': ts, 'deleted': del, ...await k.seal(rid, payload)});
@@ -87,6 +99,7 @@ class SyncService {
         since = max(since, rec['seq'] as int);
         try {
           final p = await k.open('${rec['record_id']}', '${rec['nonce']}', '${rec['ciphertext_b64']}');
+          if ((p['v'] ?? 1) != kSyncVersion) continue; // sealed by a newer client: leave it for newer clients
           final t = '${p['t']}', pk = '${p['k']}';
           if (!kSync.containsKey(t) || (rec['updated_at'] as int) <= await db.localStamp(t, pk)) continue; // last write wins
           if (p['del'] == true) { await db.applyRemoteDelete(t, pk); } else { await db.applyRemote(t, pk, Map<String, dynamic>.from(p['row'] as Map)); }
@@ -106,6 +119,7 @@ class SyncService {
     await store.delete('sync.secret');
     _k = null;
     await db.putFlag('local.sync', false);
+    await db.put('ai.family_key', ''); // leaving the vault leaves family billing: never silently use the deployer key
     await db.logConsent('sync', 'disabled', 'user');
   }
 }

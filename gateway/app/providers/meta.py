@@ -11,15 +11,18 @@ class MetaReasoning:
         assert_model_allowed(s, s.spark_model)
         self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=30, max_retries=1)
 
-    async def stream(self, messages, *, schema=None, effort="low", max_tokens=900):
+    async def stream(self, messages, *, schema=None, effort="low", max_tokens=900, api_key=None):
         assert_model_allowed(self.s, self.s.spark_model)
+        client, family = self.client, bool(api_key and api_key != self.s.model_api_key)
+        if family:  # BYOK: this turn is billed to the family's key, never constructed with the deployer key
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=30, max_retries=1)
         kw = dict(model=self.s.spark_model, messages=messages, stream=True, max_completion_tokens=max_tokens,
                   reasoning_effort=effort, stream_options={"include_usage": True})
         if schema:
             kw["response_format"] = {"type": "json_schema", "json_schema": {"name": "milo_turn", "schema": schema}}
         usage = Usage()
         try:
-            stream = await self.client.chat.completions.create(**kw)
+            stream = await client.chat.completions.create(**kw)
             async for ch in stream:
                 if ch.choices and ch.choices[0].delta.content:
                     yield ch.choices[0].delta.content
@@ -30,6 +33,8 @@ class MetaReasoning:
         except APITimeoutError:
             raise ProviderError("timeout", 504)
         except APIStatusError as e:
+            if family and e.status_code in (401, 403):
+                raise ProviderError("family_key_rejected", 502)
             raise ProviderError("rate_limited" if e.status_code == 429 else "provider_error", 503)
         except APIConnectionError:
             raise ProviderError("unreachable", 503)
@@ -42,10 +47,13 @@ class MetaImage:
         assert_model_allowed(s, s.image_model)
         self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=45, max_retries=1)
 
-    async def generate(self, prompt: str, size: str = "1024x1024") -> bytes:
+    async def generate(self, prompt: str, size: str = "1024x1024", api_key=None) -> bytes:
+        client = self.client
+        if api_key and api_key != self.s.model_api_key:
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=45, max_retries=1)
         try:  # agentic tools off: no web/image search or shell for child-facing pictures
-            r = await self.client.images.generate(model=self.s.image_model, prompt=prompt, n=1, size=size,
-                                                  extra_body={"reasoning_strength": "low", "tool_enablement": {"enable_image_search": False, "enable_web_search": False, "enable_shell": False}})
+            r = await client.images.generate(model=self.s.image_model, prompt=prompt, n=1, size=size,
+                                             extra_body={"reasoning_strength": "low", "tool_enablement": {"enable_image_search": False, "enable_web_search": False, "enable_shell": False}})
             return base64.b64decode(r.data[0].b64_json)
         except (APIStatusError, APIConnectionError, APITimeoutError, TypeError, IndexError):
             raise ProviderError("image_failed", 503)
@@ -84,11 +92,12 @@ class MetaVoice:
         self.s = s
         assert_model_allowed(s, s.voice_model)
 
-    async def open(self, language_bias=None, keywords=None):
+    async def open(self, language_bias=None, keywords=None, api_key=None):
         import websockets
+        key = api_key or self.s.model_api_key
         try:
             ws = await websockets.connect(f"{self.s.meta_asr_url}?sessionId=stream-{uuid.uuid4()}", max_size=2**20, open_timeout=10)
-            hs = {"authorization": {"accessToken": f"Bearer {self.s.model_api_key}"}, "audioEncoding": "PCM_24KHZ", "model": self.s.voice_model,
+            hs = {"authorization": {"accessToken": f"Bearer {key}"}, "audioEncoding": "PCM_24KHZ", "model": self.s.voice_model,
                   "mode": "ENDPOINTING", "partialMode": "CUMULATIVE", "emitAudioProgress": False,
                   "zdrOverride": True}  # zero data retention: children's audio is never kept
             if language_bias:

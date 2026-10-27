@@ -25,10 +25,12 @@ Map<String, dynamic> pocketBrain(String raw, String profile, {String cloud = 'of
   if (RegExp(r"\bhelp\b").hasMatch(s)) return t('encouraging', .7, 'lean_in', ['I’m here. What would help most?'], ch: ['Read to me', 'Help me say something', 'Do steps']);
   if (RegExp(r"dance|play|fun|game|joke").hasMatch(s)) return t('playful', 1, 'giggle', ['Let us play! Shake the phone or tap me.'], f: 'none');
   if (RegExp(r"who are you|what are you|real|human").hasMatch(s)) return t('calm', .6, 'nod', ['I’m Milo, an AI companion.', 'I’m not a person, but I like helping you.'], f: 'none');
-  if (RegExp(r"remember|forget").hasMatch(s)) return t('curious', .5, null, ['Memory is coming next.', 'You will always see it and choose what I keep.'], f: 'none');
+  // NOTE: memory commands never reach this file (the router handles them first as real database operations).
   return t('curious', .6, 'lean_in', cloud == 'offline'
       ? ['I can’t reach my thinking cloud right now.', 'Your things are safe. Reading aloud and your board still work.']
       : cloud == 'resting'
           ? ['My thinking cloud needs a rest.', 'I can still help with what is on your phone.']
-          : ['Tell me more.', 'Cloud AI is turned off in your privacy settings, so I use simple rules for now.'], ch: ['Read to me', 'Help me say something', 'Do steps']);
+          : cloud == 'timeout'
+              ? ['That took too long.', 'Let’s try again in a moment.']
+              : ['Tell me more.', 'Cloud AI is turned off in your privacy settings, so I use simple rules for now.'], ch: ['Read to me', 'Help me say something', 'Do steps']);
 }

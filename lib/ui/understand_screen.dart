@@ -9,6 +9,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import '../companion/milo_view.dart';
+import '../contracts/brain_contract.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import 'screen.dart';
@@ -68,6 +69,11 @@ class _UState extends ConsumerState<UnderstandScreen> {
     ref.read(dbProvider).get('local.recent').then((v) { try { if (v != null && v.isNotEmpty) setState(() => recent = [for (final r in jsonDecode(v) as List) {'t': '${r['t']}', 'x': '${r['x']}'}]); } catch (_) {} });
     ref.read(understandProvider.notifier).start();
     ref.read(understandProvider.notifier).done();
+    // Brain highlight spans are 1-based word ids (w1 is the first word); the reader list is 0-based.
+    ref.read(directorProvider).onHighlight = (span) {
+      final n = int.tryParse(span.startsWith('w') ? span.substring(1) : span) ?? -1;
+      if (mounted && n >= 1 && n <= words.length) setState(() => cur = n - 1);
+    };
   }
   void _prep() { words = RegExp(r'\S+').allMatches(c.text).map((m) => m.group(0)!).toList(); keys = List.generate(words.length, (_) => GlobalKey()); }
   Future<void> _remember() async {
@@ -92,6 +98,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
     final jpg = await compute(_prepare, await x.readAsBytes());
     var ocr = '';
     try { final r = TextRecognizer(); ocr = (await r.processImage(InputImage.fromFilePath(x.path))).text; await r.close(); } catch (_) {} // quick on-device OCR keeps read-aloud working offline
+    try { await File(x.path).delete(); } catch (_) {} // the original (with EXIF/GPS) never lingers in the app cache
     setState(() { _image = jpg; c.text = ocr.trim(); _prep(); step = _S.photo; });
   }
   Future<void> _file() async {
@@ -122,9 +129,24 @@ class _UState extends ConsumerState<UnderstandScreen> {
 
   VoidCallback? get _back => switch (step) { _S.bring => null, _S.photo => () => setState(() => step = _S.bring), _S.reading => () => setState(() => step = _S.bring), _S.style => () => setState(() => step = _S.reading), _S.reader => () => setState(() => step = _S.style), _S.check => () => setState(() => step = _S.reader) };
 
+  /// First allow-listed concept in the vocabulary or text (vocabulary first).
+  /// Returns null when nothing may be pictured, so no request is ever made.
+  String? _concept() {
+    final vocab = ref.read(understandProvider).vocab;
+    for (final v in vocab) { final w = '${v['word']}'.toLowerCase().replaceAll(RegExp(r'[^a-z]'), ''); if (kVisualConcepts.contains(w)) return w; }
+    return words.map((w) => w.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '')).where(kVisualConcepts.contains).firstOrNull;
+  }
+
+  Future<void> _keep() async {
+    final t = c.text.trim();
+    if (t.isEmpty) return;
+    await ref.read(dbProvider).addDocument(t.split(RegExp(r'\s+')).take(5).join(' '), t);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kept. Find it under Saved.')));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final d = ref.read(directorProvider), u = ref.watch(understandProvider), cloud = ref.watch(ladderProvider) == Ladder.full;
+    final d = ref.read(directorProvider), db = ref.read(dbProvider), u = ref.watch(understandProvider), cloud = ref.watch(ladderProvider) == Ladder.full, visuals = ref.watch(visualProvider);
     final title = switch (step) { _S.bring => 'Bring something to Milo', _S.photo => 'Crop to the text', _S.reading => 'Milo is reading your text', _S.style => 'How would you like it?', _S.reader => (words.take(3).join(' ')), _S.check => 'Quick check' };
     Widget body;
     switch (step) {
@@ -133,6 +155,14 @@ class _UState extends ConsumerState<UnderstandScreen> {
           RowCard(icon: Icons.content_paste, title: 'Paste text', onTap: _paste), RowCard(icon: Icons.photo_camera_outlined, title: 'Take a photo', color: 1, onTap: () => _photo(ImageSource.camera)),
           RowCard(icon: Icons.document_scanner_outlined, title: 'Scan a document', color: 3, onTap: () => _photo(ImageSource.camera)), RowCard(icon: Icons.upload_file, title: 'Import a file', color: 2, onTap: _file),
           if (recent.isNotEmpty) ...[const Section('Recent'), for (final r in recent) RowCard(icon: Icons.description_outlined, title: r['t']!, subtitle: 'Saved on this phone', onTap: () { _image = null; _use(r['x']!); })],
+          FutureBuilder(future: db.documents(), builder: (_, s) {
+            final docs = s.data ?? [];
+            if (docs.isEmpty) return const SizedBox();
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Section('Saved'),
+              for (final doc in docs) Card(child: ListTile(leading: const Icon(Icons.bookmark, color: T.pri), title: Text('${doc['title']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text('Saved by you'), onTap: () { _image = null; _use('${doc['text']}'); },
+                trailing: IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: () async { await db.deleteDocument(doc['id'] as String); setState(() {}); })))]);
+          }),
           const SizedBox(height: 10),
           TextField(controller: ask, decoration: InputDecoration(hintText: 'Or just ask Milo…', suffixIcon: IconButton(icon: const Icon(Icons.mic, color: T.pri), onPressed: () { Navigator.pop(context); ref.read(tabProvider.notifier).state = 2; })), onSubmitted: (t) { if (t.trim().isEmpty) return; Navigator.pop(context); ref.read(tabProvider.notifier).state = 2; ref.read(chatProvider.notifier).user(t); d.ask(t); }),
           const SizedBox(height: 120)]);
@@ -160,16 +190,20 @@ class _UState extends ConsumerState<UnderstandScreen> {
           const SizedBox(height: 14), BigButton('Apply', () async { if (remember) { await ref.read(dbProvider).setAxis('comprehension', styles.join(',').toLowerCase()); } setState(() => step = _S.reader); if (styles.contains('Simplify') && cloud) { _explain('simpler'); } })]);
       case _S.reader:
         final pop = picked == null ? null : u.vocab.where((v) => v['word']!.toLowerCase() == picked!.toLowerCase().replaceAll(RegExp(r'[^A-Za-z]'), '')).firstOrNull;
+        final concept = _concept(), png = concept == null ? null : visuals[concept];
         body = ListView(padding: const EdgeInsets.all(16), children: [
-          Container(height: 120, decoration: BoxDecoration(color: const Color(0xFFCFE6FA), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.image_outlined, size: 44, color: Color(0xFF4B7FB5))),
-          const SizedBox(height: 14),
+          if (png != null) ...[ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.memory(png, height: 180, fit: BoxFit.cover)), const SizedBox(height: 8),
+            Center(child: Text('A picture of $concept', style: const TextStyle(fontSize: 12, color: T.mute))), const SizedBox(height: 6)]
+          else if (styles.contains('Pictures') && concept != null && cloud) ...[BigButton('Show a picture of $concept', () => d.onShowImage?.call(concept), kind: BK.soft), const SizedBox(height: 14)]
+          else ...[Container(height: 120, decoration: BoxDecoration(color: const Color(0xFFCFE6FA), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.image_outlined, size: 44, color: Color(0xFF4B7FB5))), const SizedBox(height: 14)],
           Container(padding: const EdgeInsets.all(8), color: tint ? const Color(0xFFFFF4D6) : null, child: Wrap(spacing: 6, runSpacing: 6, children: [for (var i = 0; i < words.length; i++) Opacity(opacity: focus && cur >= 0 && (i < cur - 6 || i > cur + 6) ? .25 : 1, child: GestureDetector(onTap: () { setState(() => picked = words[i]); d.speak(words[i]); }, child: Container(key: keys[i], padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(color: i == cur ? T.amberSoft : null, border: i == cur ? Border.all(color: T.amber) : null, borderRadius: BorderRadius.circular(6)), child: Text(words[i], style: TextStyle(fontSize: 22 * d.textScale.clamp(1.0, 1.3), height: d.lineSpacing, color: T.ink)))))])),
           if (picked != null) Center(child: Container(margin: const EdgeInsets.symmetric(vertical: 10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: T.pri)), child: Column(mainAxisSize: MainAxisSize.min, children: [
             Row(mainAxisSize: MainAxisSize.min, children: [Text(syllables(picked!), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)), const SizedBox(width: 8), const Icon(Icons.volume_up, color: T.pri, size: 20)]),
             Text(pop?['meaning'] ?? 'Tap Listen to hear it in the sentence', style: const TextStyle(fontSize: 12, color: T.mute))]))),
-          Row(children: [for (final b in [('Focus', Icons.center_focus_strong, () => setState(() => focus = !focus)), ('Speed ${_speeds[speedIdx]}x', Icons.speed, () => setState(() => speedIdx = (speedIdx + 1) % 3)), ('Overlay', Icons.layers, () => setState(() => tint = !tint))]) Expanded(child: Padding(padding: const EdgeInsets.all(4), child: FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 52), backgroundColor: T.priSoft, foregroundColor: T.pri), onPressed: b.$3, child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(b.$2, size: 18), Text(b.$1, style: const TextStyle(fontSize: 11))]))))]),
-          const SizedBox(height: 8), Row(children: [Expanded(flex: 2, child: BigButton('Listen', _listen, icon: Icons.volume_up)), const SizedBox(width: 10), Expanded(child: BigButton('Next', () => setState(() => step = _S.check), kind: BK.soft))]), const SizedBox(height: 150)]);
+          Row(children: [for (final b in [('Focus', Icons.center_focus_strong, () => setState(() => focus = !focus)), ('Speed ${_speeds[speedIdx]}x', Icons.speed, () => setState(() => speedIdx = (speedIdx + 1) % 3)), ('Overlay', Icons.layers, () => setState(() => tint = !tint)), ('Big words', Icons.text_fields, () => Navigator.push(context, MaterialPageRoute(builder: (_) => BigWordScreen(words: words, meanings: {for (final v in u.vocab) '${v['word']}'.toLowerCase(): '${v['meaning']}'}))))]) Expanded(child: Padding(padding: const EdgeInsets.all(4), child: FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 52), backgroundColor: T.priSoft, foregroundColor: T.pri), onPressed: b.$3, child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(b.$2, size: 18), Text(b.$1, style: const TextStyle(fontSize: 11))]))))]),
+          const SizedBox(height: 8), Row(children: [Expanded(flex: 2, child: BigButton('Listen', _listen, icon: Icons.volume_up)), const SizedBox(width: 10), Expanded(child: BigButton('Next', () => setState(() => step = _S.check), kind: BK.soft))]),
+          Center(child: TextButton.icon(onPressed: _keep, icon: const Icon(Icons.bookmark_add_outlined), label: const Text('Keep this text'))), const SizedBox(height: 150)]);
       case _S.check:
         final q = u.check;
         body = ListView(padding: const EdgeInsets.all(16), children: [
@@ -180,5 +214,39 @@ class _UState extends ConsumerState<UnderstandScreen> {
           BigButton('Next', () { d.celebrate(); setState(() { step = _S.bring; picked = null; }); }), const SizedBox(height: 150)]);
     }
     return MiloScreen(title: title, kind: 'understand', onBack: _back, bg: step == _S.photo ? const Color(0xFF454B66) : null, body: body);
+  }
+}
+
+/// Pre-reader large single-word view (wireframe 12.3): one word at a time,
+/// huge, with its meaning, Listen, Again and Slower. Fully offline.
+class BigWordScreen extends ConsumerStatefulWidget {
+  const BigWordScreen({super.key, required this.words, this.meanings = const {}});
+  final List<String> words;
+  final Map<String, String> meanings;
+  @override ConsumerState<BigWordScreen> createState() => _BigWordState();
+}
+
+class _BigWordState extends ConsumerState<BigWordScreen> {
+  int i = 0;
+  bool slow = false;
+  @override
+  Widget build(BuildContext context) {
+    final d = ref.read(directorProvider);
+    if (widget.words.isEmpty) return MiloScreen(title: 'Big words', body: const Center(child: Text('No words to show yet.')));
+    final w = widget.words[i.clamp(0, widget.words.length - 1)];
+    final meaning = widget.meanings[w.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '')];
+    void hear({bool again = false}) => d.speak(again ? w : (meaning == null ? w : '$w. $meaning'), rate: slow ? .6 : 1);
+    return MiloScreen(title: 'Big words (${i + 1}/${widget.words.length})', body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
+      const Spacer(),
+      Text(w, textAlign: TextAlign.center, style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w800, height: 1.1)),
+      const SizedBox(height: 6), Text(syllables(w), textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, color: T.mute)),
+      if (meaning != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(meaning, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20))),
+      const Spacer(),
+      Row(children: [Expanded(child: BigButton('Listen', () => hear(), icon: Icons.volume_up)), const SizedBox(width: 10), Expanded(child: BigButton('Again', () => hear(again: true), kind: BK.soft))]),
+      const SizedBox(height: 10),
+      Row(children: [Expanded(child: BigButton(slow ? 'Normal speed' : 'Slower', () => setState(() => slow = !slow), kind: BK.outline)), const SizedBox(width: 10),
+        Expanded(child: BigButton(i + 1 >= widget.words.length ? 'Done' : 'Next', () { if (i + 1 >= widget.words.length) { Navigator.pop(context); } else { setState(() => i++); } }, kind: BK.mint))]),
+      const SizedBox(height: 90),
+    ])));
   }
 }

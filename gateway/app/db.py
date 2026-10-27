@@ -11,6 +11,8 @@ vaults = Table("vaults", md, Column("vault_id", String(64), primary_key=True), C
 sync_records = Table("sync_records", md, Column("vault_id", String(64), primary_key=True), Column("record_id", String(64), primary_key=True),
                      Column("seq", BigInteger), Column("updated_at", BigInteger), Column("deleted", Boolean), Column("nonce", String(32)),
                      Column("ciphertext", LargeBinary), Index("ix_sync_seq", "vault_id", "seq"))
+vault_keys = Table("vault_keys", md, Column("vault_id", String(64), primary_key=True), Column("provider", String(16)),
+                   Column("key_enc", String(1024)), Column("key_hint", String(16)), Column("created", BigInteger), Column("updated_at", BigInteger))
 
 
 def make_engine(url: str) -> AsyncEngine:

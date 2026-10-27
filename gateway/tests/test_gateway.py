@@ -109,7 +109,7 @@ def test_contributor_models_refused(tmp_path):
         validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="short", database_url="postgresql+asyncpg://x"))
     with pytest.raises(RuntimeError):
         validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40))  # sqlite in prod
-    validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40, database_url="postgresql+asyncpg://x"))
+    validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40, key_enc_secret="z" * 40, database_url="postgresql+asyncpg://x"))
 
 
 def test_streaming_parsers_survive_any_chunking():
@@ -169,6 +169,51 @@ def test_voice_websocket_end_to_end(tmp_path):
         with pytest.raises(Exception):
             with tc.websocket_connect("/v1/voice") as ws:
                 ws.send_text(json.dumps({"token": "bad"})); ws.receive_json()
+
+
+async def test_byok_family_key_flow(client):
+    h = await token(client)
+    vid, key = "ab" * 16, "cd" * 32
+    V = {**h, "X-Vault-Id": vid, "X-Vault-Key": key}
+    assert (await client.get("/v1/sync/provider-key", headers=V)).status_code == 401  # no vault yet
+    assert (await client.post("/v1/sync/vault", headers=V)).status_code == 201
+    assert (await client.get("/v1/sync/provider-key", headers=V)).status_code == 404
+    assert (await client.post("/v1/sync/provider-key", headers=V, json={"provider": "meta", "api_key": "short"})).status_code == 422
+    r = await client.post("/v1/sync/provider-key", headers=V, json={"provider": "meta", "api_key": "milo-test-key-12345678"})
+    assert r.status_code == 200 and r.json() == {"provider": "meta", "hint": "…5678"} and "milo-test" not in r.text
+    g = await client.get("/v1/sync/provider-key", headers=V)
+    assert g.json()["hint"] == "…5678" and "milo-test" not in g.text  # the key itself is never returned
+    r = await client.post("/v1/brain/turn", json=BR, headers=V)  # mock ignores keys, but routing is observed
+    assert r.status_code == 200 and client.app.state.reasoning.last_api_key == "milo-test-key-12345678"
+    r = await client.post("/v1/brain/turn", json=BR, headers=h)
+    assert r.status_code == 200 and client.app.state.reasoning.last_api_key is None  # no headers: deployer key
+    W = {**h, "X-Vault-Id": vid, "X-Vault-Key": "ee" * 32}
+    assert (await client.post("/v1/brain/turn", json=BR, headers=W)).status_code == 401  # wrong secret: no silent fallback
+    vid2, key2 = "12" * 16, "34" * 32
+    V2 = {**h, "X-Vault-Id": vid2, "X-Vault-Key": key2}
+    assert (await client.post("/v1/sync/vault", headers=V2)).status_code == 201
+    assert (await client.post("/v1/brain/turn", json=BR, headers=V2)).status_code == 409  # vault without a key: no deployer fallback
+    assert (await client.delete("/v1/sync/provider-key", headers=V)).status_code == 204
+    assert (await client.get("/v1/sync/provider-key", headers=V)).status_code == 404
+    await client.post("/v1/sync/provider-key", headers=V, json={"provider": "meta", "api_key": "milo-test-key-12345678"})
+    assert (await client.delete("/v1/sync/vault", headers=V)).status_code == 204
+    assert (await client.post("/v1/sync/vault", headers=V)).status_code == 201  # same vault id, fresh vault
+    assert (await client.get("/v1/sync/provider-key", headers=V)).status_code == 404  # vault deletion took the key too
+
+
+async def test_byok_skips_deployer_budget(tmp_path):
+    app = mk(tmp_path, daily_budget_usd=0.0001)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+            h = await token(c)
+            V = {**h, "X-Vault-Id": "ab" * 16, "X-Vault-Key": "cd" * 32}
+            assert (await c.post("/v1/sync/vault", headers=V)).status_code == 201
+            assert (await c.post("/v1/sync/provider-key", headers=V, json={"provider": "meta", "api_key": "milo-test-key-12345678"})).status_code == 200
+            assert (await c.post("/v1/brain/turn", json=BR, headers=h)).status_code == 200  # spends past the tiny limit
+            assert (await c.post("/v1/brain/turn", json=BR, headers=h)).status_code == 503  # deployer budget trips
+            before = await app.state.budget.spent()
+            assert (await c.post("/v1/brain/turn", json=BR, headers=V)).status_code == 200  # family key is unaffected
+            assert await app.state.budget.spent() == before  # and family spend is not metered to the deployer
 
 
 async def test_sync_e2ee_flow(client):

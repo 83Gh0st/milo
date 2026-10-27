@@ -70,6 +70,11 @@ class VaultCreate(BaseModel):
     pass
 
 
+class ProviderKeyReq(BaseModel):
+    provider: Literal["meta"] = "meta"
+    api_key: str = Field(min_length=8, max_length=500)
+
+
 class SyncRecordIn(BaseModel):
     record_id: str = Field(pattern=r"^[0-9a-f]{64}$")
     updated_at: int
