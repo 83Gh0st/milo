@@ -1,0 +1,82 @@
+import re
+from typing import Literal
+from pydantic import BaseModel, Field, field_validator
+
+Pres = Literal["playful", "friendly", "discreet"]
+
+
+class SessionReq(BaseModel):
+    install_id: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    app_version: str = Field(max_length=20)
+    platform: Literal["android", "ios", "web", "other"] = "other"
+
+
+class Turn(BaseModel):
+    role: Literal["user", "milo"]
+    text: str = Field(max_length=600)
+
+
+class Chip(BaseModel):
+    kind: str = Field(max_length=20)
+    label: str = Field(max_length=80)
+    text: str = Field(default="", max_length=3000)
+
+
+class Mem(BaseModel):
+    key: str = Field(max_length=40)
+    value: str = Field(max_length=80)
+
+
+class BrainReq(BaseModel):
+    presentation: Pres = "friendly"
+    support: dict[str, str] = Field(default_factory=dict, max_length=8)
+    lang: str = Field(default="English", max_length=30)
+    name: str | None = Field(default=None, max_length=30)
+    activity: Literal["home", "understand", "express", "do", "chat"] = "chat"
+    chips: list[Chip] = Field(default_factory=list, max_length=6)
+    memories: list[Mem] = Field(default_factory=list, max_length=5)
+    recent: list[Turn] = Field(default_factory=list, max_length=6)
+    text: str = Field(default="", max_length=800)
+
+    @field_validator("support")
+    @classmethod
+    def _short(cls, v):
+        return {k[:20]: x[:40] for k, x in v.items()}
+
+
+class UnderstandReq(BrainReq):
+    content_text: str | None = Field(default=None, max_length=6000)
+    image_b64: str | None = None
+    strategy: Literal["default", "simpler", "picture", "example", "short"] = "default"
+
+
+class PlanReq(BaseModel):
+    goal: str = Field(min_length=2, max_length=200)
+    presentation: Pres = "friendly"
+    lang: str = Field(default="English", max_length=30)
+
+
+class ComposeReq(BaseModel):
+    strip: list[str] = Field(min_length=1, max_length=20)
+    presentation: Pres = "friendly"
+    lang: str = Field(default="English", max_length=30)
+
+
+class VisualReq(BaseModel):
+    concept: str = Field(max_length=30)
+
+
+class VaultCreate(BaseModel):
+    pass
+
+
+class SyncRecordIn(BaseModel):
+    record_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    updated_at: int
+    deleted: bool = False
+    nonce: str = Field(pattern=r"^[0-9a-f]{24}$")
+    ciphertext_b64: str = Field(max_length=350_000)
+
+
+class SyncPush(BaseModel):
+    records: list[SyncRecordIn] = Field(max_length=200)

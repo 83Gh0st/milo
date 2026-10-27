@@ -1,0 +1,68 @@
+name: milo
+description: Milo Companion - a living AI companion (Flutter, iOS + Android)
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: ^3.3.0
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  flutter_tts: ^4.0.2
+  sensors_plus: ^5.0.1
+  dio: ^5.7.0
+  web_socket_channel: ^3.0.1
+  record: ^5.1.2
+  image_picker: ^1.1.2
+  image: ^4.2.0
+  google_mlkit_text_recognition: ^0.13.1
+  flutter_secure_storage: ^9.2.2
+  cryptography: ^2.7.0
+  crypto: ^3.0.3
+  sqflite_sqlcipher: ^3.1.0+1
+  path: ^1.9.0
+  connectivity_plus: ^6.0.5
+  package_info_plus: ^8.0.2
+  url_launcher: ^6.3.0
+  file_picker: ^8.1.2
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/
+  fonts:
+    - family: Lexend
+      fonts:
+        - asset: assets/fonts/Lexend-Regular.ttf
+        - asset: assets/fonts/Lexend-SemiBold.ttf
+          weight: 600
+    - family: AtkinsonHyperlegible
+      fonts:
+        - asset: assets/fonts/AtkinsonHyperlegible-Regular.ttf
+        - asset: assets/fonts/AtkinsonHyperlegible-Bold.ttf
+          weight: 700
+    - family: OpenDyslexic
+      fonts:
+        - asset: assets/fonts/OpenDyslexic-Regular.otf
+        - asset: assets/fonts/OpenDyslexic-Bold.otf
+          weight: 700
+
+# Run once after `flutter create`:  dart run flutter_launcher_icons  &&  dart run flutter_native_splash:create
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/icon.png
+  adaptive_icon_background: "#E2E6FF"
+  adaptive_icon_foreground: assets/branding/icon_fg.png
+  remove_alpha_ios: true
+flutter_native_splash:
+  color: "#E9EDFF"
+  image: assets/branding/splash.png
+  android_12:
+    color: "#E9EDFF"
+    image: assets/branding/splash.png

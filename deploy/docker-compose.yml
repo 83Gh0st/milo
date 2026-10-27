@@ -1,0 +1,25 @@
+# Production stack: Caddy (automatic HTTPS) -> gateway -> PostgreSQL.   cd deploy && cp ../gateway/.env.example .env && docker compose up -d --build
+services:
+  gateway:
+    build: {context: .., dockerfile: gateway/Dockerfile}
+    env_file: .env
+    environment: {DATABASE_URL: "postgresql+asyncpg://milo:${POSTGRES_PASSWORD}@db:5432/milo"}
+    depends_on: {db: {condition: service_healthy}}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+  db:
+    image: postgres:16-alpine
+    environment: {POSTGRES_USER: milo, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}", POSTGRES_DB: milo}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U milo"], interval: 5s, retries: 10}
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    environment: {API_DOMAIN: "${API_DOMAIN}"}
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy_data:/data"]
+    depends_on: [gateway]
+    restart: unless-stopped
+volumes: {pgdata: {}, caddy_data: {}}

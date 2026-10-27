@@ -1,0 +1,10 @@
+{$API_DOMAIN} {
+	encode zstd gzip
+	# flush_interval -1 stops Caddy buffering server-sent events: body-first reactions depend on it.
+	reverse_proxy gateway:8000 {
+		flush_interval -1
+		transport http { read_timeout 120s }
+	}
+	header Strict-Transport-Security "max-age=31536000"
+	request_body { max_size 3MB }
+}

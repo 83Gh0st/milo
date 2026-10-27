@@ -1,0 +1,9 @@
+.dart_tool/
+build/
+.flutter-plugins*
+*.iml
+__pycache__/
+.pytest_cache/
+*.db
+.env
+smoke_report.json
