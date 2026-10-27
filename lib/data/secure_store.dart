@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Keys live in Keychain / Keystore, never in the database or backups.
 class SecureStore {
   final _s = const FlutterSecureStorage(
-      aOptions: AndroidOptions(encryptedSharedPreferences: true), iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+      aOptions: AndroidOptions(), iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device)); // v10: EncryptedSharedPreferences backend removed; stored data auto-migrates to the new cipher
   static String _hex(int n) { final r = Random.secure(); return List.generate(n, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join(); }
   Future<String> _getOrMake(String k, int bytes) async { var v = await _s.read(key: k); if (v == null) { v = _hex(bytes); await _s.write(key: k, value: v); } return v; }
   Future<String> dbKey() => _getOrMake('milo.dbkey', 32); // random 256-bit SQLCipher key
