@@ -17,6 +17,10 @@ jobs:
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=android,ios --project-name milo .
       - run: rm -f test/widget_test.dart # generated sample references MyApp, which this app does not have
+      - run: |
+          printf '%s\n' '-dontwarn com.google.mlkit.vision.text.**' >> android/app/proguard-rules.pro
+          printf '%s\n' 'android.enableR8.fullMode=false' >> android/gradle.properties
+          grep -n "proguard" android/app/build.gradle* || true # log whether the rules file is wired in
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test

@@ -24,7 +24,7 @@ dependencies:
   connectivity_plus: ^6.0.5
   package_info_plus: ^8.0.2
   url_launcher: ^6.3.0
-  file_picker: ^8.1.2
+  file_picker: '>=8.1.2' # float to latest: 8.x compiles against android-34 and fails the AAR check against current lifecycle libs
 dev_dependencies:
   flutter_test:
     sdk: flutter
