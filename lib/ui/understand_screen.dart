@@ -101,8 +101,8 @@ class _UState extends ConsumerState<UnderstandScreen> {
     setState(() { _image = jpg; c.text = ocr.trim(); _prep(); step = _S.photo; });
   }
   Future<void> _file() async {
-    final r = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['txt', 'md']);
-    final p = r?.files.single.path; if (p == null) return;
+    final f = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['txt', 'md']);
+    final p = f?.path; if (p == null) return;
     _image = null; await _use(await File(p).readAsString());
   }
   Future<void> _paste() async {
