@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -208,8 +207,10 @@ class _UState extends ConsumerState<UnderstandScreen> {
         final q = u.check;
         body = ListView(padding: const EdgeInsets.all(16), children: [
           Text(q == null ? 'What is the main idea?' : '${q['q']}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)), const SizedBox(height: 14),
-          for (var i = 0; i < (q == null ? 3 : (q['options'] as List).length); i++) Card(child: RadioListTile<int>(value: i, groupValue: picked == 'q$i' ? i : -1, title: Text(q == null ? ['It is about one big idea', 'It lists many facts', 'It is not important'][i] : '${(q['options'] as List)[i]}', style: const TextStyle(fontSize: 17)),
-            onChanged: (_) { setState(() => picked = 'q$i'); final right = q == null || i == (q['answer_index'] as int? ?? 0); d.emote('encouraging', i: .8, hold: 3, force: true); d.speak(right ? 'Nice thinking.' : 'Let’s look at this part again.', tone: right ? 'warm' : 'calm'); ref.read(dbProvider).progress('check'); })),
+          RadioGroup<int>(groupValue: int.tryParse((picked ?? '').startsWith('q') ? picked!.substring(1) : '') ?? -1,
+            onChanged: (v) { if (v == null) return; setState(() => picked = 'q$v'); final right = q == null || v == (q['answer_index'] as int? ?? 0); d.emote('encouraging', i: .8, hold: 3, force: true); d.speak(right ? 'Nice thinking.' : 'Let’s look at this part again.', tone: right ? 'warm' : 'calm'); ref.read(dbProvider).progress('check'); },
+            child: Column(children: [for (var i = 0; i < (q == null ? 3 : (q['options'] as List).length); i++) Card(child: RadioListTile<int>(value: i,
+              title: Text(q == null ? ['It is about one big idea', 'It lists many facts', 'It is not important'][i] : '${(q['options'] as List)[i]}', style: const TextStyle(fontSize: 17))))])),
           const SizedBox(height: 10), const Center(child: Text('No scores. Effort is celebrated.', style: TextStyle(color: T.mute, fontWeight: FontWeight.w700))), const SizedBox(height: 14),
           BigButton('Next', () { d.celebrate(); setState(() { step = _S.bring; picked = null; }); }), const SizedBox(height: 150)]);
     }

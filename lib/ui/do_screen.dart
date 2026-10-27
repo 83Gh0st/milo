@@ -86,7 +86,7 @@ class _DState extends ConsumerState<DoScreen> {
       title = sel!;
       page = Column(children: [
         Padding(padding: const EdgeInsets.all(12), child: Row(children: [const SizedBox(width: 56, height: 56, child: MiloView()), const SizedBox(width: 8), const Expanded(child: Speech('Here is a plan. Change anything you like.'))])),
-        Expanded(child: ReorderableListView(padding: const EdgeInsets.symmetric(horizontal: 14), onReorder: (a, b) => setState(() { if (b > a) b--; steps.insert(b, steps.removeAt(a)); }), children: [
+        Expanded(child: ReorderableListView(padding: const EdgeInsets.symmetric(horizontal: 14), onReorderItem: (a, b) => setState(() => steps.insert(b, steps.removeAt(a))), children: [
           for (var i = 0; i < steps.length; i++) Card(key: ValueKey('$i${steps[i][1]}'), child: ListTile(leading: const Icon(Icons.drag_handle, color: T.mute), title: Text('${i + 1}   ${steps[i][1]}', style: const TextStyle(fontSize: 17)), trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => setState(() => steps.removeAt(i)))))])),
         Padding(padding: const EdgeInsets.all(14), child: Column(children: [
           OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 52)), onPressed: _addStep, child: const Text('+ Add a step')),

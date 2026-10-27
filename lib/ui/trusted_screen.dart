@@ -58,7 +58,9 @@ class TimeLimits extends ConsumerWidget {
     final d = ref.watch(directorProvider);
     return MiloScreen(title: 'Gentle time limits', body: ListView(padding: const EdgeInsets.all(16), children: [
       const Text('Milo can offer a break after a long session. It is only a suggestion and never locks anything.', style: TextStyle(fontSize: 16)), const SizedBox(height: 12),
-      for (final m in [0, 10, 20, 30]) Card(child: RadioListTile<int>(value: m, groupValue: d.breakNudgeMin, title: Text(m == 0 ? 'Off' : 'Every $m minutes'), onChanged: (v) => d.set(() => d.breakNudgeMin = v ?? 0))),
+      RadioGroup<int>(groupValue: d.breakNudgeMin, onChanged: (v) => d.set(() => d.breakNudgeMin = v ?? 0), child: Column(children: [
+        for (final m in [0, 10, 20, 30]) Card(child: RadioListTile<int>(value: m, title: Text(m == 0 ? 'Off' : 'Every $m minutes'))),
+      ])),
     ]));
   }
 }
