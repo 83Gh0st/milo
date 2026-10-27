@@ -12,7 +12,7 @@ dependencies:
   sensors_plus: ^5.0.1
   dio: ^5.7.0
   web_socket_channel: ^3.0.1
-  record: ^5.1.2
+  record: ^6.0.0 # 6.x line: platform packages implement record_platform_interface 1.6 (5.x resolves a stale record_linux that does not compile)
   image_picker: ^1.1.2
   image: ^4.2.0
   google_mlkit_text_recognition: ^0.13.1
