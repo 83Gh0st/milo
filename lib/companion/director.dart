@@ -636,7 +636,7 @@ class Director extends ChangeNotifier {
         notice = await voice.speakAll(parts,
             pitch: (_presetPitch * (tp[0] as num)).clamp(.5, 1.6).toDouble(),
             rate: _presetRate * pace, pace: pace,
-            lang: lang, tone: aac ? null : tone, readAloud: onWord != null, onMouth: feedMouth,
+            lang: lang, tone: aac ? null : tone, readAloud: onWord != null, aac: aac, onMouth: feedMouth,
             onSentence: (s) async { if (s.trim().endsWith('!') && !aac && gen == _gen) gesture('nod'); });
       } on VoiceCancelled {} // barge-in / turn change: fall through to cleanup
     }

@@ -344,7 +344,8 @@ enum VoiceEngineMode { auto, online, offline }
 /// Per-turn engine choice. `auto` uses neural only when the sink is real,
 /// the ladder is full and the caller allows online; `online` tries neural
 /// and falls back; `offline` is always platform. Read-aloud (word callbacks)
-/// always stays on platform: neural engines supply no word timings.
+/// always stays on platform: neural engines supply no word timings. AAC
+/// board speech also stays on platform: instant, no network dependency.
 class VoiceRouter {
   VoiceRouter({required this.platform, required this.neural});
   final PlatformVoice platform;
@@ -362,15 +363,15 @@ class VoiceRouter {
   /// `online_voice_unavailable`), else null. At most one notice per call;
   /// platform-covered sentences are never repeated.
   Future<String?> speakAll(List<({String text, int wordOffset})> sentences,
-      {required double pitch, required double rate, double pace = 1, String lang = 'en', String? tone, bool readAloud = false, void Function(double)? onMouth, Future<void> Function(String sentence)? onSentence}) async {
+      {required double pitch, required double rate, double pace = 1, String lang = 'en', String? tone, bool readAloud = false, bool aac = false, void Function(double)? onMouth, Future<void> Function(String sentence)? onSentence}) async {
     var useNeural = switch (mode) {
       VoiceEngineMode.offline => false,
       VoiceEngineMode.online => true,
       VoiceEngineMode.auto => neuralReady,
-    } && !readAloud;
+    } && !readAloud && !aac;
     engineInUse = useNeural ? 'neural' : 'platform';
     String? notice;
-    if (sentences.isNotEmpty && mode == VoiceEngineMode.online && !neuralReady && !readAloud) notice = 'online_voice_unavailable';
+    if (sentences.isNotEmpty && mode == VoiceEngineMode.online && !neuralReady && !readAloud && !aac) notice = 'online_voice_unavailable';
     for (var i = 0; i < sentences.length; i++) {
       final s = sentences[i];
       if (useNeural) {

@@ -78,15 +78,18 @@ class LadderNotifier extends StateNotifier<Ladder> {
   void dispose() { _t?.cancel(); _sub?.cancel(); super.dispose(); }
   final MiloDb db;
   final MiloApi api;
+  int _gen = 0; // a refresh that started before a failed()/ok() must not clobber it
   Future<void> refresh() async {
-    if (await db.flag('offline.forced')) { state = Ladder.offline; return; }
-    if (!await db.flag('cloud.enabled')) { state = Ladder.cloudOff; return; }
-    final r = await Connectivity().checkConnectivity();
-    if (r.contains(ConnectivityResult.none)) { state = Ladder.offline; return; }
-    state = await api.healthy() ? Ladder.full : Ladder.resting;
+    final g = _gen;
+    Ladder next;
+    if (await db.flag('offline.forced')) { next = Ladder.offline; } else if (!await db.flag('cloud.enabled')) { next = Ladder.cloudOff; } else {
+      final r = await Connectivity().checkConnectivity();
+      if (r.contains(ConnectivityResult.none)) { next = Ladder.offline; } else { next = await api.healthy() ? Ladder.full : Ladder.resting; }
+    }
+    if (g == _gen) state = next;
   }
-  void failed(String code) => state = (code == 'budget_exhausted' || code == 'rate_limited' || code == 'timeout') ? Ladder.resting : Ladder.offline;
-  void ok() => state = Ladder.full;
+  void failed(String code) { _gen++; state = (code == 'budget_exhausted' || code == 'rate_limited' || code == 'timeout') ? Ladder.resting : Ladder.offline; }
+  void ok() { _gen++; state = Ladder.full; }
 }
 final ladderProvider = StateNotifierProvider<LadderNotifier, Ladder>((ref) => LadderNotifier(ref.read(dbProvider), ref.read(apiProvider)));
 

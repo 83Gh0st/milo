@@ -23,7 +23,7 @@ void main() {
 
   testWidgets('lab poses expressions, fires clips and flips toggles', (t) async {
     final d = Director();
-    await t.pumpWidget(ProviderScope(overrides: [directorProvider.overrideWith((_) => d)], child: const MaterialApp(home: MiloLab())));
+    await t.pumpWidget(ProviderScope(overrides: [directorProvider.overrideWith((_) => d)], child: const MaterialApp(home: Scaffold(body: MiloLab()))));
     await t.pumpAndSettle();
     expect(find.text('sleepy'), findsOneWidget); // all 12 expression chips render
     await t.tap(find.text('sleepy'));

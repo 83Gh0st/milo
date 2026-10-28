@@ -22,15 +22,15 @@ class Pending { final String kind, label; final Map<String, String> data; const 
 /// Lifecycle: propose -> confirm in plain words -> write (one transaction, with a consent_log entry) -> use (whitelist, max 5) -> review -> forget.
 class MemoryManager extends ChangeNotifier {
   MemoryManager(this.db) {
-    db.flag('local.memory_paused').then((v) { paused = v; notifyListeners(); });
+    db.flag('local.memory_paused').then((v) { if (!_pausedSet) { paused = v; notifyListeners(); } });
     db.get('local.memory_last_id').then((v) { if (v != null && v.isNotEmpty) lastId = v; });
   }
   final MiloDb db;
-  bool paused = false;
+  bool paused = false, _pausedSet = false; // an explicit set wins over the racing initial load
   Pending? pending;
   String? lastId;
 
-  Future<void> setPaused(bool v) async { paused = v; await db.putFlag('local.memory_paused', v); notifyListeners(); }
+  Future<void> setPaused(bool v) async { _pausedSet = true; paused = v; await db.putFlag('local.memory_paused', v); notifyListeners(); }
   void _ask(Pending p) { pending = p; notifyListeners(); }
   void dismiss() { pending = null; notifyListeners(); }
 

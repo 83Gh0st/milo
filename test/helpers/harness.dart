@@ -30,7 +30,7 @@ Future<void> pumpAtSizes(WidgetTester t, Widget child, {List<double> scales = co
     for (final s in scales) {
       t.view.physicalSize = Size(e.value.width * 3, e.value.height * 3);
       t.view.devicePixelRatio = 3.0;
-      await t.pumpWidget(MaterialApp(home: Builder(builder: (c) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(s)), child: child))));
+      await t.pumpWidget(MaterialApp(home: Builder(builder: (c) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(s)), child: Scaffold(body: child)))));
       await t.pumpAndSettle();
       check?.call();
       expect(t.takeException(), isNull, reason: '${e.key} @${s}x');
@@ -229,9 +229,11 @@ Future<void> pumpScreen(WidgetTester t, Widget screen, {Size size = const Size(3
   mockConnectivity(t);
   t.view.physicalSize = Size(size.width * 3, size.height * 3);
   t.view.devicePixelRatio = 3.0;
+  // Scaffold mirrors production (MiloScreen always wraps screens): chips,
+  // fields, checkboxes and snackbars need a Material ancestor.
   final scope = container == null
-      ? ProviderScope(overrides: screenOverrides(d ?? Director()), child: MaterialApp(home: Builder(builder: (c) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale), viewInsets: insets), child: screen))))
-      : UncontrolledProviderScope(container: container, child: MaterialApp(home: Builder(builder: (c) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale), viewInsets: insets), child: screen))));
+      ? ProviderScope(overrides: screenOverrides(d ?? Director()), child: MaterialApp(home: Builder(builder: (c) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale), viewInsets: insets), child: Scaffold(body: screen)))))
+      : UncontrolledProviderScope(container: container, child: MaterialApp(home: Builder(builder: (c) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale), viewInsets: insets), child: Scaffold(body: screen)))));
   await t.pumpWidget(scope);
   await t.pump();
   await t.pump(const Duration(milliseconds: 100));

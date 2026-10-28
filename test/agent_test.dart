@@ -132,10 +132,10 @@ void main() {
       addTearDown(c.dispose);
       await pumpScreen(t, const WeeklySummary(), size: const Size(393, 852), container: c);
       await settleAgent(t);
-      expect(find.text('This week'), findsOneWidget);
-      await t.scrollUntilVisible(find.text('All time so far'), 300);
+      expect(find.text('THIS WEEK'), findsOneWidget); // Section headers render upper-cased
+      await t.scrollUntilVisible(find.text('ALL TIME SO FAR'), 300);
       await settleAgent(t);
-      expect(find.text('All time so far'), findsOneWidget);
+      expect(find.text('ALL TIME SO FAR'), findsOneWidget);
       expect(find.text('Mood check-ins', skipOffstage: false), findsNWidgets(2)); // week + all-time
       expect(find.text('Things read', skipOffstage: false), findsNWidgets(2));
       expect(find.textContaining('A quiet week'), findsNothing);

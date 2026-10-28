@@ -32,7 +32,9 @@ Future<void> pumpConn(WidgetTester t, ProviderContainer c, {Size size = const Si
       child: MaterialApp(
           home: Builder(
               builder: (c2) => MediaQuery(
-                  data: MediaQuery.of(c2).copyWith(textScaler: TextScaler.linear(scale)), child: const ProviderKeyScreen())))));
+                  data: MediaQuery.of(c2).copyWith(textScaler: TextScaler.linear(scale)),
+                  // Scaffold mirrors production: fields, checkboxes, switches and dropdowns need Material.
+                  child: const Scaffold(body: ProviderKeyScreen()))))));
   await t.pump();
   await t.pump(const Duration(milliseconds: 100));
   await t.pump(const Duration(milliseconds: 100));

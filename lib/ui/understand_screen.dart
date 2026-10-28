@@ -52,8 +52,13 @@ class _UState extends ConsumerState<UnderstandScreen> {
   void initState() {
     super.initState();
     ref.read(dbProvider).get('local.recent').then((v) { try { if (v != null && v.isNotEmpty) setState(() => recent = [for (final r in jsonDecode(v) as List) {'t': '${r['t']}', 'x': '${r['x']}'}]); } catch (_) {} });
-    ref.read(understandProvider.notifier).start();
-    ref.read(understandProvider.notifier).done();
+    // Deferred: setting notifier state during initState throws ("tried to
+    // modify a provider while the widget tree was building").
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(understandProvider.notifier).start();
+      ref.read(understandProvider.notifier).done();
+    });
     // Brain highlight spans are 1-based word ids (w1 is the first word); the reader list is 0-based.
     ref.read(directorProvider).onHighlight = (span) {
       final n = int.tryParse(span.startsWith('w') ? span.substring(1) : span) ?? -1;

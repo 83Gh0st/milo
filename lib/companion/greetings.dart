@@ -12,7 +12,7 @@ const _pools = <Profile, Map<String, List<String>>>{
       'Hello, sunshine! What shall we discover first?',
       'Hey! I was just thinking about you. Let’s play!',
       'Hi hi! My sprout is extra bouncy today. What’s up?',
-      'Hey there, friend! I missed our chats. What’s new?',
+      'Hey there, friend! I’m happy you’re here. What’s new?',
       'Hello! I dreamed of stories. Want to hear one?',
     ],
     'hi': [
