@@ -33,6 +33,22 @@ def cap_sentence(s: str, cap: int) -> tuple[str, bool]:
     return head.rstrip(",;:") + ".", True
 
 
+_FEEL = {"happy", "sad", "angry", "love", "hate", "scared", "sorry", "worried", "excited"}
+_CONSENT = {"agree", "agrees", "consent", "promise", "allow", "yes"}
+
+
+def no_new_content(strip: list[str], cand: str) -> bool:
+    """Heuristic guard: wording help may rephrase but not add facts, names, numbers, feelings or consent."""
+    src = {w.lower().strip(".,!?") for s in strip for w in s.split()}
+    words = [w.strip(".,!?") for w in cand.split()]
+    if any(any(ch.isdigit() for ch in w) and w not in src for w in words):
+        return False
+    if any(w[:1].isupper() and i > 0 and w.lower() not in src for i, w in enumerate(words)):
+        return False
+    low = {w.lower() for w in words}
+    return not ((low & _FEEL) - src) and not ((low & _CONSENT) - src)
+
+
 class Assembler:
     """Turns parsed (kind, key, value) tuples into validated SSE events. Nothing unvalidated leaves the gateway."""
     BODY = ("emotion", "gesture", "gaze", "pace")

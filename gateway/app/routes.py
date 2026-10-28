@@ -6,7 +6,7 @@ from .db import visual_cache
 from .models import BrainReq, ComposeReq, PlanReq, SessionReq, UnderstandReq, VisualReq
 from .prompts import PRESENTATION, build_messages
 from .providers.base import FAILOVER_CODES, ProviderError, Usage
-from .safety import Assembler, CAPS, cap_sentence, clean, is_crisis
+from .safety import Assembler, CAPS, cap_sentence, clean, is_crisis, no_new_content
 from .security import auth, issue_token, verify_token
 from .providers.registry import resolve_strategy
 from .sync import VaultCtx, vault_ctx
@@ -217,22 +217,6 @@ async def plan(req: PlanReq, request: Request, dev: str = Depends(auth), _b: Non
     if not 3 <= len(steps) <= 6:
         raise HTTPException(502, {"error": "bad_plan"})
     return {"steps": steps}
-
-
-_FEEL = {"happy", "sad", "angry", "love", "hate", "scared", "sorry", "worried", "excited"}
-_CONSENT = {"agree", "agrees", "consent", "promise", "allow", "yes"}
-
-
-def no_new_content(strip: list[str], cand: str) -> bool:
-    """Heuristic guard: wording help may rephrase but not add facts, names, numbers, feelings or consent."""
-    src = {w.lower().strip(".,!?") for s in strip for w in s.split()}
-    words = [w.strip(".,!?") for w in cand.split()]
-    if any(any(ch.isdigit() for ch in w) and w not in src for w in words):
-        return False
-    if any(w[:1].isupper() and i > 0 and w.lower() not in src for i, w in enumerate(words)):
-        return False
-    low = {w.lower() for w in words}
-    return not ((low & _FEEL) - src) and not ((low & _CONSENT) - src)
 
 
 @router.post("/compose")

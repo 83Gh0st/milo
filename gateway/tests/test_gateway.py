@@ -3,9 +3,8 @@ import httpx, pytest
 from starlette.testclient import TestClient
 from conftest import events, mk, token
 from app.config import Settings, validate_runtime
-from app.safety import Assembler, is_crisis
+from app.safety import Assembler, is_crisis, no_new_content
 from app.streaming import JsonStream, LineStream
-from app.routes import no_new_content
 
 BR = {"presentation": "playful", "text": "I don't get it, this is tricky", "activity": "understand"}
 
