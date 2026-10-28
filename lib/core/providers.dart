@@ -71,7 +71,7 @@ class LadderNotifier extends StateNotifier<Ladder> {
   StreamSubscription<List<ConnectivityResult>>? _sub;
   LadderNotifier(this.db, this.api) : super(Ladder.full) {
     refresh();
-    _sub = Connectivity().onConnectivityChanged.listen((_) => refresh());
+    if (Director.messengerOk) { try { _sub = Connectivity().onConnectivityChanged.listen((_) => refresh()); } catch (_) {} }
     _t = Timer.periodic(const Duration(seconds: 90), (_) { if (state != Ladder.full) refresh(); });
   }
   @override

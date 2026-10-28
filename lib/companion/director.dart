@@ -186,6 +186,11 @@ class Director extends ChangeNotifier {
   void _set(CState s) { if (state != s) { state = s; notifyListeners(); } }
   void _cap(String s) { caption = s; notifyListeners(); }
 
+  /// True when platform channels can work. The sensors/connectivity plugins
+  /// throw *asynchronous* binding errors without one, which try/catch cannot
+  /// see (plain unit tests, exotic platforms). Probe instead of catching.
+  static bool get messengerOk { try { ServicesBinding.instance; return true; } catch (_) { return false; } }
+
   Future<void> init() async {
     await voice.platform.init();
     _voiceSub = voice.platform.events.listen((e) {
@@ -196,7 +201,7 @@ class Director extends ChangeNotifier {
     });
     if (!voice.platform.ready) ttsReady = false; // no TTS engine: visual-only level of the offline ladder
     await refreshVoices();
-    try { _accel = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(_onAccel, onError: (_) {}); } catch (_) {}
+    if (messengerOk) { try { _accel = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(_onAccel, onError: (_) {}); } catch (_) {} }
     Timer(const Duration(milliseconds: 900), () { if (emo == 'sleepy') { emote('happy', i: .7, hold: 3); _sfx('wake'); } }); // wake up
     MiloReact.handler = _onReact;
   }
