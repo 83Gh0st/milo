@@ -74,11 +74,16 @@ void main() {
     final container = ProviderContainer(overrides: screenOverrides(d));
     container.read(memoryProvider).proposeLocal('use short words');
     await pumpScreen(t, const MiloScaffold(title: 'chat', kind: 'chat', body: ChatScreen()), size: kMatrixSizes['small']!, scale: 2.0, container: container);
-    expect(find.text('Explain it again'), findsOneWidget);
-    expect(find.text('Say it simpler'), findsOneWidget);
-    expect(find.text('Show a picture'), findsOneWidget);
+    expect(find.byTooltip('Minimise Milo'), findsOneWidget); // dock collapse is always on top
+    // The capped dock scrolls: every control must be reachable by scrolling.
+    for (final c in ['Explain it again', 'Say it simpler', 'Show a picture']) {
+      await t.ensureVisible(find.text(c, skipOffstage: false));
+      await t.pump();
+      expect(find.text(c), findsOneWidget);
+    }
+    await t.ensureVisible(find.textContaining('Want me to remember', skipOffstage: false));
+    await t.pump();
     expect(find.textContaining('Want me to remember'), findsOneWidget);
-    expect(find.byTooltip('Minimise Milo'), findsOneWidget);
     container.dispose();
   });
 

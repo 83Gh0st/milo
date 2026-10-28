@@ -1,9 +1,3 @@
-Run flutter test --reporter expanded 2>&1 | tee flutter_test.log; test ${PIPESTATUS[0]} -eq 0
-  flutter test --reporter expanded 2>&1 | tee flutter_test.log; test ${PIPESTATUS[0]} -eq 0
-  shell: /usr/bin/bash -e {0}
-  env:
-    FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.47.8-x64/flutter
-    PUB_CACHE: /home/runner/.pub-cache
 00:00 +0: loading /home/runner/work/milo/milo/test/voice_test.dart
 00:00 +0: /home/runner/work/milo/milo/test/voice_test.dart: normalize abbreviations, digits, numbers, emoji
 00:00 +1: /home/runner/work/milo/milo/test/voice_test.dart: normalize native digits map to latin, other scripts survive
@@ -25,14 +19,15 @@ Run flutter test --reporter expanded 2>&1 | tee flutter_test.log; test ${PIPESTA
 00:02 +17: /home/runner/work/milo/milo/test/voice_test.dart: director speech aac board speech starts promptly (regression: <200 ms to first audio)
 00:02 +18: /home/runner/work/milo/milo/test/voice_test.dart: director speech voice settings round-trip through persistence
 00:02 +19: loading /home/runner/work/milo/milo/test/connections_test.dart
-00:04 +19: /home/runner/work/milo/milo/test/connections_test.dart: sync off shows the gate, sync on shows the four provider tiles
+00:03 +19: /home/runner/work/milo/milo/test/connections_test.dart: sync off shows the gate, sync on shows the four provider tiles
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
 Expected: exactly one matching candidate
-  Actual: _TextWidgetFinder:<Found 0 widgets with text "Meta (recommended)": []>
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "OpenAI": []>
    Which: means none were found but one was expected
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:66:7)
+#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:68:7)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -40,8 +35,9 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/connections_test.dart line 66
+  file:///home/runner/work/milo/milo/test/connections_test.dart line 68
 The test description was:
   sync off shows the gate, sync on shows the four provider tiles
 ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -51,20 +47,22 @@ The test description was:
   
 00:05 +19 -1: /home/runner/work/milo/milo/test/connections_test.dart: empty vault at 360x640 scale 2.0: everything reachable, save is honest
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following TestFailure was thrown running a test:
-Expected: null
-  Actual: FlutterError:<A RenderFlex overflowed by 33 pixels on the right.>
+The following StateError was thrown running a test:
+Bad state: No element
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:87:5)
+#0      Iterable.single (dart:core/iterable.dart:694:25)
+#1      WidgetController.element (package:flutter_test/src/controller.dart:888:30)
+#2      WidgetController.ensureVisible (package:flutter_test/src/controller.dart:2389:32)
+#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:80:13)
 <asynchronous suspension>
-#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
-#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
-This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/connections_test.dart line 87
+
 The test description was:
   empty vault at 360x640 scale 2.0: everything reachable, save is honest
 ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -77,11 +75,12 @@ The test description was:
 The following assertion was thrown running a test:
 The finder "Found 0 widgets with text "OpenAI": []" (used in a call to "tap()") could not find any
 matching widgets.
+
 When the exception was thrown, this was the stack:
 #0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
 #1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
 #2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
-#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:96:13)
+#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:100:13)
 <asynchronous suspension>
 #4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -89,23 +88,25 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 The test description was:
   ack flow: refusal surfaces the checkbox, ack saves the key
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:07 +19 -3: /home/runner/work/milo/milo/test/connections_test.dart: ack flow: refusal surfaces the checkbox, ack saves the key [E]
+00:06 +19 -3: /home/runner/work/milo/milo/test/connections_test.dart: ack flow: refusal surfaces the checkbox, ack saves the key [E]
   Test failed. See exception logs above.
   The test description was: ack flow: refusal surfaces the checkbox, ack saves the key
   
-00:07 +19 -3: /home/runner/work/milo/milo/test/connections_test.dart: test checklist shows pass and fail honestly; models picker fills the field
+00:06 +19 -3: /home/runner/work/milo/milo/test/connections_test.dart: test checklist shows pass and fail honestly; models picker fills the field
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following assertion was thrown running a test:
 The finder "Found 0 widgets with text "OpenAI": []" (used in a call to "tap()") could not find any
 matching widgets.
+
 When the exception was thrown, this was the stack:
 #0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
 #1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
 #2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
-#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:125:13)
+#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:129:13)
 <asynchronous suspension>
 #4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -113,74 +114,55 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 The test description was:
   test checklist shows pass and fail honestly; models picker fills the field
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:07 +19 -4: /home/runner/work/milo/milo/test/connections_test.dart: test checklist shows pass and fail honestly; models picker fills the field [E]
+00:06 +19 -4: /home/runner/work/milo/milo/test/connections_test.dart: test checklist shows pass and fail honestly; models picker fills the field [E]
   Test failed. See exception logs above.
   The test description was: test checklist shows pass and fail honestly; models picker fills the field
   
-00:07 +19 -4: /home/runner/work/milo/milo/test/connections_test.dart: routes save through to the fake vault; remove disconnects
-Warning: A call to tap() with finder "Found 1 widget with type "DropdownButtonFormField<String>" (ignoring all but first): [
-  DropdownButtonFormField<String>(dependencies: [InheritedCupertinoTheme, UnmanagedRestorationScope, _InheritedTheme, _LocalizationsScope-[GlobalKey#3bf5e]], state: _DropdownButtonFormFieldState<String>#d981a),
-]" derived an Offset (Offset(180.0, -26.3)) that would not hit test on the specified widget.
-Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
-Indeed, Offset(180.0, -26.3) is outside the bounds of the root of the render tree, Size(360.0, 640.0).
-The finder corresponds to this RenderBox: RenderSemanticsAnnotations#953b0 relayoutBoundary=up13
-The hit test result at that offset is: HitTestResult(HitTestEntry<HitTestTarget>#d61e8(_ReusableRenderView#7f402), HitTestEntry<HitTestTarget>#73645(<AutomatedTestWidgetsFlutterBinding>))
-#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
-#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
-#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
-#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:154:13)
-<asynchronous suspension>
-#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
-<asynchronous suspension>
-#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
-<asynchronous suspension>
-To silence this warning, pass "warnIfMissed: false" to "tap()".
-To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+00:06 +19 -4: /home/runner/work/milo/milo/test/connections_test.dart: routes save through to the fake vault; remove disconnects
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following StateError was thrown running a test:
 Bad state: No element
+
 When the exception was thrown, this was the stack:
-#0      Iterable.last (dart:core/iterable.dart:679:7)
-#1      _LastFinderMixin.filter (package:flutter_test/src/finders.dart:1410:28)
-#3      _AncestorFinderMixin.allCandidates (package:flutter_test/src/finders.dart:1857:49)
-#4      FinderBase.evaluate (package:flutter_test/src/finders.dart:1030:76)
-#5      WidgetController.widgetList (package:flutter_test/src/controller.dart:848:19)
-#6      WidgetController._maybeViewOf (package:flutter_test/src/controller.dart:795:34)
-#7      WidgetController.tap (package:flutter_test/src/controller.dart:1078:31)
-#8      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:156:13)
+#0      Iterable.first (dart:core/iterable.dart:663:7)
+#1      _FirstFinderMixin.filter (package:flutter_test/src/finders.dart:1383:28)
+#3      Iterable.single (dart:core/iterable.dart:694:13)
+#4      WidgetController.element (package:flutter_test/src/controller.dart:888:30)
+#5      WidgetController.ensureVisible (package:flutter_test/src/controller.dart:2389:32)
+#6      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:157:13)
 <asynchronous suspension>
-#9      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
-#10     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+#8      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
 <asynchronous suspension>
 <asynchronous suspension>
 (elided 2 frames from dart:async-patch and package:stack_trace)
+
 The test description was:
   routes save through to the fake vault; remove disconnects
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:08 +19 -5: /home/runner/work/milo/milo/test/connections_test.dart: routes save through to the fake vault; remove disconnects [E]
+00:07 +19 -5: /home/runner/work/milo/milo/test/connections_test.dart: routes save through to the fake vault; remove disconnects [E]
   Test failed. See exception logs above.
   The test description was: routes save through to the fake vault; remove disconnects
   
-00:08 +19 -5: loading /home/runner/work/milo/milo/test/regression_test.dart
-00:08 +19 -5: /home/runner/work/milo/milo/test/regression_test.dart: contract keeps highlight/show_image/set_timer and drops bad ones
-00:08 +20 -5: /home/runner/work/milo/milo/test/regression_test.dart: offline preference and a11y toggles round-trip through settings
-00:08 +21 -5: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain timeout message exists and memory is not "coming next"
-00:08 +22 -5: /home/runner/work/milo/milo/test/regression_test.dart: sync banner mapping never leaks content
-00:08 +23 -5: /home/runner/work/milo/milo/test/regression_test.dart: untouched idle drifts drowsy and wakes on activity
-00:08 +24 -5: /home/runner/work/milo/milo/test/regression_test.dart: voice ranking prefers saved choice, then language, then warm fallback
-00:08 +25 -5: /home/runner/work/milo/milo/test/regression_test.dart: delivery tone fits the feeling, never excited by default
-00:08 +26 -5: /home/runner/work/milo/milo/test/regression_test.dart: TTS voice choice round-trips through settings
-00:08 +27 -5: /home/runner/work/milo/milo/test/regression_test.dart: mic amplitude is 0 for silence and rises with signal
-00:08 +28 -5: /home/runner/work/milo/milo/test/regression_test.dart: learn-words JSON validation keeps good entries and drops the rest
-00:08 +29 -5: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chips sent exactly; removal drops from the very next request
-00:08 +30 -5: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chip text truncates at 3000, message at 800
-00:08 +31 -5: /home/runner/work/milo/milo/test/regression_test.dart: scan settings round-trip through settings
+00:07 +19 -5: loading /home/runner/work/milo/milo/test/regression_test.dart
+00:07 +19 -5: /home/runner/work/milo/milo/test/regression_test.dart: contract keeps highlight/show_image/set_timer and drops bad ones
+00:07 +20 -5: /home/runner/work/milo/milo/test/regression_test.dart: offline preference and a11y toggles round-trip through settings
+00:07 +21 -5: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain timeout message exists and memory is not "coming next"
+00:07 +22 -5: /home/runner/work/milo/milo/test/regression_test.dart: sync banner mapping never leaks content
+00:07 +23 -5: /home/runner/work/milo/milo/test/regression_test.dart: untouched idle drifts drowsy and wakes on activity
+00:07 +24 -5: /home/runner/work/milo/milo/test/regression_test.dart: voice ranking prefers saved choice, then language, then warm fallback
+00:07 +25 -5: /home/runner/work/milo/milo/test/regression_test.dart: delivery tone fits the feeling, never excited by default
+00:07 +26 -5: /home/runner/work/milo/milo/test/regression_test.dart: TTS voice choice round-trips through settings
+00:07 +27 -5: /home/runner/work/milo/milo/test/regression_test.dart: mic amplitude is 0 for silence and rises with signal
+00:07 +28 -5: /home/runner/work/milo/milo/test/regression_test.dart: learn-words JSON validation keeps good entries and drops the rest
+00:07 +29 -5: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chips sent exactly; removal drops from the very next request
+00:07 +30 -5: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chip text truncates at 3000, message at 800
+00:07 +31 -5: /home/runner/work/milo/milo/test/regression_test.dart: scan settings round-trip through settings
 00:08 +32 -5: /home/runner/work/milo/milo/test/regression_test.dart: memory pause blocks writes, resume restores (plan 7.10) paused: proposals discarded, request context empty
 00:08 +33 -5: loading /home/runner/work/milo/milo/test/v2_test.dart
 00:09 +33 -5: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule no valence>=0 face has inner brow ends lower than outer ends
@@ -201,63 +183,92 @@ The test description was:
 00:09 +48 -5: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder ladder choices route locally; contract gestures all exist as clips
 00:09 +49 -5: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder settings round-trip the new fields
 00:09 +50 -5: loading /home/runner/work/milo/milo/test/ledger_test.dart
-00:10 +50 -5: /home/runner/work/milo/milo/test/ledger_test.dart: 100 mixed cloud calls write exactly 100 ledger entries
-00:10 +51 -5: /home/runner/work/milo/milo/test/ledger_test.dart: mid-stream cut: partial finishes, pocket explains, ladder rests
-00:13 +52 -5: loading /home/runner/work/milo/milo/test/lab_test.dart
-00:13 +52 -5: /home/runner/work/milo/milo/test/lab_test.dart: connection words are honest for every outcome
+00:09 +50 -5: /home/runner/work/milo/milo/test/ledger_test.dart: 100 mixed cloud calls write exactly 100 ledger entries
+00:09 +51 -5: /home/runner/work/milo/milo/test/ledger_test.dart: mid-stream cut: partial finishes, pocket explains, ladder rests
+00:12 +52 -5: loading /home/runner/work/milo/milo/test/lab_test.dart
+00:12 +52 -5: /home/runner/work/milo/milo/test/lab_test.dart: connection words are honest for every outcome
 00:13 +53 -5: /home/runner/work/milo/milo/test/lab_test.dart: lab poses expressions, fires clips and flips toggles
-00:16 +54 -5: /home/runner/work/milo/milo/test/lab_test.dart: connection row shows canned health and server address
-00:16 +55 -5: /home/runner/work/milo/milo/test/lab_test.dart: lab renders at harness sizes without overflow
-00:16 +56 -5: loading /home/runner/work/milo/milo/test/contract_test.dart
-00:17 +56 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools accepts the three closed tools with clean args
-00:17 +57 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools drops invented tools and malformed args
-00:17 +58 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools steps are cleaned, truncated, and capped
-00:17 +59 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools kActions mirrors the contract file
-00:17 +60 -5: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks batch turn fires read_aloud, steps, lookup
-00:17 +61 -5: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks streamed ui events fire the same callbacks
-00:17 +62 -5: loading /home/runner/work/milo/milo/test/agent_test.dart
-00:18 +62 -5: /home/runner/work/milo/milo/test/agent_test.dart: agent steps card checks steps off and saves to Do on confirmation
-00:20 +63 -5: /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable"
-00:20 +63 -5: /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable"
-10:20 +63 -6: /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable" [E]
-  TimeoutException after 0:10:00.000000: Test timed out after 10 minutes.
-  dart:isolate  _RawReceivePort._handleMessage
-  
-10:20 +63 -6: /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer
+00:14 +54 -5: /home/runner/work/milo/milo/test/lab_test.dart: connection row shows canned health and server address
+00:14 +55 -5: /home/runner/work/milo/milo/test/lab_test.dart: lab renders at harness sizes without overflow
+00:15 +56 -5: loading /home/runner/work/milo/milo/test/contract_test.dart
+00:16 +56 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools accepts the three closed tools with clean args
+00:16 +57 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools drops invented tools and malformed args
+00:16 +58 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools steps are cleaned, truncated, and capped
+00:16 +59 -5: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools kActions mirrors the contract file
+00:16 +60 -5: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks batch turn fires read_aloud, steps, lookup
+00:16 +61 -5: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks streamed ui events fire the same callbacks
+00:16 +62 -5: loading /home/runner/work/milo/milo/test/agent_test.dart
+00:17 +62 -5: /home/runner/work/milo/milo/test/agent_test.dart: agent steps card checks steps off and saves to Do on confirmation
+00:18 +63 -5: /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable"
+00:18 +64 -5: /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer
+Pending timers:
+Timer (duration: 0:00:00.924000, periodic: false), created:
+#0      new FakeTimer._ (package:fake_async/fake_async.dart:342:62)
+#1      FakeAsync._createTimer (package:fake_async/fake_async.dart:260:29)
+#2      FakeAsync.run.<anonymous closure> (package:fake_async/fake_async.dart:185:15)
+#6      Director.speak (package:milo/companion/director.dart:649:52)
+<asynchronous suspension>
+(elided 3 frames from dart:async)
+
+Timer (duration: 0:00:00.450000, periodic: false), created:
+#0      new FakeTimer._ (package:fake_async/fake_async.dart:342:62)
+#1      FakeAsync._createTimer (package:fake_async/fake_async.dart:260:29)
+#2      FakeAsync.run.<anonymous closure> (package:fake_async/fake_async.dart:185:15)
+#6      Director._est (package:milo/companion/director.dart:605:12)
+#7      Director.speak.<anonymous closure> (package:milo/companion/director.dart:635:61)
+#18     FakeTimer._fire (package:fake_async/fake_async.dart:364:13)
+#19     FakeAsync._fireTimersWhile (package:fake_async/fake_async.dart:247:13)
+#20     FakeAsync.elapse (package:fake_async/fake_async.dart:141:5)
+#21     AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:2254:28)
+#24     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#25     AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:2250:27)
+#26     WidgetTester.pump.<anonymous closure> (package:flutter_test/src/widget_tester.dart:652:53)
+#29     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#30     WidgetTester.pump (package:flutter_test/src/widget_tester.dart:652:27)
+#31     settleAgent (file:///home/runner/work/milo/milo/test/agent_test.dart:37:13)
+<asynchronous suspension>
+#32     main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:91:7)
+<asynchronous suspension>
+#33     testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#34     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 18 frames from dart:async and package:stack_trace)
+
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following TestFailure was thrown running a test:
-Expected: null
-  Actual: FlutterError:<A RenderFlex overflowed by 102 pixels on the bottom.>
+The following assertion was thrown running a test:
+A Timer is still pending even after the widget tree was disposed.
+'package:flutter_test/src/binding.dart':
+Failed assertion: line 2543 pos 12: '!timersPending'
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:90:7)
-<asynchronous suspension>
-#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+#2      AutomatedTestWidgetsFlutterBinding._verifyInvariants (package:flutter_test/src/binding.dart:2543:12)
+#3      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1974:7)
 <asynchronous suspension>
 <asynchronous suspension>
-(elided one frame from package:stack_trace)
-This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/agent_test.dart line 90
+(elided 3 frames from class _AssertionError and package:stack_trace)
+
 The test description was:
   off by default; opt-in records one count, never the answer
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:20 +63 -7: /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer [E]
+00:19 +64 -6: /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer [E]
   Test failed. See exception logs above.
   The test description was: off by default; opt-in records one count, never the answer
   
-10:20 +63 -7: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) any tap picks the highlighted tile
-10:21 +64 -7: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval
+00:19 +64 -6: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) any tap picks the highlighted tile
+00:19 +65 -6: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval
+
 Warning: A call to tap() with finder "Found 1 widget with text "Food": [
   Text("Food", inherit: true, size: 16.0, weight: 700, textAlign: center, dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
 ]" derived an Offset (Offset(166.0, 574.9)) that would not hit test on the specified widget.
 Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
-The finder corresponds to this RenderBox: RenderParagraph#895fa relayoutBoundary=up3
-The hit test result at that offset is: HitTestResult(_RenderInkFeatures#13bef@Offset(166.0, 574.9), RenderPhysicalModel#4da2a@Offset(166.0, 574.9), RenderCustomMultiChildLayoutBox#fb918@Offset(166.0, 574.9), _RenderInkFeatures#5e41e@Offset(166.0, 574.9), RenderPhysicalModel#a5d81@Offset(166.0, 574.9), RenderSemanticsAnnotations#4b1d5@Offset(166.0, 574.9), RenderRepaintBoundary#e312c@Offset(166.0, 574.9), RenderIgnorePointer#6bd59@Offset(166.0, 574.9), RenderAnimatedOpacity#82ba3@Offset(166.0, 574.9), RenderAnimatedOpacity#096b6@Offset(166.0, 574.9), _RenderColoredBox#da0b3@Offset(166.0, 574.9), RenderAnimatedOpacity#024df@Offset(166.0, 574.9), RenderIgnorePointer#a2b4c@Offset(166.0, 574.9), RenderAnimatedOpacity#fa9be@Offset(166.0, 574.9), RenderRepaintBoundary#3d3cb@Offset(166.0, 574.9), RenderSemanticsAnnotations#91e8b@Offset(166.0, 574.9), RenderOffstage#e0b57@Offset(166.0, 574.9), RenderSemanticsAnnotations#39fc4@Offset(166.0, 574.9), _RenderTheater#5b296@Offset(166.0, 574.9), RenderAbsorbPointer#1a9e3@Of
+The finder corresponds to this RenderBox: RenderParagraph#c0456 relayoutBoundary=up3
+The hit test result at that offset is: HitTestResult(_RenderInkFeatures#0c71e@Offset(166.0, 574.9), RenderPhysicalModel#398a9@Offset(166.0, 574.9), RenderCustomMultiChildLayoutBox#c898e@Offset(166.0, 574.9), _RenderInkFeatures#0b52a@Offset(166.0, 574.9), RenderPhysicalModel#ba00f@Offset(166.0, 574.9), RenderSemanticsAnnotations#6f8e6@Offset(166.0, 574.9), RenderRepaintBoundary#1db30@Offset(166.0, 574.9), RenderIgnorePointer#705a2@Offset(166.0, 574.9), RenderAnimatedOpacity#a3ea4@Offset(166.0, 574.9), RenderAnimatedOpacity#978b8@Offset(166.0, 574.9), _RenderColoredBox#8ebdd@Offset(166.0, 574.9), RenderAnimatedOpacity#dd419@Offset(166.0, 574.9), RenderIgnorePointer#c0cd2@Offset(166.0, 574.9), RenderAnimatedOpacity#67598@Offset(166.0, 574.9), RenderRepaintBoundary#20b29@Offset(166.0, 574.9), RenderSemanticsAnnotations#8c076@Offset(166.0, 574.9), RenderOffstage#7c788@Offset(166.0, 574.9), RenderSemanticsAnnotations#025c4@Offset(166.0, 574.9), _RenderTheater#c25c3@Offset(166.0, 574.9), RenderAbsorbPointer#7b443@Offset(166.0, 574.9), RenderPointerListener#77e45@Offset(166.0, 574.9), RenderSemanticsAnnotations#968f7@Offset(166.0, 574.9), RenderCustomPaint#2cb65@Offset(166.0, 574.9), RenderSemanticsAnnotations#85989@Offset(166.0, 574.9), RenderSemanticsAnnotations#302b0@Offset(166.0, 574.9), RenderSemanticsAnnotations#98bf2@Offset(166.0, 574.9), RenderTapRegionSurface#cea7b@Offset(166.0, 574.9), RenderSemanticsAnnotations#c9106@Offset(166.0, 574.9), RenderSemanticsAnnotations#e6112@Offset(166.0, 574.9), HitTestEntry<HitTestTarget>#8cf38(_ReusableRenderView#ce1fe), HitTestEntry<HitTestTarget>#8b8fb(<AutomatedTestWidgetsFlutterBinding>))
 #0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
 #1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
 #2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
-#3      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:119:15)
+#3      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:123:15)
 <asynchronous suspension>
 #4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -267,6 +278,7 @@ The hit test result at that offset is: HitTestResult(_RenderInkFeatures#13bef@Of
 <asynchronous suspension>
 To silence this warning, pass "warnIfMissed: false" to "tap()".
 To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
 Expected: exactly 2 matching candidates
@@ -275,8 +287,9 @@ Expected: exactly 2 matching candidates
 [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
           ]>
    Which: is not enough
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:121:7)
+#4      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:125:7)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -284,26 +297,28 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/agent_test.dart line 121
+  file:///home/runner/work/milo/milo/test/agent_test.dart line 125
 The test description was:
   highlight auto-advances on the interval
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:21 +64 -8: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval [E]
+00:20 +65 -7: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval [E]
   Test failed. See exception logs above.
   The test description was: highlight auto-advances on the interval
   
-10:21 +64 -8: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) two periods, counts only, check-ins gated by opt-in
-10:22 +65 -8: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) quiet week says so gently, no loss language
-10:22 +66 -8: /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word
+00:20 +65 -7: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) two periods, counts only, check-ins gated by opt-in
+00:20 +66 -7: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) quiet week says so gently, no loss language
+00:20 +67 -7: /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
 Expected: null
   Actual: FlutterError:<A RenderFlex overflowed by 11 pixels on the right.>
+
 When the exception was thrown, this was the stack:
 #4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:242:3)
 <asynchronous suspension>
-#5      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:162:7)
+#5      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:166:7)
 <asynchronous suspension>
 #6      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -311,25 +326,27 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
   file:///home/runner/work/milo/milo/test/helpers/harness.dart line 242
 The test description was:
   prefills the Understand reader with the looked-up word
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:22 +66 -9: /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word [E]
+00:21 +67 -8: /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word [E]
   Test failed. See exception logs above.
   The test description was: prefills the Understand reader with the looked-up word
   
-10:22 +66 -9: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) platform text lands in the provider
-10:22 +67 -9: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once
+00:21 +67 -8: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) platform text lands in the provider
+00:21 +68 -8: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
 Expected: null
   Actual: FlutterError:<A RenderFlex overflowed by 11 pixels on the right.>
+
 When the exception was thrown, this was the stack:
 #4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:242:3)
 <asynchronous suspension>
-#5      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:185:7)
+#5      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/agent_test.dart:193:7)
 <asynchronous suspension>
 #6      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -337,27 +354,29 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
   file:///home/runner/work/milo/milo/test/helpers/harness.dart line 242
 The test description was:
   shared text prefills the Understand reader once
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:22 +67 -10: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once [E]
+00:21 +68 -9: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once [E]
   Test failed. See exception logs above.
   The test description was: shared text prefills the Understand reader once
   
-10:22 +67 -10: loading /home/runner/work/milo/milo/test/layout_test.dart
-10:23 +67 -10: /home/runner/work/milo/milo/test/layout_test.dart: tabs: no overflow across sizes, scales and hands
+00:21 +68 -9: loading /home/runner/work/milo/milo/test/layout_test.dart
+00:22 +68 -9: /home/runner/work/milo/milo/test/layout_test.dart: tabs: no overflow across sizes, scales and hands
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
 Expected: null
-  Actual: FlutterError:<A RenderFlex overflowed by 95 pixels on the right.>
+  Actual: FlutterError:<A RenderFlex overflowed by 84 pixels on the bottom.>
+
 When the exception was thrown, this was the stack:
 #4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:242:3)
 <asynchronous suspension>
-#5      _pumpCrowded (file:///home/runner/work/milo/milo/test/layout_test.dart:36:3)
+#5      _pumpCrowded (file:///home/runner/work/milo/milo/test/layout_test.dart:37:3)
 <asynchronous suspension>
-#6      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:48:13)
+#6      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:49:13)
 <asynchronous suspension>
 #7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -365,26 +384,28 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
   file:///home/runner/work/milo/milo/test/helpers/harness.dart line 242
 The test description was:
   tabs: no overflow across sizes, scales and hands
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:26 +67 -11: /home/runner/work/milo/milo/test/layout_test.dart: tabs: no overflow across sizes, scales and hands [E]
+00:23 +68 -10: /home/runner/work/milo/milo/test/layout_test.dart: tabs: no overflow across sizes, scales and hands [E]
   Test failed. See exception logs above.
   The test description was: tabs: no overflow across sizes, scales and hands
   
-10:26 +67 -11: /home/runner/work/milo/milo/test/layout_test.dart: pushed screens: no overflow
+00:23 +68 -10: /home/runner/work/milo/milo/test/layout_test.dart: pushed screens: no overflow
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
 Expected: null
-  Actual: FlutterError:<A RenderFlex overflowed by 34 pixels on the bottom.>
+  Actual: FlutterError:<A RenderFlex overflowed by 84 pixels on the bottom.>
+
 When the exception was thrown, this was the stack:
 #4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:242:3)
 <asynchronous suspension>
-#5      _pumpCrowded (file:///home/runner/work/milo/milo/test/layout_test.dart:36:3)
+#5      _pumpCrowded (file:///home/runner/work/milo/milo/test/layout_test.dart:37:3)
 <asynchronous suspension>
-#6      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:62:11)
+#6      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:63:11)
 <asynchronous suspension>
 #7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -392,71 +413,107 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
   file:///home/runner/work/milo/milo/test/helpers/harness.dart line 242
 The test description was:
   pushed screens: no overflow
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:28 +67 -12: /home/runner/work/milo/milo/test/layout_test.dart: pushed screens: no overflow [E]
+00:24 +68 -11: /home/runner/work/milo/milo/test/layout_test.dart: pushed screens: no overflow [E]
   Test failed. See exception logs above.
   The test description was: pushed screens: no overflow
   
-10:28 +67 -12: /home/runner/work/milo/milo/test/layout_test.dart: crowded small screen: every dock control is present
+00:24 +68 -11: /home/runner/work/milo/milo/test/layout_test.dart: crowded small screen: every dock control is present
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
-Expected: exactly one matching candidate
-  Actual: _TextWidgetFinder:<Found 0 widgets with text "Explain it again": []>
-   Which: means none were found but one was expected
+Expected: null
+  Actual: FlutterError:<A RenderFlex overflowed by 850 pixels on the bottom.>
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:76:5)
+#4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:242:3)
 <asynchronous suspension>
-#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+#5      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:76:5)
 <asynchronous suspension>
-#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+#6      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#7      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/layout_test.dart line 76
+  file:///home/runner/work/milo/milo/test/helpers/harness.dart line 242
 The test description was:
   crowded small screen: every dock control is present
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:28 +67 -13: /home/runner/work/milo/milo/test/layout_test.dart: crowded small screen: every dock control is present [E]
+00:24 +68 -12: /home/runner/work/milo/milo/test/layout_test.dart: crowded small screen: every dock control is present [E]
   Test failed. See exception logs above.
   The test description was: crowded small screen: every dock control is present
   
-10:28 +67 -13: /home/runner/work/milo/milo/test/layout_test.dart: dock and rail never cover the header
+00:24 +68 -12: /home/runner/work/milo/milo/test/layout_test.dart: dock and rail never cover the header
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following assertion was thrown running a test:
-The finder "Found 0 widgets with type "CompanionDock": []" (used in a call to "getTopLeft()") could
-not find any matching widgets.
+The following TestFailure was thrown running a test:
+Expected: null
+  Actual: FlutterError:<A RenderFlex overflowed by 84 pixels on the bottom.>
+
 When the exception was thrown, this was the stack:
-#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
-#1      WidgetController.getTopLeft (package:flutter_test/src/controller.dart:1963:12)
-#2      WidgetController.getRect (package:flutter_test/src/controller.dart:2347:23)
-#3      expectNoOverlap (file:///home/runner/work/milo/milo/test/helpers/harness.dart:45:34)
-#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:87:5)
+#4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:242:3)
 <asynchronous suspension>
-#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+#5      _pumpCrowded (file:///home/runner/work/milo/milo/test/layout_test.dart:37:3)
 <asynchronous suspension>
-#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+#6      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:87:5)
+<asynchronous suspension>
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#8      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/milo/milo/test/helpers/harness.dart line 242
 The test description was:
   dock and rail never cover the header
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-10:28 +67 -14: /home/runner/work/milo/milo/test/layout_test.dart: dock and rail never cover the header [E]
+00:25 +68 -13: /home/runner/work/milo/milo/test/layout_test.dart: dock and rail never cover the header [E]
   Test failed. See exception logs above.
   The test description was: dock and rail never cover the header
   
-10:28 +67 -14: /home/runner/work/milo/milo/test/layout_test.dart: tap targets meet guidelines
-10:29 +68 -14: /home/runner/work/milo/milo/test/layout_test.dart: keyboard peeks the dock
-10:29 +69 -14: Some tests failed.
+00:25 +68 -13: /home/runner/work/milo/milo/test/layout_test.dart: tap targets meet guidelines
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: null
+  Actual: FlutterError:<A RenderFlex overflowed by 84 pixels on the bottom.>
+
+When the exception was thrown, this was the stack:
+#4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:242:3)
+<asynchronous suspension>
+#5      _pumpCrowded (file:///home/runner/work/milo/milo/test/layout_test.dart:37:3)
+<asynchronous suspension>
+#6      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/layout_test.dart:97:5)
+<asynchronous suspension>
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#8      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/milo/milo/test/helpers/harness.dart line 242
+The test description was:
+  tap targets meet guidelines
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:25 +68 -14: /home/runner/work/milo/milo/test/layout_test.dart: tap targets meet guidelines [E]
+  Test failed. See exception logs above.
+  The test description was: tap targets meet guidelines
+  
+00:25 +68 -14: /home/runner/work/milo/milo/test/layout_test.dart: keyboard peeks the dock
+00:25 +69 -14: Some tests failed.
+
 Failing tests:
-  /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable"
   /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer
   /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word
   /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once
+  /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval
   ... and 10 more
-Error: Process completed with exit code 1.
