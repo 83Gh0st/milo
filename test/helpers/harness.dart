@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/companion/director.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/contracts/events.dart';
+import 'package:milo/core/payload.dart';
 import 'package:milo/data/secure_store.dart';
 import 'package:milo/net/api.dart';
 import 'package:milo/sync/sync_service.dart';
@@ -142,6 +143,7 @@ class FakeApi extends MiloApi {
   bool blindError = false; // when true, the "model" cannot see pictures
   @override
   Stream<BrainEvent> understand(Map<String, dynamic> body) async* {
+    await _ledg('/v1/understand', 'understand', summarizeBody(body));
     if (blindError) {
       yield const BrainEvent('error', {'code': 'unsupported_capability'});
       return;
@@ -154,9 +156,45 @@ class FakeApi extends MiloApi {
   Future<SpokenSentence> speakOnline(
       {required String text, required String lang, required String profile, double pace = 1, Map<String, String> style = const {}, String sentenceId = '', CancelToken? cancelToken}) async {
     speakCalls++;
+    await _ledg('/v1/speak', 'voice', 'one Milo sentence to speak aloud (${text.length} characters)');
     await Future.delayed(speakDelay);
     if (failSpeak) throw ApiError('offline');
     return SpokenSentence(speakEngine, [0.0, 0.5, 1.0, 0.5, 0.0], Uint8List(4800), 100, sentenceId);
+  }
+
+  // ---- Plan 7.10 ledger fake: every fake cloud call writes one metadata-only
+  // entry first, mirroring MiloApi._ledger (gates off: fakes never throw
+  // CloudDisabled, so existing tests keep their meaning).
+  Future<void> _ledg(String endpoint, String kind, String summary) =>
+      db.ledger(endpoint, kind, summary, summary.length, false, false);
+  bool cutStream = false; // when true, brainTurn yields one say then a transport error
+  @override
+  Stream<BrainEvent> brainTurn(Map<String, dynamic> body) async* {
+    await _ledg('/v1/brain/turn', 'brain', summarizeBody(body));
+    yield const BrainEvent('say', {'text': 'Fake partial.'});
+    if (cutStream) {
+      yield const BrainEvent('error', {'code': 'timeout'});
+      return;
+    }
+    yield const BrainEvent('done', {'followup': 'none'});
+  }
+
+  @override
+  Future<List<Map<String, String>>> plan(String goal, String presentation, String lang) async {
+    await _ledg('/v1/plan', 'plan', 'your task goal');
+    return [{'emoji': '✅', 'text': 'Fake step'}];
+  }
+
+  @override
+  Future<List<String>> compose(List<String> strip, String presentation, String lang) async {
+    await _ledg('/v1/compose', 'compose', 'the words you picked');
+    return ['Fake wording'];
+  }
+
+  @override
+  Future<Uint8List> visual(String concept) async {
+    await _ledg('/v1/visual', 'picture', 'one picture word');
+    return Uint8List(8);
   }
 }
 
