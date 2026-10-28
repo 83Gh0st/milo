@@ -24,7 +24,7 @@ class _BreakState extends ConsumerState<BreakTimeScreen> {
   void dispose() { t?.cancel(); final d = ref.read(directorProvider); WidgetsBinding.instance.addPostFrameCallback((_) => d.setBreathing(false)); super.dispose(); }
   @override
   Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFFE6E4FA), body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
-    const Spacer(), const SizedBox(height: 280, child: MiloView()),
+    const Spacer(), const MiloStage(),
     const Text('Take your time.', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)), const Text('I’m right here.', style: TextStyle(color: T.mute, fontSize: 16)), const SizedBox(height: 18),
     Container(padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Text('${left ~/ 60}:${(left % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800))),
     const Spacer(),
@@ -59,9 +59,9 @@ class CheckInScreen extends ConsumerWidget {
     final d = ref.read(directorProvider);
     final faces = [(Icons.sentiment_very_satisfied, T.mint, 'happy'), (Icons.sentiment_satisfied, const Color(0xFF8AD66F), 'happy'), (Icons.sentiment_neutral, T.amber, 'calm'), (Icons.sentiment_dissatisfied, const Color(0xFFFF9F6B), 'concerned'), (Icons.sentiment_very_dissatisfied, T.coral, 'concerned')];
     return MiloScreen(title: 'Check in', body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
-      const SizedBox(height: 200, child: MiloView()),
+      const MiloStage(),
       const Text('How are you feeling?', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), const Text('You can skip this any time.', style: TextStyle(color: T.mute)), const SizedBox(height: 18),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [for (final f in faces) IconButton(iconSize: 48, color: f.$2, icon: Icon(f.$1), onPressed: () { d.emote(f.$3, i: .7, hold: 4, force: true); if (f.$3 == 'concerned') { d.perform(const BrainTurn(emotion: 'concerned', say: ['Thank you for telling me.', 'Would a little break help?'], followup: 'wait')); d.set(() => d.choices = ['Take a break', 'Keep going']); } else { d.speak('Thanks for telling me.'); } })]),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [for (final f in faces) IconButton(iconSize: 48, color: f.$2, icon: Icon(f.$1), onPressed: () { ref.read(dbProvider).progress('checkin'); d.emote(f.$3, i: .7, hold: 4, force: true); // counts only: answers are never stored if (f.$3 == 'concerned') { d.perform(const BrainTurn(emotion: 'concerned', say: ['Thank you for telling me.', 'Would a little break help?'], followup: 'wait')); d.set(() => d.choices = ['Take a break', 'Keep going']); } else { d.speak('Thanks for telling me.'); } })]),
       TextButton(onPressed: () => d.speak('That is okay.'), child: const Text('Not sure')), const Spacer(),
       BigButton('I need a break', () { Navigator.pop(context); openScreen('break'); }, kind: BK.soft), const SizedBox(height: 10),
       BigButton('Keep going', () => Navigator.pop(context)), const SizedBox(height: 10), BigButton('Skip', () => Navigator.pop(context), kind: BK.outline),

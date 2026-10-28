@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
-import '../companion/milo_view.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import 'pin.dart';
+import 'screen.dart';
 import 'theme.dart';
 
 /// Wireframes 1.1 to 1.10. Under 90 seconds, no reading required, every step skippable, works in airplane mode.
@@ -56,18 +56,18 @@ class _OState extends ConsumerState<Onboarding> {
   Widget build(BuildContext context) {
     final d = ref.watch(directorProvider);
     return Scaffold(backgroundColor: i == 0 || i == 9 ? const Color(0xFFE9EDFF) : T.bg, body: SafeArea(child: PageView(controller: pc, physics: const NeverScrollableScrollPhysics(), onPageChanged: (v) => setState(() => i = v), children: [
-      _page('', [const SizedBox(height: 330, child: MiloView()), const Center(child: Text('Hi! I’m Milo.', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800))), const Center(child: Text('Your AI companion.\nLet’s get to know each other.', textAlign: TextAlign.center, style: TextStyle(color: T.mute, fontSize: 16)))], say: 'Hi! I’m Milo. Your AI companion.', next: 'Get started'),
+      _page('', [const MiloStage(), const Center(child: Text('Hi! I’m Milo.', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800))), const Center(child: Text('Your AI companion.\nLet’s get to know each other.', textAlign: TextAlign.center, style: TextStyle(color: T.mute, fontSize: 16)))], say: 'Hi! I’m Milo. Your AI companion.', next: 'Get started'),
       _page('Choose your language', [for (final e in kLangNames.entries.take(5)) _row(e.value, 'Speech and text', lang == e.key, () => setState(() { lang = e.key; d.set(() => d.lang = e.key); }), icon: Icons.language)], say: 'Which language would you like?'),
-      _page('Who is using Milo?', [const SizedBox(height: 110, child: MiloView()), Row(children: [Expanded(child: AspectRatio(aspectRatio: .95, child: PastelTile(icon: Icons.person_outline, label: 'Me', color: 0, selected: who == 'self', speaker: true, onTap: () => setState(() => who = 'self')))), const SizedBox(width: 12),
+      _page('Who is using Milo?', [const MiloStage(), Row(children: [Expanded(child: AspectRatio(aspectRatio: .95), child: PastelTile(icon: Icons.person_outline, label: 'Me', color: 0, selected: who == 'self', speaker: true, onTap: () => setState(() => who = 'self')))), const SizedBox(width: 12),
         Expanded(child: AspectRatio(aspectRatio: .95, child: PastelTile(icon: Icons.favorite, label: 'A child I support', color: 1, selected: who == 'child', speaker: true, onTap: () async { setState(() => who = 'child'); final p = await Pin.ask(context, 'Create a 4-digit PIN'); if (p != null && p.length == 4) await Pin.set(ref.read(storeProvider), p); })))]),
         const Padding(padding: EdgeInsets.all(14), child: Text('This only sets up Milo.\nIt is never an age check.', textAlign: TextAlign.center, style: TextStyle(color: T.mute)))], say: 'Who is using Milo?'),
-      _page('Read to you?', [const SizedBox(height: 120, child: MiloView()), const Speech('Shall I read everything aloud for you?'), const SizedBox(height: 14),
+      _page('Read to you?', [const MiloStage(), const Speech('Shall I read everything aloud for you?'), const SizedBox(height: 14),
         Row(children: [Expanded(child: AspectRatio(aspectRatio: 1, child: PastelTile(icon: Icons.hearing, label: 'Yes, read to me', color: 3, selected: readAloud, speaker: true, onTap: () => setState(() => readAloud = true)))), const SizedBox(width: 12), Expanded(child: AspectRatio(aspectRatio: 1, child: PastelTile(icon: Icons.menu_book_outlined, label: 'I can read', color: 0, selected: !readAloud, speaker: true, onTap: () => setState(() => readAloud = false))))])], say: 'Shall I read everything aloud for you?'),
       _page('How do you like to talk?', [GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 12, crossAxisSpacing: 12, children: [
         for (final e in [(Icons.touch_app, 'Touch', 0), (Icons.mic, 'Speak', 1), (Icons.keyboard, 'Type', 3), (Icons.image_outlined, 'Pictures', 2)]) PastelTile(icon: e.$1, label: e.$2, color: e.$3, selected: comm.contains(e.$2), speaker: true, onTap: () => setState(() => comm.contains(e.$2) ? comm.remove(e.$2) : comm.add(e.$2)))]),
         TextButton(onPressed: _next, child: const Text('I’ll explore'))], say: 'How do you like to communicate? Touch, speak, type, or pictures.'),
       _page('What brings you here?', [for (final b in [('Learn and understand', Icons.menu_book_outlined), ('Express and communicate', Icons.chat_bubble_outline), ('Daily tasks', Icons.check_circle_outline), ('Just explore', Icons.explore_outlined)]) _row(b.$1, '', brings.contains(b.$1), () => setState(() => brings.contains(b.$1) ? brings.remove(b.$1) : brings.add(b.$1)), icon: b.$2)], say: 'What would you like Milo to help with?'),
-      _page('Personalise Milo', [const SizedBox(height: 170, child: MiloView()),
+      _page('Personalise Milo', [const MiloStage(),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (final c in [0xFF8E9BFF, 0xFFFFA3C0, 0xFF6FD9B0, 0xFFFFD166, 0xFFC3A6FF]) GestureDetector(onTap: () { setState(() => col = Color(c)); d.set(() => d.color = Color(c)); }, child: Container(margin: const EdgeInsets.all(6), width: 40, height: 40, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle, border: Border.all(width: 3, color: col == Color(c) ? T.ink : Colors.transparent))))]),
         const Section('Voice'), for (final v in [('Friendly', 'Warm and bright'), ('Calm', 'Soft and slow'), ('Energetic', 'Quick and playful')]) _row(v.$1, v.$2, voice == v.$1, () { setState(() => voice = v.$1); d.set(() => d.voice = v.$1); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.')); }, icon: Icons.play_arrow),
         const SizedBox(height: 6), TextField(controller: name, decoration: const InputDecoration(hintText: 'Name (optional, stays on this phone)'))], say: 'This is how I look and sound. Pick what you like.'),
@@ -79,7 +79,7 @@ class _OState extends ConsumerState<Onboarding> {
           Row(children: [Icon(p.$1, color: T.pri), const SizedBox(width: 10), Text(p.$2, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))]), Text(p.$3, style: const TextStyle(color: T.mute)), const SizedBox(height: 10),
           Row(children: [Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Not now'))), const SizedBox(width: 10), Expanded(child: FilledButton(onPressed: () async { if (p.$5 == 0) { final ok = await ref.read(voiceProvider).requestPermission(); setState(() => mic = ok); } else { setState(() => cam = true); } }, child: Text(p.$5 == 0 ? (p.$4 ? 'Allowed' : 'Allow') : (p.$4 ? 'Understood' : 'OK'))))])]))),
         const Padding(padding: EdgeInsets.all(12), child: Text('Everything essential works without these.', textAlign: TextAlign.center, style: TextStyle(color: T.mute, fontSize: 12)))], say: 'You can allow the microphone and camera now, or later.'),
-      _page('', [const SizedBox(height: 330, child: MiloView()), Center(child: Text('You’re all set${name.text.trim().isEmpty ? '' : ', ${name.text.trim()}'}!', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800))), const Center(child: Text('Milo is ready to help you.', style: TextStyle(color: T.mute)))], say: 'You are all set. Let us start exploring.', next: 'Start exploring'),
+      _page('', [const MiloStage(), Center(child: Text('You’re all set${name.text.trim().isEmpty ? '' : ', ${name.text.trim()}'}!', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800))), const Center(child: Text('Milo is ready to help you.', style: TextStyle(color: T.mute)))], say: 'You are all set. Let us start exploring.', next: 'Start exploring'),
     ])));
   }
 }

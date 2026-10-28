@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
-import '../companion/milo_view.dart';
 import '../contracts/brain_contract.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
@@ -164,7 +163,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
           }),
           const SizedBox(height: 10),
           TextField(controller: ask, decoration: InputDecoration(hintText: 'Or just ask Milo…', suffixIcon: IconButton(icon: const Icon(Icons.mic, color: T.pri), onPressed: () { Navigator.pop(context); ref.read(tabProvider.notifier).state = 2; })), onSubmitted: (t) { if (t.trim().isEmpty) return; Navigator.pop(context); ref.read(tabProvider.notifier).state = 2; ref.read(chatProvider.notifier).user(t); d.ask(t); }),
-          const SizedBox(height: 120)]);
+          ]);
       case _S.photo:
         body = Container(color: const Color(0xFF454B66), child: Column(children: [
           Expanded(child: Padding(padding: const EdgeInsets.all(20), child: _image == null ? const SizedBox() : Container(decoration: BoxDecoration(border: Border.all(color: T.amber, width: 3)), child: Image.memory(_image!, fit: BoxFit.contain)))),
@@ -172,13 +171,13 @@ class _UState extends ConsumerState<UnderstandScreen> {
           Padding(padding: const EdgeInsets.all(18), child: Row(children: [Expanded(child: BigButton('Retake', () => _photo(ImageSource.camera), kind: BK.outline)), const SizedBox(width: 12), Expanded(child: BigButton('Use photo', () { _remember(); setState(() => step = _S.reading); if (cloud) { _explain('default'); } }))]))]));
       case _S.reading:
         body = ListView(padding: const EdgeInsets.all(16), children: [
-          const SizedBox(height: 130, child: MiloView()),
+          const MiloStage(),
           if (u.loading) ...[const Center(child: Text('Understanding your text…', style: TextStyle(color: T.mute))), const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator())],
           if (u.keyPoints.isNotEmpty) ...[const Section('Key points'), for (final k in u.keyPoints) Card(child: ListTile(leading: const Icon(Icons.circle, size: 10, color: T.pri), title: Text(k, style: const TextStyle(fontSize: 17)), trailing: const Icon(Icons.volume_up, color: T.mute), onTap: () => d.speak(k)))],
           if (u.simple.isNotEmpty) Card(color: T.priSoft, child: ListTile(title: const Text('In simple words'), subtitle: Text(u.simple, style: const TextStyle(fontSize: 18)), onTap: () => d.speak(u.simple))),
           if (!u.loading && u.keyPoints.isEmpty) Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(cloud ? 'Tap “Show in simple language”, or just read it aloud.' : 'Offline: I can read it aloud and show it one piece at a time.', style: const TextStyle(fontSize: 16)))),
           const SizedBox(height: 8), BigButton('Show in simple language', cloud ? () => _explain('simpler') : null, kind: BK.soft), const SizedBox(height: 10),
-          BigButton('Continue', () => setState(() => step = _S.style)), const SizedBox(height: 150)]);
+          BigButton('Continue', () => setState(() => step = _S.style))]);
       case _S.style:
         body = ListView(padding: const EdgeInsets.all(16), children: [
           Row(children: [for (final e in [('Audio', Icons.headphones, 0), ('Pictures', Icons.image_outlined, 3), ('Simplify', Icons.auto_awesome, 1), ('Quiz', Icons.check_circle_outline, 2)]) Expanded(child: Padding(padding: const EdgeInsets.all(3), child: AspectRatio(aspectRatio: .9, child: PastelTile(icon: e.$2, label: e.$1, color: e.$3, selected: styles.contains(e.$1), onTap: () => setState(() => styles.contains(e.$1) ? styles.remove(e.$1) : styles.add(e.$1))))))]),
@@ -202,7 +201,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
             Text(pop?['meaning'] ?? 'Tap Listen to hear it in the sentence', style: const TextStyle(fontSize: 12, color: T.mute))]))),
           Row(children: [for (final b in [('Focus', Icons.center_focus_strong, () => setState(() => focus = !focus)), ('Speed ${_speeds[speedIdx]}x', Icons.speed, () => setState(() => speedIdx = (speedIdx + 1) % 3)), ('Overlay', Icons.layers, () => setState(() => tint = !tint)), ('Big words', Icons.text_fields, () => Navigator.push(context, MaterialPageRoute(builder: (_) => BigWordScreen(words: words, meanings: {for (final v in u.vocab) '${v['word']}'.toLowerCase(): '${v['meaning']}'}))))]) Expanded(child: Padding(padding: const EdgeInsets.all(4), child: FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 52), backgroundColor: T.priSoft, foregroundColor: T.pri), onPressed: b.$3, child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(b.$2, size: 18), Text(b.$1, style: const TextStyle(fontSize: 11))]))))]),
           const SizedBox(height: 8), Row(children: [Expanded(flex: 2, child: BigButton('Listen', _listen, icon: Icons.volume_up)), const SizedBox(width: 10), Expanded(child: BigButton('Next', () => setState(() => step = _S.check), kind: BK.soft))]),
-          Center(child: TextButton.icon(onPressed: _keep, icon: const Icon(Icons.bookmark_add_outlined), label: const Text('Keep this text'))), const SizedBox(height: 150)]);
+          Center(child: TextButton.icon(onPressed: _keep, icon: const Icon(Icons.bookmark_add_outlined), label: const Text('Keep this text')))]);
       case _S.check:
         final q = u.check;
         body = ListView(padding: const EdgeInsets.all(16), children: [
@@ -212,7 +211,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
             child: Column(children: [for (var i = 0; i < (q == null ? 3 : (q['options'] as List).length); i++) Card(child: RadioListTile<int>(value: i,
               title: Text(q == null ? ['It is about one big idea', 'It lists many facts', 'It is not important'][i] : '${(q['options'] as List)[i]}', style: const TextStyle(fontSize: 17))))])),
           const SizedBox(height: 10), const Center(child: Text('No scores. Effort is celebrated.', style: TextStyle(color: T.mute, fontWeight: FontWeight.w700))), const SizedBox(height: 14),
-          BigButton('Next', () { d.celebrate(); setState(() { step = _S.bring; picked = null; }); }), const SizedBox(height: 150)]);
+          BigButton('Next', () { d.celebrate(); setState(() { step = _S.bring; picked = null; }); })]);
     }
     return MiloScreen(title: title, kind: 'understand', onBack: _back, bg: step == _S.photo ? const Color(0xFF454B66) : null, body: body);
   }

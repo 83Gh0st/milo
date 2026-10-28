@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../companion/milo_view.dart';
 import '../core/providers.dart';
 import 'screen.dart';
 import 'theme.dart';
@@ -11,8 +10,8 @@ class _PState extends ConsumerState<ProgressScreen> {
   int tab = 0;
   Future<Map<String, Object>> _load() async {
     final db = ref.read(dbProvider);
-    final week = await db.db.rawQuery("SELECT strftime('%w', ts/1000, 'unixepoch', 'localtime') d, COUNT(*) c FROM progress_events WHERE ts>? GROUP BY d", [DateTime.now().millisecondsSinceEpoch - 7 * 86400000]);
-    return {'days': await db.daysTogether(), 'c': await db.counts(days: 3650), 'on': await db.flag('progress.enabled', def: true), 'week': {for (final r in week) int.parse('${r['d']}'): r['c'] as int}};
+    final week = await db.weekCounts();
+    return {'days': await db.daysTogether(), 'c': await db.counts(days: 3650), 'on': await db.flag('progress.enabled', def: true), 'week': week};
   }
   @override
   Widget build(BuildContext context) {
@@ -24,12 +23,12 @@ class _PState extends ConsumerState<ProgressScreen> {
       Widget stat(int n, String l, int col) => Expanded(child: Container(margin: const EdgeInsets.all(4), padding: const EdgeInsets.symmetric(vertical: 14), decoration: BoxDecoration(color: T.soft[col], borderRadius: BorderRadius.circular(18)),
           child: Column(children: [Text('$n', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: T.strong[col])), Text(l, style: const TextStyle(fontWeight: FontWeight.w700))])));
       return ListView(padding: const EdgeInsets.all(16), children: [
-        const ScreenHeader('Your progress'),
+
         PillTabs(const ['Learning', 'Speaking', 'Tasks'], tab, (i) => setState(() => tab = i)),
         const SizedBox(height: 10),
         if (!on) const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Progress is turned off.', style: TextStyle(fontSize: 17))))
         else ...[
-          Card(child: Padding(padding: const EdgeInsets.all(14), child: Row(children: [const SizedBox(width: 64, height: 64, child: MiloView()), const SizedBox(width: 12),
+          Card(child: Padding(padding: const EdgeInsets.all(14), child: Row(children: [const MiloAvatar(size: 64), const SizedBox(width: 12),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('$days days together', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)), const Text('Never resets. Never lost.', style: TextStyle(color: T.mute))])]))),
           Row(children: tab == 0 ? [stat(c['read'] ?? 0, 'Stories', 0), stat(c['word'] ?? 0, 'Words', 3), stat(c['step'] ?? 0, 'Steps', 1)] : tab == 1 ? [stat(c['spoken'] ?? 0, 'Messages', 0), stat(c['message'] ?? 0, 'Chats', 3), stat(c['help'] ?? 0, 'Asked for help', 1)] : [stat(c['step'] ?? 0, 'Steps', 0), stat(c['task'] ?? 0, 'Plans done', 3), stat(c['help'] ?? 0, 'Asked for help', 1)]),
           const Section('This week'),
@@ -40,7 +39,7 @@ class _PState extends ConsumerState<ProgressScreen> {
           RowCard(icon: Icons.emoji_events_outlined, title: 'Achievements', subtitle: 'Effort and character', color: 2, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Achievements(c, days)))),
           RowCard(icon: Icons.spa_outlined, title: 'Milo is growing', subtitle: 'Seed to bloom, no pressure', color: 3, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => Growth(days)))),
         ],
-        const SizedBox(height: 120),
+  
       ]);
     });
   }
@@ -85,7 +84,7 @@ class Growth extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stage = days >= 30 ? 4 : days >= 14 ? 3 : days >= 7 ? 2 : days >= 2 ? 1 : 0;
     return MiloScreen(title: 'Milo is growing', noHeader: false, body: ListView(padding: const EdgeInsets.all(20), children: [
-      const SizedBox(height: 240, child: MiloView()),
+      const MiloStage(),
       Row(children: [for (var i = 0; i < 5; i++) ...[Column(children: [Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, color: i <= stage ? T.mint : T.line)), const SizedBox(height: 4), Text(const ['Seed', 'Sprout', 'Leaves', 'Bud', 'Bloom'][i], style: TextStyle(fontSize: 11, fontWeight: i == stage ? FontWeight.w800 : FontWeight.w500))]), if (i < 4) Expanded(child: Container(height: 3, color: i < stage ? T.mint : T.line))]]),
       const Section('Milo’s wardrobe (you choose)'),
       Row(children: [for (final i in [Icons.person_outline, Icons.auto_awesome, Icons.favorite_border, Icons.nightlight_outlined]) Expanded(child: Container(margin: const EdgeInsets.all(4), height: 64, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: T.line)), child: Icon(i, color: T.pri)))]),

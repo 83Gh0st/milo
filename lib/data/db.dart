@@ -134,6 +134,14 @@ class MiloDb {
     final r = await db.rawQuery('SELECT type, COUNT(*) c FROM progress_events WHERE ts>=? GROUP BY type', [since]);
     return {for (final x in r) x['type'] as String: x['c'] as int};
   }
+
+  /// Weekday (0=Sunday) activity counts for the progress chart. UI calls this,
+  /// never raw SQL, so widget tests can run against the in-memory fake.
+  Future<Map<int, int>> weekCounts() async {
+    final week = await db.rawQuery("SELECT strftime('%w', ts/1000, 'unixepoch', 'localtime') d, COUNT(*) c FROM progress_events WHERE ts>? GROUP BY d", [DateTime.now().millisecondsSinceEpoch - 7 * 86400000]);
+    return {for (final r in week) int.parse('${r['d']}'): r['c'] as int};
+  }
+
   Future<int> daysTogether() async {
     final r = await db.rawQuery("SELECT COUNT(DISTINCT strftime('%Y-%m-%d', ts/1000, 'unixepoch')) c FROM progress_events");
     return (r.first['c'] as int) + 0; // never decreases, never resets

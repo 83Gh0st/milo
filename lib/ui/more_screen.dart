@@ -19,7 +19,7 @@ class MoreScreen extends ConsumerWidget {
     final d = ref.watch(directorProvider), db = ref.read(dbProvider);
     void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
     return ListView(padding: const EdgeInsets.all(16), children: [
-      const ScreenHeader('More'),
+
       RowCard(icon: Icons.person_outline, title: 'My profile', subtitle: 'Name, goals', onTap: () => go(const ProfileScreen())),
       RowCard(icon: Icons.accessibility_new, title: 'Accessibility', subtitle: 'Text, font, contrast, motion', color: 1, onTap: () => go(const AccessibilityScreen())),
       RowCard(icon: Icons.favorite_border, title: 'Milo', subtitle: 'Look, voice, presence', color: 3, onTap: () => go(const MiloSettingsScreen())),
@@ -30,7 +30,6 @@ class MoreScreen extends ConsumerWidget {
       RowCard(icon: Icons.shield_outlined, title: 'Trusted adult', subtitle: 'PIN protected', color: 1, onTap: () async { if (await Pin.gate(context, ref.read(storeProvider))) { if (context.mounted) go(const TrustedScreen()); } }),
       RowCard(icon: Icons.info_outline, title: 'About Milo', subtitle: 'Version and licences', color: 2, onTap: () => go(const AboutScreen())),
       const Padding(padding: EdgeInsets.all(12), child: Text('Milo is an AI companion. It is not a person, a therapist or a doctor.', textAlign: TextAlign.center, style: TextStyle(color: T.mute))),
-      const SizedBox(height: 120),
     ]);
   }
 }
