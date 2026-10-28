@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
 import '../companion/milo_view.dart';
+import '../companion/v2/renderer.dart';
 import '../core/providers.dart';
 import 'screen.dart';
 import 'theme.dart';
@@ -30,27 +31,28 @@ class MiloStage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (c, bc) {
         final h = bc.hasBoundedHeight ? (bc.maxHeight * .42).clamp(220.0, 440.0).toDouble() : (MediaQuery.sizeOf(c).height * .35).clamp(220.0, 440.0).toDouble();
-        return SizedBox(height: h, child: const MiloView());
+        return SizedBox(height: h, child: const MiloView(lod: MiloLod.full));
       });
 }
 
-/// Buddy Milo: box height aims so the visible body stays ≥ 120 dp tall
-/// (body is 138 of 300 design units, so 261+ box height).
+/// Buddy Milo: bust LOD (head, shoulders, hands, sprout). Width keeps the
+/// scale ≥ .755 so the visible body (159 design units) stays ≥ 120 dp.
 class MiloBuddy extends StatelessWidget {
   const MiloBuddy({super.key});
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (_, bc) {
         final h = bc.hasBoundedHeight ? bc.maxHeight.clamp(200.0, 300.0).toDouble() : 270.0;
-        return SizedBox(width: h * 260 / 300, height: h, child: const MiloView(buddy: true));
+        final w = (h * .62).clamp(151.0, 220.0).toDouble();
+        return SizedBox(width: w, height: h, child: const MiloView(buddy: true, lod: MiloLod.bust));
       });
 }
 
-/// Header avatar 44–56 dp. Full-body drawing until the Phase 2 face-only LOD.
+/// Header avatar 44–56 dp: face-only LOD, features 1.25×.
 class MiloAvatar extends StatelessWidget {
   const MiloAvatar({super.key, this.size = 48});
   final double size;
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: const MiloView(buddy: true));
+  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: const MiloView(buddy: true, lod: MiloLod.avatar));
 }
 
 /// One header per screen: back | title | status | Break | Help me. Directional-safe.
@@ -185,7 +187,7 @@ class _DockBody extends ConsumerWidget {
       if (d.choices.isNotEmpty)
         Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.ask(c))])),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.choose(c))])),
       const MemoryConfirm(),
     ]);
     final collapse = SizedBox(width: 48, child: Align(alignment: Alignment.topCenter, child: IconButton(tooltip: 'Minimise Milo', onPressed: () => d.set(() => d.peeked.add(kind)), icon: const Icon(Icons.expand_more))));
