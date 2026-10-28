@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
-import '../companion/milo_view.dart';
-import '../core/providers.dart';
 
 /// Design tokens taken from the wireframes (periwinkle primary, pastel tiles, ink text).
 class T {
@@ -102,23 +100,6 @@ class BigButton extends StatelessWidget {
     final (bg, fg) = switch (kind) { BK.primary => (T.pri, Colors.white), BK.soft => (T.priSoft, T.pri), BK.coral => (T.coral, Colors.white), BK.mint => (T.mint, Colors.white), BK.outline => (Colors.white, T.ink) };
     return SizedBox(width: double.infinity, height: 58, child: FilledButton(onPressed: onPressed, style: FilledButton.styleFrom(backgroundColor: bg, foregroundColor: fg, disabledBackgroundColor: T.priSoft, side: kind == BK.outline ? const BorderSide(color: T.line) : null),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)], Text(label)])));
-  }
-}
-
-/// Screen header from the wireframes: back chevron, centred title, tiny Milo on the right when the presence is Chip.
-class ScreenHeader extends ConsumerWidget {
-  const ScreenHeader(this.title, {super.key, this.onBack, this.trailing});
-  final String title;
-  final VoidCallback? onBack;
-  final Widget? trailing;
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final d = ref.watch(directorProvider);
-    return Padding(padding: const EdgeInsets.fromLTRB(8, 4, 12, 4), child: SizedBox(height: 48, child: Row(children: [
-      SizedBox(width: 48, child: onBack == null ? null : IconButton(tooltip: 'Back', onPressed: onBack, icon: const Icon(Icons.chevron_left, size: 30))),
-      Expanded(child: Text(title, textAlign: onBack == null ? TextAlign.left : TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800))),
-      trailing ?? (d.presence == Presence.chip ? const SizedBox(width: 40, height: 40, child: MiloView()) : const SizedBox(width: 40)),
-    ])));
   }
 }
 

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../companion/director.dart';
-import '../companion/milo_view.dart';
 import '../core/providers.dart';
 import 'calm_screens.dart';
 import 'chat_screen.dart';
@@ -14,6 +12,8 @@ import 'privacy_screens.dart';
 import 'theme.dart';
 import 'understand_screen.dart';
 import 'widgets.dart';
+
+export 'scaffold.dart'; // presence widgets available everywhere screen.dart is
 
 final navKey = GlobalKey<NavigatorState>();
 
@@ -29,26 +29,6 @@ void openScreen(String name, {bool replace = false}) {
   if (w == null) { nav.popUntil((r) => r.isFirst); return; }
   final route = MaterialPageRoute(builder: (_) => w);
   replace ? nav.pushReplacement(route) : nav.push(route);
-}
-
-/// Buddy Milo, caption bubble, choices, consent card and the support bar: shared by tabs and pushed screens.
-class Overlays extends ConsumerWidget {
-  const Overlays({super.key, required this.child, this.bottomPad = 8});
-  final Widget child;
-  final double bottomPad;
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final d = ref.watch(directorProvider);
-    final buddy = d.presence == Presence.buddy, left = d.leftHanded;
-    return Stack(children: [
-      child,
-      if (buddy) Positioned(left: left ? 6 : null, right: left ? null : 6, bottom: bottomPad, width: 110, height: 128, child: const IgnorePointer(ignoring: false, child: MiloView())),
-      if (buddy && d.captions && d.caption.isNotEmpty && d.state != CState.idle) Positioned(left: left ? 118 : null, right: left ? null : 118, bottom: bottomPad + 56, child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 210), child: Speech(d.caption))),
-      if (d.choices.isNotEmpty) Positioned(left: buddy && left ? 124 : 12, right: buddy && !left ? 124 : 12, bottom: bottomPad, child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.ask(c))])),
-      Positioned(left: 12, right: 12, bottom: bottomPad + 70, child: const MemoryConfirm()),
-      const Positioned(left: 0, right: 0, top: 0, child: SupportBar()),
-    ]);
-  }
 }
 
 /// A pushed screen with the wireframe header and Milo's presence for that screen.
@@ -69,9 +49,11 @@ class _MiloScreenState extends ConsumerState<MiloScreen> {
   @override
   void dispose() { WidgetsBinding.instance.addPostFrameCallback((_) { try { ref.read(directorProvider).setScreenKind(''); } catch (_) {} }); super.dispose(); }
   @override
-  Widget build(BuildContext context) => Scaffold(backgroundColor: widget.bg, body: SafeArea(child: Overlays(child: Column(children: [
-        if (!widget.noHeader) ScreenHeader(widget.title, onBack: widget.onBack ?? () => Navigator.pop(context), trailing: widget.trailing),
-        Expanded(child: widget.body)]))));
+  // noHeader now means "no back button" (top-level states); every screen keeps one
+  // MiloHeader so status, Break and Help me are always reachable.
+  Widget build(BuildContext context) => Scaffold(
+      backgroundColor: widget.bg,
+      body: SafeArea(child: MiloScaffold(title: widget.title, kind: widget.kind, onBack: widget.noHeader ? null : widget.onBack ?? () => Navigator.pop(context), actions: widget.trailing, body: widget.body)));
 }
 
 Future<void> confirmCall(BuildContext c, String label, String number) => callConfirm(c, label, number);
