@@ -5,26 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import '../contracts/brain_contract.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
+import '../media/photo.dart';
 import 'screen.dart';
 import 'theme.dart';
-
-/// Decode, apply orientation, resize to <= 1600 px, re-encode as JPEG under 1.9 MB. A fresh image carries no EXIF or GPS data.
-Uint8List _prepare(Uint8List bytes) {
-  var im = img.decodeImage(bytes);
-  if (im == null) return bytes;
-  im = img.bakeOrientation(im);
-  if (im.width > 1600 || im.height > 1600) { im = im.width >= im.height ? img.copyResize(im, width: 1600) : img.copyResize(im, height: 1600); }
-  im.exif = img.ExifData();
-  var q = 80;
-  var out = img.encodeJpg(im, quality: q);
-  while (out.length > 1900000 && q > 30) { q -= 15; out = img.encodeJpg(im, quality: q); }
-  return out;
-}
 
 /// Approximate syllable split for the word popup (heuristic, English only).
 String syllables(String word) {
@@ -72,6 +59,14 @@ class _UState extends ConsumerState<UnderstandScreen> {
       final n = int.tryParse(span.startsWith('w') ? span.substring(1) : span) ?? -1;
       if (mounted && n >= 1 && n <= words.length) setState(() => cur = n - 1);
     };
+    // read_aloud(span): highlight the word and read from there to the end.
+    ref.read(directorProvider).onReadAloud = (span) {
+      final n = int.tryParse(span.startsWith('w') ? span.substring(1) : span) ?? -1;
+      if (mounted && n >= 1 && n <= words.length) _listenFrom(n - 1);
+    };
+    // lookup_word: the brain sent a word here; use it once, then clear.
+    final lookup = ref.read(lookupWordProvider);
+    if (lookup.isNotEmpty) { ref.read(lookupWordProvider.notifier).state = ''; _image = null; WidgetsBinding.instance.addPostFrameCallback((_) => _use(lookup)); }
   }
   void _prep() { words = RegExp(r'\S+').allMatches(c.text).map((m) => m.group(0)!).toList(); keys = List.generate(words.length, (_) => GlobalKey()); }
   Future<void> _remember() async {
@@ -93,7 +88,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
   Future<void> _photo(ImageSource src) async {
     final x = await ImagePicker().pickImage(source: src, maxWidth: 2400);
     if (x == null) return;
-    final jpg = await compute(_prepare, await x.readAsBytes());
+    final jpg = await compute(preparePhoto, await x.readAsBytes());
     var ocr = '';
     try { final r = TextRecognizer(); ocr = (await r.processImage(InputImage.fromFilePath(x.path))).text; await r.close(); } catch (_) {} // quick on-device OCR keeps read-aloud working offline
     try { await File(x.path).delete(); } catch (_) {} // the original (with EXIF/GPS) never lingers in the app cache
@@ -111,13 +106,15 @@ class _UState extends ConsumerState<UnderstandScreen> {
     if (v != null && v.trim().isNotEmpty) { _image = null; await _use(v); }
   }
 
-  Future<void> _listen() async {
+  Future<void> _listen() => _listenFrom(0);
+
+  Future<void> _listenFrom(int from) async {
     final d = ref.read(directorProvider);
     d.emote('curious', i: .7, hold: 60);
-    await d.speak(c.text, rate: _speeds[speedIdx], onWord: (i) { // highlight follows the audio; Milo's eyes follow the highlight
-      if (!mounted || i >= keys.length) return;
-      setState(() => cur = i);
-      final ro = keys[i].currentContext?.findRenderObject();
+    await d.speak(words.skip(from).join(' '), rate: _speeds[speedIdx], onWord: (i) { // highlight follows the audio; Milo's eyes follow the highlight
+      if (!mounted || from + i >= keys.length) return;
+      setState(() => cur = from + i);
+      final ro = keys[from + i].currentContext?.findRenderObject();
       if (ro is RenderBox && ro.attached) d.lookAtGlobal(ro.localToGlobal(ro.size.center(Offset.zero)));
     });
     if (mounted) setState(() => cur = -1);

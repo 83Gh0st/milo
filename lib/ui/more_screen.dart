@@ -6,6 +6,7 @@ import '../companion/director.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import '../net/api.dart';
+import '../voice/voice_output.dart';
 import 'dev/milo_lab.dart';
 import 'pin.dart';
 import 'screen.dart';
@@ -75,7 +76,7 @@ class MiloSettingsScreen extends ConsumerWidget {
       _chips<Presence?>([null, ...Presence.values], d.presenceOverride, (p) => p == null ? 'Auto' : p.name[0].toUpperCase() + p.name.substring(1), d.setPresence),
       const Padding(padding: EdgeInsets.only(top: 6), child: Text('Auto: Stage on Home, Buddy for reading and tasks, Chip on the communication board.', style: TextStyle(fontSize: 12, color: T.mute))),
       const Section('Voice style'),
-      _chips<String>(const ['Friendly', 'Calm', 'Energetic', 'Device'], d.voice, (s) => s, (v) { d.set(() => d.voice = v); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.', tone: 'warm')); }),
+      _chips<String>(const ['Friendly', 'Calm', 'Energetic', 'Device'], d.voiceStyle, (s) => s, (v) { d.set(() => d.voiceStyle = v); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.', tone: 'warm')); }),
       const Section('Milo’s voice (this phone)'),
       if (d.ttsVoices.isEmpty) const Padding(padding: EdgeInsets.all(8), child: Text('Using this phone’s default voice.', style: TextStyle(color: T.mute)))
       else Wrap(spacing: 8, runSpacing: 8, children: [for (final v in d.ttsVoices) ChoiceChip(
@@ -85,6 +86,13 @@ class MiloSettingsScreen extends ConsumerWidget {
       const Padding(padding: EdgeInsets.all(8), child: Text('Choosing plays a preview. Phones do not offer a true child voice; Milo picks the warmest match.', style: TextStyle(fontSize: 12, color: T.mute))),
       Slider(value: d.voiceSpeed, min: .6, max: 1.4, onChanged: (v) => d.set(() => d.voiceSpeed = v)),
       const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Slower', style: TextStyle(fontSize: 12, color: T.mute)), Text('Faster', style: TextStyle(fontSize: 12, color: T.mute))]),
+      _toggle('Clear speech', d.clearSpeech, (v) => d.set(() => d.clearSpeech = v), sub: 'A little slower and extra careful (helps dyslexic readers)'),
+      const Section('Online voice'),
+      _chips<VoiceEngineMode>(VoiceEngineMode.values, d.voiceEngine, (m) => m.name[0].toUpperCase() + m.name.substring(1), d.setVoiceEngine),
+      Padding(padding: const EdgeInsets.all(8), child: Text(
+          d.voice.neural.sink.isReal ? 'Online voice is set up. Milo keeps the same voice no matter which AI it thinks with.' : 'Online voice is not set up on this phone yet — Milo uses the phone voice above. Nothing sounds different until the natural voice arrives.',
+          style: const TextStyle(fontSize: 12, color: T.mute))),
+      const _DownloadLinesButton(),
       const Section('Milo’s colour'),
       Row(children: [for (final c in colours) GestureDetector(onTap: () => d.set(() => d.color = Color(c)), child: Container(margin: const EdgeInsets.only(right: 12), width: 44, height: 44, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle, border: Border.all(width: 3, color: d.color == Color(c) ? T.ink : Colors.transparent))))]),
       const Section('Behaviour'),
@@ -92,6 +100,28 @@ class MiloSettingsScreen extends ConsumerWidget {
       _toggle('Touch reactions', d.reactions, (v) => d.set(() => d.reactions = v)),
       _toggle('Greetings', d.greetings, (v) => d.set(() => d.greetings = v)),
     ]));
+  }
+}
+
+class _DownloadLinesButton extends ConsumerStatefulWidget {
+  const _DownloadLinesButton();
+  @override
+  ConsumerState<_DownloadLinesButton> createState() => _DownloadLinesState();
+}
+
+class _DownloadLinesState extends ConsumerState<_DownloadLinesButton> {
+  bool busy = false;
+  String? done;
+  @override
+  Widget build(BuildContext context) {
+    final d = ref.read(directorProvider);
+    if (done != null) return Padding(padding: const EdgeInsets.all(8), child: Text(done!, style: const TextStyle(color: T.mute)));
+    if (busy) return const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator());
+    return BigButton('Download voice lines for offline', () async {
+      setState(() => busy = true);
+      final (ok, total) = await d.cacheFixedLines();
+      if (mounted) setState(() { busy = false; done = ok == total ? 'Saved $ok lines. They play instantly, even offline.' : 'Saved $ok of $total lines. Try again on a good connection.'; });
+    }, kind: BK.soft);
   }
 }
 
@@ -211,6 +241,10 @@ class _DPState extends ConsumerState<DataPrivacyScreen> {
   Widget build(BuildContext context) {
     final db = ref.read(dbProvider), d = ref.read(directorProvider);
     return MiloScreen(title: 'Data and privacy', body: ListView(padding: const EdgeInsets.all(16), children: [
+      FutureBuilder(future: db.get('ai.family_key'), builder: (_, s) => Card(child: ListTile(
+          leading: Icon((s.data ?? '').isNotEmpty ? Icons.key : Icons.cloud, color: T.pri),
+          title: Text('Milo is thinking with ${(s.data ?? '').isNotEmpty ? 'your family AI' : 'the shared cloud'}'),
+          subtitle: const Text('Change it in Trusted adult → AI connections')))),
       RowCard(icon: Icons.psychology_alt_outlined, title: 'What Milo remembers', subtitle: 'See it, change it, forget it', onTap: () => openScreen('memory')),
       RowCard(icon: Icons.cloud_outlined, title: 'Cloud and consent', subtitle: 'What was sent, and what never is', color: 2, onTap: () => openScreen('privacy')),
       RowCard(icon: Icons.sync, title: 'Sync between devices', subtitle: 'End-to-end encrypted, optional', color: 3, onTap: _sync),

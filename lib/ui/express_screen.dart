@@ -131,8 +131,8 @@ class VoiceChooser extends ConsumerWidget {
     final d = ref.watch(directorProvider);
     const items = [('Friendly', 'Milo (friendly)', 'Warm and bright'), ('Calm', 'Calm', 'Soft and slow'), ('Energetic', 'Energetic', 'Quick and playful'), ('Device', 'Device voice', 'This phone’s own voice')];
     return MiloScreen(title: 'Choose a voice', kind: 'express', body: ListView(padding: const EdgeInsets.all(16), children: [
-      for (final i in items) Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: d.voice == i.$1 ? T.pri : T.line, width: d.voice == i.$1 ? 2 : 1)), child: ListTile(leading: Icon(d.voice == i.$1 ? Icons.check_circle : Icons.circle_outlined, color: T.pri), title: Text(i.$2, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(i.$3),
-        trailing: const Icon(Icons.play_arrow, color: T.pri), onTap: () { d.set(() => d.voice = i.$1); d.applyVoice().then((_) => d.speakAac('I want water')); })),
+      for (final i in items) Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: d.voiceStyle == i.$1 ? T.pri : T.line, width: d.voiceStyle == i.$1 ? 2 : 1)), child: ListTile(leading: Icon(d.voiceStyle == i.$1 ? Icons.check_circle : Icons.circle_outlined, color: T.pri), title: Text(i.$2, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(i.$3),
+        trailing: const Icon(Icons.play_arrow, color: T.pri), onTap: () { d.set(() => d.voiceStyle = i.$1); d.applyVoice().then((_) => d.speakAac('I want water')); })),
       const Section('Speed'), Slider(value: d.voiceSpeed, min: .6, max: 1.4, onChanged: (v) => d.set(() => d.voiceSpeed = v)),
       const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Slower', style: TextStyle(fontSize: 12, color: T.mute)), Text('Faster', style: TextStyle(fontSize: 12, color: T.mute))]),
       const SizedBox(height: 16), BigButton('Done', () => Navigator.pop(context)),

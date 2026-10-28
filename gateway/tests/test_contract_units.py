@@ -22,9 +22,9 @@ def _ui_events(payloads):
 
 def test_ui_schema_carries_every_action_payload():
     props = brain_schema()["properties"]["ui"]["items"]["properties"]
-    assert set(UI_ACTIONS) == {"highlight", "offer_choices", "show_image", "open_screen", "set_timer"}
+    assert set(UI_ACTIONS) == {"highlight", "offer_choices", "show_image", "open_screen", "set_timer", "read_aloud", "break_into_steps", "lookup_word"}
     assert props["action"]["enum"] == UI_ACTIONS
-    for field in ("span", "choices", "screen", "seconds", "concept"):
+    for field in ("span", "choices", "screen", "seconds", "concept", "steps", "word"):
         assert field in props, field
 
 

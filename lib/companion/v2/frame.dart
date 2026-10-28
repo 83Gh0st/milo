@@ -77,7 +77,7 @@ class DirectorFrame {
       armL: d.armL.x, armR: d.armR.x, s1: d.s1.x, s2: d.s2.x, s3: d.s3.x, lean: d.lean.x,
       breath: d.br, mouth: d.mouth, pulse: d.pulse, micLevel: d.micLevel, clock: d.clock,
       hop: d.hop.x, squash: d.sq.x, blinkOpen: open, happyEyes: f.happyEyes, tongue: f.tongue,
-      vis: d.vis, listening: d.state == CState.listening, quiet: d.quiet, aac: d.aac,
+      vis: d.vis, listening: d.attenLive, quiet: d.quiet, aac: d.aac,
       highContrast: d.highContrast, fx: d.fx, emo: d.emo, state: d.state, color: d.color,
       parts: d.parts, chAr: d.ch.ar, chAl: d.ch.al, chTilt: d.ch.tilt, chDip: d.ch.dip,
       chZoom: d.ch.zoom, chJig: d.ch.jig, chYawn: d.ch.yawn, chLean: d.ch.lean,

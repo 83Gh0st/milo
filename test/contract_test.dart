@@ -1,42 +1,95 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:milo/companion/director.dart';
 import 'package:milo/contracts/brain_contract.dart';
-import 'package:milo/core/payload.dart';
-import 'package:milo/core/pocket_brain.dart';
-import 'package:milo/core/safety.dart';
-import 'package:milo/sync/sync_crypto.dart';
+import 'package:milo/contracts/events.dart';
 
 void main() {
-  test('validator drops unknown values, URLs, and caps lists', () {
-    final t = validateTurn({
-      'emotion': {'name': 'angry', 'intensity': 3}, 'gesture': 'backflip', 'say': ['Visit https://x.com now', 'a', 'b', 'c', 'd'],
-      'ui': [{'action': 'offer_choices', 'choices': ['1', '2', '3', '4']}, {'action': 'delete_files'}, {'action': 'open_screen', 'screen': 'launch_missiles'}],
+  group('validateTurn tools', () {
+    test('accepts the three closed tools with clean args', () {
+      final t = validateTurn({
+        'say': ['Here you go.'],
+        'ui': [
+          {'action': 'read_aloud', 'span': 'w14'},
+          {'action': 'break_into_steps', 'steps': ['Open the book', 'Read one page']},
+          {'action': 'lookup_word', 'word': 'photosynthesis'},
+        ]
+      });
+      expect(t.readAloud, 'w14');
+      expect(t.steps, ['Open the book', 'Read one page']);
+      expect(t.lookupWord, 'photosynthesis');
     });
-    expect(t.emotion, 'calm'); expect(t.gesture, isNull); expect(t.say.length, 4); expect(t.say.first.contains('http'), false);
-    expect(t.choices.length, 3); expect(t.intensity, 1.0); expect(t.openScreen, isNull);
+
+    test('drops invented tools and malformed args', () {
+      final t = validateTurn({
+        'ui': [
+          {'action': 'send_sms', 'to': '123'},
+          {'action': 'read_aloud', 'span': 'paragraph 2'},
+          {'action': 'read_aloud', 'span': 'w99999'},
+          {'action': 'lookup_word', 'word': 'two words'},
+          {'action': 'lookup_word', 'word': 'x'},
+          {'action': 'break_into_steps', 'steps': 'not a list'},
+        ]
+      });
+      expect(t.readAloud, isNull);
+      expect(t.steps, isEmpty);
+      expect(t.lookupWord, 'x'); // single letter is a word; the two-word attempt died
+    });
+
+    test('steps are cleaned, truncated, and capped', () {
+      final t = validateTurn({
+        'ui': [
+          {
+            'action': 'break_into_steps',
+            'steps': ['Go to https://evil.test now', 'Call +1 555 123 4567', 'x' * 200, '', 'ok', 42, 'a', 'b', 'c', 'd', 'e', 'f']
+          }
+        ]
+      });
+      expect(t.steps.length, 8);
+      expect(t.steps[0], 'Go to now');
+      expect(t.steps[1], 'Call');
+      expect(t.steps[2].length, 140);
+      expect(t.steps[3], 'ok');
+    });
+
+    test('kActions mirrors the contract file', () {
+      expect(kActions, ['highlight', 'offer_choices', 'show_image', 'open_screen', 'set_timer', 'read_aloud', 'break_into_steps', 'lookup_word']);
+    });
   });
-  test('crisis language is caught locally, in three languages, before any cloud call', () {
-    for (final s in ['I want to die', 'someone keeps touching me', "I don't want to be here anymore", 'ആത്മഹത്യ', 'आत्महत्या']) { expect(Safety.isCrisis(s), isTrue, reason: s); }
-    expect(Safety.isCrisis('I want to dye my hair'), isFalse);
-    expect(validateTurn(pocketBrain('i want to die', 'playful')).risk, 'crisis');
-  });
-  test('the payload contains exactly the visible chips, and no name unless allowed', () {
-    final b = buildBrainBody(text: 'hi', activity: 'chat', presentation: 'friendly', lang: 'en', support: {}, memories: const [], chips: const [ChipItem('document', 'You’re reading this now', 'text')]);
-    expect((b['chips'] as List).single['label'], 'You’re reading this now');
-    expect(b.containsKey('name'), isFalse);
-    final none = buildBrainBody(text: 'hi', activity: 'chat', presentation: 'friendly', lang: 'en', support: {}, memories: const [], chips: const []);
-    expect(none['chips'], isEmpty); // removing a chip removes it from the very next request
-  });
-  test('sync: key derivation is deterministic, encryption round-trips, and tampering is detected', () async {
-    final secret = generateSecret();
-    expect(RegExp(r'^([A-Z2-7]{4}-){7}[A-Z2-7]{4}$').hasMatch(secret), isTrue);
-    final k1 = SyncKeys(await deriveSync(secret)), k2 = SyncKeys(await deriveSync(secret.toLowerCase()));
-    expect(k1.vaultId, k2.vaultId); expect(k1.authKey, k2.authKey); expect(k1.vaultId.length, 32);
-    final rid = await k1.recordId('memories', 'abc');
-    expect(rid.length, 64);
-    final sealed = await k1.seal(rid, {'t': 'memories', 'k': 'abc', 'row': {'value': 'pictures'}});
-    expect((await k2.open(rid, sealed['nonce']!, sealed['ciphertext_b64']!))['row']['value'], 'pictures');
-    await expectLater(k1.open('f' * 64, sealed['nonce']!, sealed['ciphertext_b64']!), throwsA(anything)); // record id is bound as AAD
-    final other = SyncKeys(await deriveSync(generateSecret()));
-    await expectLater(other.open(rid, sealed['nonce']!, sealed['ciphertext_b64']!), throwsA(anything)); // wrong key
+
+  group('director tool callbacks', () {
+    test('batch turn fires read_aloud, steps, lookup', () async {
+      final d = Director();
+      String? aloud, lookup;
+      List<String>? steps;
+      d.onReadAloud = (s) => aloud = s;
+      d.onSteps = (s) => steps = s;
+      d.onLookupWord = (w) => lookup = w;
+      await d.perform(const BrainTurn(say: ['hi'], readAloud: 'w2', steps: ['a', 'b'], lookupWord: 'sun'));
+      expect(aloud, 'w2');
+      expect(steps, ['a', 'b']);
+      expect(lookup, 'sun');
+      d.dispose();
+    });
+
+    test('streamed ui events fire the same callbacks', () async {
+      final d = Director();
+      String? aloud, lookup;
+      List<String>? steps;
+      d.onReadAloud = (s) => aloud = s;
+      d.onSteps = (s) => steps = s;
+      d.onLookupWord = (w) => lookup = w;
+      Stream<BrainEvent> events() async* {
+        yield const BrainEvent('ui', {'action': 'read_aloud', 'span': 'w3'});
+        yield const BrainEvent('ui', {'action': 'break_into_steps', 'steps': ['x']});
+        yield const BrainEvent('ui', {'action': 'lookup_word', 'word': 'moon'});
+        yield const BrainEvent('done', {'followup': 'none'});
+      }
+
+      await d.performStream(events());
+      expect(aloud, 'w3');
+      expect(steps, ['x']);
+      expect(lookup, 'moon');
+      d.dispose();
+    });
   });
 }

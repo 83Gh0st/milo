@@ -17,7 +17,7 @@ def brain_schema(understand: bool = False) -> dict:
         "gaze": {"type": "object", "properties": {"target": {"type": "string", "enum": GAZE}, "id": {"type": "string"}}, "required": ["target"]},
         "say": {"type": "array", "items": {"type": "string"}},
         "pace": {"type": "string", "enum": ["normal", "slow"]},
-        "ui": {"type": "array", "items": {"type": "object", "properties": {"action": {"type": "string", "enum": UI_ACTIONS}, "span": {"type": "string"}, "screen": {"type": "string"}, "choices": {"type": "array", "items": {"type": "string"}}, "seconds": {"type": "integer"}, "concept": {"type": "string"}}, "required": ["action"]}},
+        "ui": {"type": "array", "items": {"type": "object", "properties": {"action": {"type": "string", "enum": UI_ACTIONS}, "span": {"type": "string"}, "screen": {"type": "string"}, "choices": {"type": "array", "items": {"type": "string"}}, "seconds": {"type": "integer"}, "concept": {"type": "string"}, "steps": {"type": "array", "items": {"type": "string"}}, "word": {"type": "string"}}, "required": ["action"]}},
         "memory_proposals": {"type": "array", "items": {"type": "object", "properties": {"type": {"type": "string"}, "key": {"type": "string"}, "value": {"type": "string"}, "source": {"type": "string"}}, "required": ["type", "key", "value", "source"]}},
         "followup": {"type": "string", "enum": FOLLOWUPS},
     }

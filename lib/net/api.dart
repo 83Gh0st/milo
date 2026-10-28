@@ -11,7 +11,21 @@ import '../data/db.dart';
 import '../data/secure_store.dart';
 
 class CloudDisabled implements Exception {}
-class ApiError implements Exception { final String code; ApiError(this.code); @override String toString() => 'ApiError($code)'; }
+class ApiError implements Exception { final String code; final Map<String, dynamic>? detail; ApiError(this.code, [this.detail]); @override String toString() => 'ApiError($code)'; }
+
+/// User barge-in (or turn change) cancelled an in-flight request: drop
+/// silently — no failure mapping, no fallback, no notice.
+class VoiceCancelled implements Exception { const VoiceCancelled(); }
+
+/// One synthesised sentence: sideband metadata + raw PCM16 mono 24 kHz.
+class SpokenSentence {
+  const SpokenSentence(this.engine, this.envelope, this.pcm, this.durationMs, this.sentenceId);
+  final String engine;
+  final List<double> envelope; // 30 Hz amplitude, 0..1, peak-normalised
+  final Uint8List pcm;
+  final int durationMs;
+  final String sentenceId;
+}
 
 /// Every cloud call goes through [_ledger] FIRST: the entry is written by the same code that makes the request,
 /// built from the exact body being sent. If it is not in the ledger, it was not sent.
@@ -54,10 +68,12 @@ class MiloApi {
     if (e is ApiError) return e;
     if (e is DioException) {
       final s = e.response?.statusCode;
-      if (s == 429) return ApiError('rate_limited');
-      if (s == 503) return ApiError('budget_exhausted'); // daily spend guard: the cloud is resting
-      if (s == 504) return ApiError('timeout'); // the model took too long: retryable, not a budget problem
-      return s != null ? ApiError('http_$s') : ApiError('offline');
+      final raw = e.response?.data;
+      final detail = raw is Map ? Map<String, dynamic>.from(raw) : null;
+      if (s == 429) return ApiError('rate_limited', detail);
+      if (s == 503) return ApiError(detail?['error'] == 'budget_exhausted' ? 'budget_exhausted' : 'http_503', detail); // daily spend guard vs provider outage: same status, different words
+      if (s == 504) return ApiError('timeout', detail); // the model took too long: retryable, not a budget problem
+      return s != null ? ApiError('http_$s', detail) : ApiError('offline');
     }
     return ApiError('error');
   }
@@ -67,12 +83,16 @@ class MiloApi {
     await db.ledger(endpoint, kind, summary ?? summarizeBody(body), utf8.encode(jsonEncode(body)).length, body['name'] != null, false);
   }
 
-  Future<Response<T>> _send<T>(String method, String path, {Object? body, ResponseType? rt, Map<String, String> extra = const {}}) async {
+  Future<Response<T>> _send<T>(String method, String path, {Object? body, ResponseType? rt, Map<String, String> extra = const {}, CancelToken? cancelToken}) async {
     final vault = await vaultAuth?.call() ?? const <String, String>{};
     for (var attempt = 0;; attempt++) {
       try {
-        return await _dio.request<T>(path, data: body, options: Options(method: method, responseType: rt, headers: {'Authorization': 'Bearer ${await token(force: attempt > 0)}', ...vault, ...extra}));
-      } on DioException catch (e) { if (e.response?.statusCode == 401 && attempt == 0) continue; throw _map(e); }
+        return await _dio.request<T>(path, data: body, options: Options(method: method, responseType: rt, headers: {'Authorization': 'Bearer ${await token(force: attempt > 0)}', ...vault, ...extra}), cancelToken: cancelToken);
+      } on DioException catch (e) {
+        if (e.type == DioExceptionType.cancel) throw const VoiceCancelled();
+        if (e.response?.statusCode == 401 && attempt == 0) continue;
+        throw _map(e);
+      }
     }
   }
 
@@ -128,6 +148,21 @@ class MiloApi {
     return token();
   }
 
+  /// Neural voice: synthesises ONE sentence server-side. Ledger-before-send
+  /// (like every cloud call); cancellable for barge-in. Returns the sideband
+  /// + raw PCM16 mono 24 kHz.
+  Future<SpokenSentence> speakOnline({required String text, required String lang, required String profile, double pace = 1, Map<String, String> style = const {}, String sentenceId = '', CancelToken? cancelToken}) async {
+    final body = {'text': text, 'lang': lang, 'profile': profile, 'style': {'pace': pace, ...style}, 'sentence_id': sentenceId};
+    await _ledger('/v1/speak', 'voice', body, summary: 'one Milo sentence to speak aloud (${text.length} characters)');
+    final r = await _send<List<int>>('POST', '/v1/speak', body: body, rt: ResponseType.bytes, cancelToken: cancelToken);
+    final bytes = r.data!;
+    final nl = bytes.indexOf(10);
+    if (nl <= 0) throw ApiError('error');
+    final sb = jsonDecode(utf8.decode(bytes.sublist(0, nl))) as Map<String, dynamic>;
+    return SpokenSentence('${sb['engine']}', [for (final v in (sb['envelope'] as List?) ?? []) (v as num).toDouble()],
+        Uint8List.fromList(bytes.sublist(nl + 1)), (sb['duration_ms'] as num?)?.toInt() ?? 0, '${sb['sentence_id'] ?? ''}');
+  }
+
   // ---- sync (opaque ciphertext only; separate permission from cloud AI) ----
   Map<String, String> _vh(String vid, String key) => {'X-Vault-Id': vid, 'X-Vault-Key': key};
   Future<void> syncCreate(String vid, String key) async { await _send('POST', '/v1/sync/vault', extra: _vh(vid, key)); }
@@ -155,6 +190,26 @@ class MiloApi {
   Future<void> deleteProviderKey(String vid, String key) async {
     await _send('DELETE', '/v1/sync/provider-key', extra: _vh(vid, key));
     await db.ledger('/v1/sync/provider-key', 'sync', 'family AI key removed', 0, false, false);
+  }
+
+  // ---- Phase 3 AI connections (multi-provider; vault-authenticated, keys never stored on this phone) ----
+  Future<Map<String, dynamic>> listConnections(String vid, String key) async =>
+      (await _send<Map<String, dynamic>>('GET', '/v1/connections', extra: _vh(vid, key))).data!;
+  Future<Map<String, dynamic>> saveConnection(String vid, String key, String provider, {String apiKey = '', String baseUrl = '', String model = '', bool ack = false}) async {
+    final r = await _send<Map<String, dynamic>>('POST', '/v1/connections/$provider',
+        body: {if (apiKey.isNotEmpty) 'api_key': apiKey, if (baseUrl.isNotEmpty) 'base_url': baseUrl, if (model.isNotEmpty) 'default_model': model, 'ack_data_policy': ack}, extra: _vh(vid, key));
+    await db.ledger('/v1/connections/$provider', 'sync', 'family AI key saved for $provider (the key itself is never written here)', 0, false, false);
+    return r.data!;
+  }
+  Future<Map<String, dynamic>> testConnection(String vid, String key, String provider, {String model = ''}) async =>
+      (await _send<Map<String, dynamic>>('POST', '/v1/connections/$provider/test', body: {'model': model}, extra: _vh(vid, key))).data!;
+  Future<List<String>> connectionModels(String vid, String key, String provider) async =>
+      [for (final m in (await _send<Map<String, dynamic>>('GET', '/v1/connections/$provider/models', extra: _vh(vid, key))).data!['models'] as List) '$m'];
+  Future<Map<String, dynamic>> putRoutes(String vid, String key, Map<String, List<Map<String, String>>> routes) async =>
+      (await _send<Map<String, dynamic>>('PUT', '/v1/connections/routes', body: {'routes': routes}, extra: _vh(vid, key))).data!;
+  Future<void> deleteConnection(String vid, String key, String provider) async {
+    await _send('DELETE', '/v1/connections/$provider', extra: _vh(vid, key));
+    await db.ledger('/v1/connections/$provider', 'sync', 'family AI key removed for $provider', 0, false, false);
   }
 
   // ---- Phase 0 connection check (About row): which server, what health, plain words ----

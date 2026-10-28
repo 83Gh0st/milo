@@ -48,6 +48,19 @@ class MiloLab extends ConsumerWidget {
         'face eye ${d.face.eye.toStringAsFixed(2)} smile ${d.face.smile.toStringAsFixed(2)} browA ${d.face.browA.toStringAsFixed(2)}\n'
         'choices ${d.choices.length} · clips ${d.clips.length} · reduce ${d.reduce || d.forceReduce}',
         style: const TextStyle(fontSize: 13)))),
+      const Section('Voice (live)'),
+      Card(child: Padding(padding: const EdgeInsets.all(12), child: Text(
+        'engine ${d.voice.engineInUse} (mode ${d.voiceEngine.name}) · sink ${d.voice.neural.sink.isReal ? 'real' : 'noop (timed, silent)'}\n'
+        'neural ready ${d.voice.neuralReady} · last engine ${d.voice.neural.lastEngine.isEmpty ? '—' : d.voice.neural.lastEngine}\n'
+        'first audio ${d.voice.neural.lastFirstAudioMs} ms · queue ${d.voice.neural.queueDepth} · mouth ${d.mouth.toStringAsFixed(2)}',
+        style: const TextStyle(fontSize: 13)))),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        OutlinedButton(onPressed: () => rd.speak('Hello! This is a voice test with two sentences. How do I sound?', tone: 'warm'), child: const Text('speak test')),
+        OutlinedButton(onPressed: () => rd.setListening(true), child: const Text('listen')),
+        OutlinedButton(onPressed: () { rd.notePartial(); }, child: const Text('partial')),
+        OutlinedButton(onPressed: () => rd.setListening(false), child: const Text('stop listen')),
+        OutlinedButton(onPressed: () => rd.cancelSpeech(), child: const Text('barge-in')),
+      ]),
     ]));
   }
 }

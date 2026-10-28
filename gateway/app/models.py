@@ -66,13 +66,43 @@ class VisualReq(BaseModel):
     concept: str = Field(max_length=30)
 
 
+class SpeakReq(BaseModel):
+    text: str = Field(min_length=1, max_length=500)  # one sentence; the phone pipelines sentences
+    lang: str = Field(default="en", max_length=8)
+    profile: str = Field(default="milo_warm_en", max_length=32)  # stable voice identity, independent of the brain
+    voice_id: str = Field(default="", max_length=128)  # engine voice override (bake-off winner fills profiles instead)
+    style: dict = Field(default_factory=dict)  # {emotion, pace}: hints, honoured only where the engine supports them
+    sentence_id: str = Field(default="", max_length=32)  # echoed in the sideband for client queueing
+
+
 class VaultCreate(BaseModel):
     pass
 
 
 class ProviderKeyReq(BaseModel):
-    provider: Literal["meta"] = "meta"
+    provider: Literal["meta", "openai", "anthropic", "custom"] = "meta"
     api_key: str = Field(min_length=8, max_length=500)
+
+
+class ConnectionReq(BaseModel):
+    api_key: str | None = Field(default=None, min_length=8, max_length=2000)
+    base_url: str | None = Field(default=None, max_length=500)
+    default_model: str | None = Field(default=None, max_length=128)
+    ack_data_policy: bool = False  # required when the provider's policy is yes/unknown
+
+
+class RouteEntryReq(BaseModel):
+    provider: Literal["meta", "openai", "anthropic", "custom", "mock"]
+    model: str = Field(min_length=1, max_length=128)
+    strategy: Literal["auto", "json_schema", "tool_schema", "lines"] = "auto"
+
+
+class RoutesReq(BaseModel):
+    routes: dict[str, list[RouteEntryReq]] = Field(max_length=7)
+
+
+class ProbeReq(BaseModel):
+    model: str | None = Field(default=None, max_length=128)
 
 
 class SyncRecordIn(BaseModel):

@@ -115,7 +115,7 @@ class MiloPainter extends CustomPainter {
       }
     }
     if (f == 'arcs') {
-      final m = d.state == CState.listening ? (.45 + .55 * d.micLevel.clamp(0.0, 1.0)) : 1.0; // listening rings breathe with the voice
+      final m = d.attenLive ? (.45 + .55 * d.micLevel.clamp(0.0, 1.0)) : 1.0; // listening rings breathe with the voice
       final al = (((math.sin(t * 5) + 1) / 2 * 150 + 60) * m).round();
       for (final r in [92.0, 106.0]) {
         final p = Paint()..color = const Color(0xFF5B6CFF).withAlpha(al)..style = PaintingStyle.stroke..strokeWidth = 4..strokeCap = StrokeCap.round;

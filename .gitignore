@@ -7,3 +7,4 @@ __pycache__/
 *.db
 .env
 smoke_report.json
+analysis_options.zip

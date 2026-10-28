@@ -7,13 +7,14 @@ carry vault headers are billed to that key. This is NOT end-to-end encrypted:
 the gateway must hold the key in clear to call the provider. It is encrypted
 at rest and isolated per vault."""
 import base64, hashlib, hmac, re, time
+from dataclasses import dataclass, field
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import delete, func, insert, select, update
-from sqlalchemy.exc import IntegrityError
-from .db import sync_records, vault_keys, vaults
+from . import vaultstore
+from .db import sync_records, vault_connections, vault_keys, vaults
 from .models import ProviderKeyReq, SyncPush
 from .security import auth
-from .vaultkeys import key_hint, open_vault_key, seal_vault_key
+from .vaultkeys import key_hint, seal_vault_key
 
 router = APIRouter(prefix="/v1/sync")
 MAX_CT = 262_144
@@ -95,65 +96,106 @@ async def push(body: SyncPush, request: Request, vid: str = Depends(vault_auth))
 async def delete_vault(request: Request, vid: str = Depends(vault_auth)):
     async with request.app.state.engine.begin() as c:  # right to erasure: everything for this vault, immediately
         await c.execute(delete(sync_records).where(sync_records.c.vault_id == vid))
+        await c.execute(delete(vault_connections).where(vault_connections.c.vault_id == vid))
         await c.execute(delete(vault_keys).where(vault_keys.c.vault_id == vid))
         await c.execute(delete(vaults).where(vaults.c.vault_id == vid))
 
 
 @router.post("/provider-key")
 async def set_provider_key(body: ProviderKeyReq, request: Request, vid: str = Depends(vault_auth)):
+    """Legacy single-key endpoint (kept for the old app flow and tests).
+    Now writes the connections store; same request/response behaviour."""
+    from .providers.registry import adapter_ids
     s = request.app.state.settings
+    if body.provider not in adapter_ids():
+        raise HTTPException(422, {"error": "unknown_provider"})
     key = body.api_key.strip()
     if len(key) < 8:
         raise HTTPException(422, {"error": "key_too_short"})
-    enc, hint, now = seal_vault_key(s.key_enc_secret, s.env, key), key_hint(key), int(time.time())
-    async with request.app.state.engine.begin() as c:
-        try:
-            await c.execute(insert(vault_keys).values(vault_id=vid, provider=body.provider, key_enc=enc, key_hint=hint, created=now, updated_at=now))
-        except IntegrityError:
-            await c.execute(update(vault_keys).where(vault_keys.c.vault_id == vid).values(provider=body.provider, key_enc=enc, key_hint=hint, updated_at=now))
+    enc, hint = seal_vault_key(s.key_enc_secret, s.env, key), key_hint(key)
+    await vaultstore.save_connection(request.app.state.engine, vid, body.provider, "", enc, hint, "", {})
     return {"provider": body.provider, "hint": hint}  # the key itself is never returned
 
 
 @router.get("/provider-key")
 async def get_provider_key(request: Request, vid: str = Depends(vault_auth)):
-    async with request.app.state.engine.connect() as c:
-        row = (await c.execute(select(vault_keys.c.provider, vault_keys.c.key_hint, vault_keys.c.updated_at).where(vault_keys.c.vault_id == vid))).first()
-    if not row:
+    conns = await vaultstore.list_connections(request.app.state.engine, vid)
+    prefs = [c for c in conns if c["provider"] == "meta"] or conns
+    if not prefs:
         raise HTTPException(404, {"error": "no_key"})
-    return {"provider": row[0], "hint": row[1], "updated_at": row[2]}
+    return {"provider": prefs[0]["provider"], "hint": prefs[0]["hint"], "updated_at": prefs[0]["updated_at"]}
 
 
 @router.delete("/provider-key", status_code=204)
 async def delete_provider_key(request: Request, vid: str = Depends(vault_auth)):
-    async with request.app.state.engine.begin() as c:
-        await c.execute(delete(vault_keys).where(vault_keys.c.vault_id == vid))
+    conns = await vaultstore.list_connections(request.app.state.engine, vid)
+    for c in ([x for x in conns if x["provider"] == "meta"] or conns[:1]):
+        await vaultstore.delete_connection(request.app.state.engine, vid, c["provider"])
 
 
-async def vault_api_key_for(vid: str, key: str, engine, s) -> str:
-    """Decrypts the family's provider key. 401 for bad vault credentials,
-    409 when the vault holds no (readable) key. Never returns a fallback."""
+@dataclass
+class VaultCtx:
+    """Everything inference needs from a family's vault: decrypted per-
+    provider credentials, the saved route table, and probed capabilities."""
+    vid: str
+    creds: dict = field(default_factory=dict)  # provider -> Creds
+    routes: dict = field(default_factory=dict)  # capability -> [RouteEntry]
+    caps: dict = field(default_factory=dict)  # (provider, model) -> {need: bool, "strategy": str}
+    unreadable: list = field(default_factory=list)  # providers whose key no longer decrypts
+
+
+def _caps_for(conn: dict) -> dict:
+    """Builds the (provider, model) caps entries from one connection row.
+    A need is False only when a probe explicitly failed it; unprobed needs
+    stay allowed (the provider's own error then surfaces honestly)."""
+    out = {}
+    for model, info in (conn.get("caps") or {}).items():
+        if not isinstance(info, dict) or "checks" not in info:
+            continue
+        checks = info["checks"]
+        entry = {"strategy": info.get("strategy", "lines")}
+        for need, check in (("text_stream", "chat"), ("vision", "vision")):
+            v = checks.get(check, "")
+            entry[need] = not (isinstance(v, str) and v.startswith("fail"))
+        out[model] = entry
+    return out
+
+
+async def vault_ctx_for(vid: str, key: str, engine, s) -> VaultCtx:
+    """Validates vault headers (401), loads decrypted credentials, routes and
+    probed caps (409 when the vault holds no usable key). Never falls back
+    to the deployer key silently."""
+    from .providers.registry import RouteEntry
     if not re.fullmatch(r"[0-9a-f]{32}", vid or "") or not re.fullmatch(r"[0-9a-f]{64}", key or ""):
         raise HTTPException(401, {"error": "bad_vault_credentials"})
     async with engine.connect() as c:
         row = (await c.execute(select(vaults.c.auth_hash).where(vaults.c.vault_id == vid))).first()
         if not row or not hmac.compare_digest(row[0], hashlib.sha256(key.encode()).hexdigest()):
-            raise HTTPException(401, {"error": "bad_vault_credentials"})
-        krow = (await c.execute(select(vault_keys.c.key_enc).where(vault_keys.c.vault_id == vid))).first()
-    if not krow:
+            raise HTTPException(401, {"error": "bad_vault_credentials"})  # same answer for unknown vs wrong
+    creds, bad = await vaultstore.vault_creds(engine, s, vid)
+    if not creds:
         raise HTTPException(409, {"error": "no_family_key"})
-    try:
-        return open_vault_key(s.key_enc_secret, s.env, krow[0])
-    except ValueError:
-        raise HTTPException(409, {"error": "family_key_unreadable"})  # KEK rotated or lost: the family re-enters the key
+    routes_raw = await vaultstore.get_routes(engine, vid)
+    routes = {cap: [RouteEntry(e["provider"], e["model"], e.get("strategy", "auto")) for e in entries]
+              for cap, entries in routes_raw.items()}
+    conns = await vaultstore.list_connections(engine, vid)
+    caps = {}
+    for c in conns:
+        for model, entry in _caps_for(c).items():
+            caps[(c["provider"], model)] = entry
+    if s.provider == "mock" and len(creds) == 1 and "mock" not in creds:
+        # Offline-demo plumbing: the single family key funds mock turns too
+        # (mock never sends it anywhere; tests observe last_api_key).
+        creds["mock"] = next(iter(creds.values()))
+    return VaultCtx(vid=vid, creds=creds, routes=routes, caps=caps, unreadable=bad)
 
 
-async def vault_api_key(request: Request) -> str | None:
-    """Family BYOK key for this inference call, or None for the deployer key.
-
-    Vault headers present but wrong -> 401. Vault valid but no family key
-    stored -> 409. Neither case ever falls back to the deployer key silently.
+async def vault_ctx(request: Request) -> VaultCtx | None:
+    """Vault context for this inference call, or None for the deployer path.
+    Vault headers present but wrong -> 401. Vault valid but no usable family
+    key -> 409. Neither case ever falls back to the deployer key silently.
     """
     vid, key = request.headers.get("x-vault-id", ""), request.headers.get("x-vault-key", "")
     if not vid and not key:
         return None
-    return await vault_api_key_for(vid, key, request.app.state.engine, request.app.state.settings)
+    return await vault_ctx_for(vid, key, request.app.state.engine, request.app.state.settings)

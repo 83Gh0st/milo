@@ -1,0 +1,159 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:milo/companion/director.dart';
+import 'package:milo/core/providers.dart';
+import 'package:milo/data/secure_store.dart';
+import 'package:milo/ui/trusted_screen.dart';
+
+import 'helpers/fake_db.dart';
+import 'helpers/harness.dart';
+
+ProviderContainer connContainer(FakeDb db, FakeApi api, FakeSync sync) => ProviderContainer(overrides: [
+      dbProvider.overrideWithValue(db),
+      storeProvider.overrideWithValue(SecureStore()),
+      directorProvider.overrideWith((_) => Director()),
+      apiProvider.overrideWithValue(api),
+      syncProvider.overrideWithValue(sync),
+      connectionCheckProvider.overrideWithValue(const AsyncValue.data(
+          ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+    ]);
+
+Future<void> pumpConn(WidgetTester t, ProviderContainer c, {Size size = const Size(360, 640), double scale = 1.0}) async {
+  mockConnectivity(t);
+  t.view.physicalSize = Size(size.width * 3, size.height * 3);
+  t.view.devicePixelRatio = 3.0;
+  addTearDown(() {
+    t.view.resetPhysicalSize();
+    t.view.resetDevicePixelRatio();
+  });
+  await t.pumpWidget(UncontrolledProviderScope(
+      container: c,
+      child: MaterialApp(
+          home: Builder(
+              builder: (c2) => MediaQuery(
+                  data: MediaQuery.of(c2).copyWith(textScaler: TextScaler.linear(scale)), child: const ProviderKeyScreen())))));
+  await t.pump();
+  await t.pump(const Duration(milliseconds: 100));
+  await t.pump(const Duration(milliseconds: 100));
+  expect(t.takeException(), isNull);
+}
+
+Future<void> settle(WidgetTester t) async {
+  await t.pump(const Duration(milliseconds: 100));
+  await t.pump(const Duration(milliseconds: 100));
+  await t.pump(const Duration(milliseconds: 100));
+}
+
+void main() {
+  testWidgets('sync off shows the gate, sync on shows the four provider tiles', (t) async {
+    var db = FakeDb();
+    var api = FakeApi(db, SecureStore());
+    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore(), on: false)));
+    expect(find.text('Turn on sync first, in Data and privacy. The sync vault identifies your family.'), findsOneWidget);
+
+    db = FakeDb();
+    api = FakeApi(db, SecureStore());
+    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    for (final label in ['Meta (recommended)', 'OpenAI', 'Anthropic', 'Custom or local']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.text('Not connected'), findsNWidgets(4));
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('empty vault at 360x640 scale 2.0: everything reachable, save is honest', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())), scale: 2.0);
+    await t.scrollUntilVisible(find.text('Save choices'), 300);
+    await t.tap(find.text('Save choices'));
+    await settle(t);
+    expect(find.text('Connect a provider first.'), findsOneWidget); // no silent mock fallback
+    // The sheet opens cleanly at 2.0 too.
+    await t.scrollUntilVisible(find.text('Custom or local'), -300);
+    await t.tap(find.text('Custom or local'));
+    await settle(t);
+    expect(find.text('Custom or local', skipOffstage: false), findsWidgets);
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('ack flow: refusal surfaces the checkbox, ack saves the key', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    await t.tap(find.text('OpenAI'));
+    await settle(t);
+    await t.enterText(find.byType(TextField).first, 'sk-test-key-12345678');
+    await t.tap(find.widgetWithText(FilledButton, 'Save'));
+    await settle(t);
+    expect(find.text('Please confirm the data note first.'), findsOneWidget);
+    expect(find.text('I understand my data may train their models'), findsOneWidget);
+    expect(api.savedConns, isEmpty); // refused: nothing stored
+    await t.tap(find.byType(CheckboxListTile));
+    await t.pump();
+    await t.tap(find.widgetWithText(FilledButton, 'Save'));
+    await settle(t);
+    expect(api.savedConns.map((c) => c['provider']), ['openai']);
+    expect(find.textContaining('Key …5678'), findsOneWidget);
+    // The family switch is usable now and persists the flag.
+    await t.tap(find.byType(SwitchListTile));
+    await settle(t);
+    expect(await db.get('ai.family_key'), 'family');
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('test checklist shows pass and fail honestly; models picker fills the field', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model',
+      'policy': {'trains_on_data': 'unknown', 'needs_ack': true, 'note': 'Fake policy for tests.'}});
+    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    await t.tap(find.text('OpenAI'));
+    await settle(t);
+    await t.tap(find.text('Test connection'));
+    await settle(t);
+    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Structured replies'), findsOneWidget);
+    expect(find.text('Pictures'), findsOneWidget);
+    await t.tap(find.text('Find'));
+    await settle(t);
+    expect(find.text('Pick a model'), findsOneWidget);
+    await t.tap(find.text('fake-model-b'));
+    await settle(t);
+    expect(find.text('fake-model-b'), findsOneWidget); // model field filled, dialog closed
+
+    api.failProbe = true;
+    await t.tap(find.text('Test connection'));
+    await settle(t);
+    expect(find.text('Chat'), findsOneWidget); // fail row still labelled, no crash
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('routes save through to the fake vault; remove disconnects', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model', 'policy': {}});
+    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    await t.scrollUntilVisible(find.text('Save choices'), 300);
+    await t.tap(find.byType(DropdownButtonFormField<String>).first); // brain first choice
+    await settle(t);
+    await t.tap(find.text('openai/fake-model').last);
+    await settle(t);
+    await t.scrollUntilVisible(find.text('Save choices'), 300);
+    await t.tap(find.text('Save choices'));
+    await settle(t);
+    expect(api.savedRoutes['brain']!.first, {'provider': 'openai', 'model': 'fake-model'});
+    expect(find.text('Saved. Milo now uses your choices.'), findsOneWidget);
+
+    await t.scrollUntilVisible(find.text('OpenAI'), -300);
+    await t.tap(find.text('OpenAI'));
+    await settle(t);
+    await t.scrollUntilVisible(find.text('Remove this connection'), 200);
+    await t.tap(find.text('Remove this connection'));
+    await settle(t);
+    expect(api.savedConns, isEmpty);
+    expect(find.text('Not connected'), findsNWidgets(4));
+    expect(t.takeException(), isNull);
+  });
+}
