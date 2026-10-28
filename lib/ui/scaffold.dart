@@ -84,7 +84,7 @@ class MiloHeader extends ConsumerWidget {
                 IconButton(tooltip: 'Break', onPressed: () => openScreen('break'), icon: const Icon(Icons.bedtime_outlined)),
                 if (d.presence == Presence.chip) const MiloAvatar(size: 44),
                 if (narrow)
-                  IconButton(tooltip: 'Help me', style: IconButton.styleFrom(backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), icon: const Icon(Icons.sos_outlined))
+                  IconButton(tooltip: 'Help me', style: IconButton.styleFrom(backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), icon: const Icon(Icons.help_outline))
                 else
                   FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 48), backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me')),
               ]);
