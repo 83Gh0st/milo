@@ -1,5 +1,12 @@
 # Milo: detailed setup
 
+> Windows `cmd` note: the bash snippets below use `export`/`source`; in `cmd`
+> use `set VAR=value`, `docker compose ...`, `python -m ...`. venv activate:
+> `.venv\Scripts\activate.bat`. Asset regeneration (all `cmd`-ready):
+> `python tools\make_sounds.py`, `python tools\make_logo.py [--concept A|B|C]`,
+> then `dart run flutter_launcher_icons` and
+> `dart run flutter_native_splash:create`.
+
 Milo is two deployable pieces plus an optional sync channel:
 
 ```
