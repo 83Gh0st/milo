@@ -132,6 +132,7 @@ class Director extends ChangeNotifier {
   String lang = 'en';
   bool ttsReady = true, greetings = true, offlineForced = false;
   double voiceSpeed = 1.0;
+  double motionGain = 1.0; // Milo Lab slider only; 1.0 = shipped behaviour (never persisted)
 
   // speech
   FlutterTts? _tts;
@@ -143,7 +144,7 @@ class Director extends ChangeNotifier {
   double _lastNudge = -999;
 
   bool get speaking => _speaking;
-  double get amp => kProfiles[profile]!.amp * (presence == Presence.chip ? .35 : 1);
+  double get amp => kProfiles[profile]!.amp * (presence == Presence.chip ? .35 : 1) * motionGain;
   bool get inhale => math.cos(_bp) > 0;
   String get fx => quiet ? '' : (inten > .5 ? faces[emo]!.fx : faces[kProfiles[profile]!.base]!.fx);
   double _rnd(double a, double b) => a + _r.nextDouble() * (b - a);
@@ -295,6 +296,7 @@ class Director extends ChangeNotifier {
 
   static const _dur = {'wave': 1.2, 'nod': .6, 'shrug': .9, 'point': 1.0, 'lean_in': 1.0, 'think': 1.6, 'celebrate': 2.2, 'giggle': .9,
     'yawn': 2.0, 'stretch': 1.8, 'hum': 1.5, 'dizzy': 1.2, 'pet': 1.5};
+  static List<String> get clipNames => _dur.keys.toList(); // Milo Lab buttons; single source is _dur
 
   void _clip(Clip c, Ch h, double a, bool rm) {
     final p = (c.t / c.d).clamp(0.0, 1.0).toDouble(), e = math.sin(math.pi * p), s = c.t;

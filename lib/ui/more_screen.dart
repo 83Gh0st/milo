@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import '../companion/director.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import '../net/api.dart';
+import 'dev/milo_lab.dart';
 import 'pin.dart';
 import 'screen.dart';
 import 'theme.dart';
@@ -136,12 +138,36 @@ class AboutScreen extends StatelessWidget {
   static const _licenses = {'Lexend': 'assets/fonts/OFL-Lexend.txt', 'Atkinson Hyperlegible': 'assets/fonts/OFL-Atkinson.txt', 'OpenDyslexic': 'assets/fonts/OFL-OpenDyslexic.txt'};
   @override
   Widget build(BuildContext context) => MiloScreen(title: 'About Milo', body: ListView(padding: const EdgeInsets.all(16), children: [
-    const Center(child: Padding(padding: EdgeInsets.all(8), child: Text('Milo Companion 1.0.0', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)))),
+    Center(child: Padding(padding: const EdgeInsets.all(8), child: GestureDetector(onLongPress: kDebugMode ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MiloLab())) : null, child: const Text('Milo Companion 1.0.0', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))))),
     const Padding(padding: EdgeInsets.all(8), child: Text('Milo is an AI companion for learning and communication. It is not a person, a therapist or a doctor.', textAlign: TextAlign.center, style: TextStyle(color: T.mute))),
+    const Section('Connection'),
+    const ConnectionCheckRow(),
     const Section('Font licences (SIL Open Font License)'),
     for (final e in _licenses.entries) Card(child: ExpansionTile(title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w700)), children: [
       FutureBuilder(future: DefaultAssetBundle.of(context).loadString(e.value), builder: (_, s) => Padding(padding: const EdgeInsets.all(16), child: Text((s.data ?? 'Loading…').split('\n').take(12).join('\n'), style: const TextStyle(fontSize: 12))))])),
   ]));
+}
+
+/// Phase 0 connection check (More → About): which server, what /v1/health
+/// says, and the failure reason in plain words. Reports raw reachability;
+/// gates (offline mode, cloud consent) stay visible in the ladder banner.
+class ConnectionCheckRow extends ConsumerWidget {
+  const ConnectionCheckRow({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final check = ref.watch(connectionCheckProvider);
+    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [const Expanded(child: Text('Thinking cloud', style: TextStyle(fontWeight: FontWeight.w700)),
+        IconButton(tooltip: 'Check again', onPressed: () => ref.refresh(connectionCheckProvider), icon: const Icon(Icons.refresh))]),
+      ...check.when(
+        data: (s) => [Text('Server: ${s.apiBase}', style: const TextStyle(color: T.mute, fontSize: 13)),
+          Text(s.provider == null ? 'Health: unreachable' : 'Health: ok · ${s.provider} · ${s.brainMode ?? 'json'} · budget ${s.budgetOk == true ? 'ok' : 'used'}', style: const TextStyle(color: T.mute, fontSize: 13)),
+          const SizedBox(height: 6), Text(s.words, style: const TextStyle(fontSize: 15))],
+        loading: () => [const Text('Checking…', style: TextStyle(color: T.mute))],
+        error: (e, _) => [Text(connectionWords(health: null, error: e is ApiError ? e.code : 'error'), style: const TextStyle(fontSize: 15))],
+      ),
+    ])));
+  }
 }
 
 class DataPrivacyScreen extends ConsumerStatefulWidget { const DataPrivacyScreen({super.key}); @override ConsumerState<DataPrivacyScreen> createState() => _DPState(); }
