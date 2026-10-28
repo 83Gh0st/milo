@@ -71,16 +71,21 @@ class WeeklySummary extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final db = ref.read(dbProvider);
-    return MiloScreen(title: 'Weekly summary', body: FutureBuilder(future: Future.wait([db.counts(), db.flag('progress.enabled', def: true), db.flag('checkin.counts')]), builder: (_, s) {
+    return MiloScreen(title: 'Weekly summary', body: FutureBuilder(future: Future.wait([db.counts(), db.counts(days: 3650), db.flag('progress.enabled', def: true), db.flag('checkin.counts')]), builder: (_, s) {
       if (!s.hasData) return const SizedBox();
-      final c = s.data![0] as Map<String, int>, on = s.data![1] as bool, checkins = s.data![2] as bool;
+      final w = s.data![0] as Map<String, int>, all = s.data![1] as Map<String, int>, on = s.data![2] as bool, checkins = s.data![3] as bool;
       Widget row(String e, String l, int n) => Card(child: ListTile(leading: Text(e, style: const TextStyle(fontSize: 26)), title: Text(l), trailing: Text('$n', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))));
+      List<Widget> rows(Map<String, int> c) => [row('📖', 'Things read', c['read'] ?? 0), row('✅', 'Steps done', c['step'] ?? 0), row('🏁', 'Plans finished', c['task'] ?? 0), row('💬', 'Messages spoken', c['spoken'] ?? 0), row('🙋', 'Times asked for help', c['help'] ?? 0),
+        if (checkins) row('💚', 'Mood check-ins', c['checkin'] ?? 0)];
       return ListView(padding: const EdgeInsets.all(16), children: [
         const Text('Counts only. Never messages, never transcripts.', style: TextStyle(color: T.mute)),
         _SwitchRow('Show progress to the child', on, (v) async { await db.putFlag('progress.enabled', v); (context as Element).markNeedsBuild(); }),
         _SwitchRow('Count mood check-ins', checkins, (v) async { await db.putFlag('checkin.counts', v); (context as Element).markNeedsBuild(); }),
-        row('📖', 'Things read', c['read'] ?? 0), row('✅', 'Steps done', c['step'] ?? 0), row('🏁', 'Plans finished', c['task'] ?? 0), row('💬', 'Messages spoken', c['spoken'] ?? 0), row('🙋', 'Times asked for help', c['help'] ?? 0),
-        if (checkins) row('💚', 'Mood check-ins', c['checkin'] ?? 0)]);
+        const Section('This week'),
+        if (w.values.every((n) => n == 0)) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('A quiet week. Milo never keeps score — these counts only show what was used.', style: TextStyle(fontSize: 15)))),
+        ...rows(w),
+        const Section('All time so far'),
+        ...rows(all)]);
     }));
   }
 }

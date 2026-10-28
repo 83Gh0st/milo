@@ -8,6 +8,7 @@ import 'package:milo/ui/calm_screens.dart';
 import 'package:milo/ui/chat_screen.dart';
 import 'package:milo/ui/express_screen.dart';
 import 'package:milo/ui/failure_screens.dart';
+import 'package:milo/ui/trusted_screen.dart';
 import 'package:milo/ui/understand_screen.dart';
 
 import 'helpers/fake_db.dart';
@@ -116,6 +117,37 @@ void main() {
       await t.tap(find.text('Food'));
       await settleAgent(t);
       expect(find.text('I need'), findsNWidgets(2)); // tile 1, not the tapped tile
+      expect(t.takeException(), isNull);
+    });
+  });
+
+  group('trusted-adult report (P2)', () {
+    testWidgets('two periods, counts only, check-ins gated by opt-in', (t) async {
+      final db = FakeDb();
+      db.progressRows.addAll(['read', 'read', 'step', 'checkin']);
+      await db.putFlag('checkin.counts', true);
+      final c = agentContainer(db, FakeApi(db, SecureStore()));
+      addTearDown(c.dispose);
+      await pumpScreen(t, const WeeklySummary(), size: const Size(393, 852), container: c);
+      await settleAgent(t);
+      expect(find.text('This week'), findsOneWidget);
+      await t.scrollUntilVisible(find.text('All time so far'), 300);
+      await settleAgent(t);
+      expect(find.text('All time so far'), findsOneWidget);
+      expect(find.text('Mood check-ins', skipOffstage: false), findsNWidgets(2)); // week + all-time
+      expect(find.text('Things read', skipOffstage: false), findsNWidgets(2));
+      expect(find.textContaining('A quiet week'), findsNothing);
+      expect(t.takeException(), isNull);
+    });
+    testWidgets('quiet week says so gently, no loss language', (t) async {
+      final db = FakeDb();
+      final c = agentContainer(db, FakeApi(db, SecureStore()));
+      addTearDown(c.dispose);
+      await pumpScreen(t, const WeeklySummary(), size: const Size(393, 852), container: c);
+      await settleAgent(t);
+      expect(find.textContaining('A quiet week'), findsOneWidget);
+      expect(find.text('Mood check-ins'), findsNothing); // opt-in off
+      expect(find.textContaining('streak'), findsNothing);
       expect(t.takeException(), isNull);
     });
   });
