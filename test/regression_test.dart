@@ -4,11 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/companion/director.dart';
 import 'package:milo/contracts/brain_contract.dart';
 import 'package:milo/contracts/events.dart';
+import 'package:milo/core/memory.dart';
+import 'package:milo/core/payload.dart';
 import 'package:milo/core/pocket_brain.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/net/api.dart';
 import 'package:milo/net/voice.dart';
 import 'package:milo/ui/learn_screen.dart';
+
+import 'helpers/fake_db.dart';
 
 void main() {
   test('contract keeps highlight/show_image/set_timer and drops bad ones', () {
@@ -111,5 +115,36 @@ void main() {
     expect(parseLearnWords('not json'), isEmpty);
     expect(parseLearnWords('[]'), isEmpty);
     expect(parseLearnWords('{"words": "nope"}'), isEmpty);
+  });
+
+  group('chat payload matches visible chips (plan 7.7)', () {
+    Map<String, dynamic> body(List<ChipItem> chips, [String text = 'hi']) => buildBrainBody(
+        text: text, activity: 'chat', presentation: 'friendly', lang: 'en', support: {}, chips: chips, memories: []);
+    test('chips sent exactly; removal drops from the very next request', () {
+      final chips = [const ChipItem('document', 'Worksheet', 'long text'), const ChipItem('memory', 'Likes pictures')];
+      expect((body(chips)['chips'] as List).map((c) => (c as Map)['label']), ['Worksheet', 'Likes pictures']);
+      chips.removeAt(0);
+      final next = body(chips)['chips'] as List;
+      expect(next.length, 1);
+      expect((next.first as Map)['label'], 'Likes pictures');
+    });
+    test('chip text truncates at 3000, message at 800', () {
+      final b = body([ChipItem('document', 'Doc', 'y' * 3100)], 'x' * 900);
+      expect((b['text'] as String).length, 800);
+      expect((((b['chips'] as List).first as Map)['text'] as String).length, 3000);
+    });
+  });
+
+  group('memory pause blocks writes, resume restores (plan 7.10)', () {
+    test('paused: proposals discarded, request context empty', () async {
+      final mem = MemoryManager(FakeDb());
+      await mem.setPaused(true);
+      mem.propose({'type': 'preference', 'key': 'call_name', 'value': 'Sam', 'source': 'user_stated'});
+      expect(mem.pending, isNull);
+      expect(await mem.forRequest('chat'), isEmpty);
+      await mem.setPaused(false);
+      mem.propose({'type': 'preference', 'key': 'call_name', 'value': 'Sam', 'source': 'user_stated'});
+      expect(mem.pending, isNotNull);
+    });
   });
 }

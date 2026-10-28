@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../companion/v2/look.dart';
 import '../core/providers.dart';
 import 'screen.dart';
 import 'theme.dart';
@@ -83,11 +84,14 @@ class Growth extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stage = days >= 30 ? 4 : days >= 14 ? 3 : days >= 7 ? 2 : days >= 2 ? 1 : 0;
+    final look = ref.watch(directorProvider).look; // wardrobe picks the persisted 2A direction everywhere Milo renders
     return MiloScreen(title: 'Milo is growing', noHeader: false, body: ListView(padding: const EdgeInsets.all(20), children: [
       const MiloStage(),
       Row(children: [for (var i = 0; i < 5; i++) ...[Column(children: [Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, color: i <= stage ? T.mint : T.line)), const SizedBox(height: 4), Text(const ['Seed', 'Sprout', 'Leaves', 'Bud', 'Bloom'][i], style: TextStyle(fontSize: 11, fontWeight: i == stage ? FontWeight.w800 : FontWeight.w500))]), if (i < 4) Expanded(child: Container(height: 3, color: i < stage ? T.mint : T.line))]]),
       const Section('Milo’s wardrobe (you choose)'),
-      Row(children: [for (final i in [Icons.person_outline, Icons.auto_awesome, Icons.favorite_border, Icons.nightlight_outlined]) Expanded(child: Container(margin: const EdgeInsets.all(4), height: 64, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: T.line)), child: Icon(i, color: T.pri)))]),
+      Row(children: [for (final l in MiloLook.values) Expanded(child: Container(margin: const EdgeInsets.all(4), child: Material(color: T.soft[l.index], borderRadius: BorderRadius.circular(16), child: InkWell(borderRadius: BorderRadius.circular(16),
+        onTap: () { final dd = ref.read(directorProvider); dd.set(() => dd.look = l); },
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Column(children: [Icon(look == l ? Icons.check_circle : Icons.circle_outlined, color: T.pri), const SizedBox(height: 4), Text('Look ${l.name.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.w800))])))))]),
       Container(margin: const EdgeInsets.only(top: 14), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: T.mintSoft, borderRadius: BorderRadius.circular(16)), child: const Text('Milo never wilts when you are away.\nCosmetics are chosen, not locked.', style: TextStyle(fontWeight: FontWeight.w700))),
     ]));
   }

@@ -68,15 +68,19 @@ void main() {
     });
   });
 
-  group('check-in counts (§0.1)', () {
-    testWidgets('tapping a feeling records one count, never the answer', (t) async {
+  group('check-in counts (§0.1, plan 7.11)', () {
+    testWidgets('off by default; opt-in records one count, never the answer', (t) async {
       final db = FakeDb();
       final c = agentContainer(db, FakeApi(db, SecureStore()));
       addTearDown(c.dispose);
       await pumpScreen(t, const CheckInScreen(), size: const Size(393, 852), container: c);
       await t.tap(find.byType(IconButton).first);
       await settleAgent(t);
-      expect(db.progressRows, ['checkin']); // counts only: answers are never stored
+      expect(db.progressRows, isEmpty); // default: nothing in the calm space is recorded
+      await db.putFlag('checkin.counts', true);
+      await t.tap(find.byType(IconButton).first);
+      await settleAgent(t);
+      expect(db.progressRows, ['checkin']); // opt-in: counts only, answers never stored
       expect(t.takeException(), isNull);
     });
   });
