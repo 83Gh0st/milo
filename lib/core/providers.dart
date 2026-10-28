@@ -49,6 +49,8 @@ class ChatNotifier extends StateNotifier<List<ChatMsg>> {
 }
 /// A word the brain asked to look up: UnderstandScreen picks it up once, then clears it.
 final lookupWordProvider = StateProvider<String>((_) => '');
+/// Text shared from another app (plan 7.13): UnderstandScreen picks it up once, then clears it.
+final sharedTextProvider = StateProvider<String>((_) => '');
 final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMsg>>((_) => ChatNotifier());
 final expressTextProvider = StateProvider<String>((_) => '');
 final syncProvider = Provider((ref) => SyncService(ref.read(dbProvider), ref.read(apiProvider), ref.read(storeProvider)));

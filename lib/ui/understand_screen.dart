@@ -67,6 +67,9 @@ class _UState extends ConsumerState<UnderstandScreen> {
     // lookup_word: the brain sent a word here; use it once, then clear.
     final lookup = ref.read(lookupWordProvider);
     if (lookup.isNotEmpty) { ref.read(lookupWordProvider.notifier).state = ''; _image = null; WidgetsBinding.instance.addPostFrameCallback((_) => _use(lookup)); }
+    // share-in (plan 7.13): text from another app lands the same way.
+    final shared = ref.read(sharedTextProvider);
+    if (lookup.isEmpty && shared.isNotEmpty) { ref.read(sharedTextProvider.notifier).state = ''; _image = null; WidgetsBinding.instance.addPostFrameCallback((_) => _use(shared)); }
   }
   void _prep() { words = RegExp(r'\S+').allMatches(c.text).map((m) => m.group(0)!).toList(); keys = List.generate(words.length, (_) => GlobalKey()); }
   Future<void> _remember() async {

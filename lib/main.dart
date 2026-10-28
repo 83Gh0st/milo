@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/providers.dart';
 import 'data/db.dart';
 import 'data/secure_store.dart';
+import 'sys/share_in.dart';
 import 'ui/chat_screen.dart';
 import 'ui/explore_screen.dart';
 import 'ui/home_screen.dart';
@@ -65,6 +66,11 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
     _nudgeT = Timer.periodic(const Duration(minutes: 1), (_) => _breakNudge()); // gentle time limits: set by a grown-up, one suggestion, never forced
     _sync();
     Future.delayed(const Duration(seconds: 3), () { if (mounted && !d.ttsReady) openScreen('novoice'); });
+    armShareIn((t) { ref.read(sharedTextProvider.notifier).state = t; if (mounted) openScreen('understand'); }); // plan 7.13: late share while open
+    WidgetsBinding.instance.addPostFrameCallback((_) async { // cold start with shared text (no-op without the native side)
+      final t = await fetchInitialSharedText();
+      if (t.isNotEmpty && mounted) { ref.read(sharedTextProvider.notifier).state = t; openScreen('understand'); }
+    });
   }
   Future<void> _sync() async {
     try {

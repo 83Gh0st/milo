@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/companion/director.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/data/secure_store.dart';
+import 'package:milo/sys/share_in.dart';
 import 'package:milo/ui/calm_screens.dart';
 import 'package:milo/ui/chat_screen.dart';
 import 'package:milo/ui/express_screen.dart';
@@ -17,12 +19,13 @@ import 'helpers/harness.dart';
 /// Widget tests for the Phase 5 safe multimodal agent: the steps checklist
 /// (visible confirmation before anything is saved) and the lookup_word
 /// cross-screen handoff into the Understand reader.
-ProviderContainer agentContainer(FakeDb db, FakeApi api, {String lookup = ''}) => ProviderContainer(overrides: [
+ProviderContainer agentContainer(FakeDb db, FakeApi api, {String lookup = '', String shared = ''}) => ProviderContainer(overrides: [
       dbProvider.overrideWithValue(db),
       storeProvider.overrideWithValue(SecureStore()),
       directorProvider.overrideWith((_) => Director()),
       apiProvider.overrideWithValue(api),
       lookupWordProvider.overrideWith((_) => lookup),
+      sharedTextProvider.overrideWith((_) => shared),
       connectionCheckProvider.overrideWithValue(const AsyncValue.data(
           ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
     ]);
@@ -160,6 +163,30 @@ void main() {
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
       await settleAgent(t, 30);
       expect(find.text('photosynthesis'), findsWidgets);
+      expect(t.takeException(), isNull);
+    });
+  });
+
+  group('share-in (plan 7.13)', () {
+    testWidgets('platform text lands in the provider', (t) async {
+      final db = FakeDb();
+      final c = agentContainer(db, FakeApi(db, SecureStore()));
+      addTearDown(c.dispose);
+      String? got;
+      armShareIn((s) => got = s);
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          'milo/share', const StandardMethodCodec().encodeMethodCall(const MethodCall('sharedText', '  Shared words  ')), (_) {});
+      expect(got, 'Shared words'); // trimmed, non-empty only
+      expect(t.takeException(), isNull);
+    });
+    testWidgets('shared text prefills the Understand reader once', (t) async {
+      final db = FakeDb();
+      final c = agentContainer(db, FakeApi(db, SecureStore()), shared: 'Shared words');
+      addTearDown(c.dispose);
+      await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
+      await settleAgent(t, 30);
+      expect(find.textContaining('Shared words'), findsWidgets);
+      expect(c.read(sharedTextProvider), isEmpty); // consumed
       expect(t.takeException(), isNull);
     });
   });
