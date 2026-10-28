@@ -76,9 +76,10 @@ def test_redact():
 # ---------- capabilities ----------
 
 def test_capabilities_shape():
-    assert set(Capabilities().as_dict()) == {"text_stream", "json_schema", "tool_calls", "vision", "audio_in", "tts", "image_gen", "realtime"}
+    assert set(Capabilities().as_dict()) == {"text_stream", "json_schema", "tool_calls", "vision", "audio_in", "tts", "image_gen", "realtime", "visual_ground"}
     assert set(DECLARED) == {"meta", "openai", "anthropic", "custom", "mock"}
     assert DECLARED["mock"].text_stream and DECLARED["anthropic"].tool_calls and not DECLARED["anthropic"].tts
+    assert DECLARED["mock"].visual_ground and not DECLARED["meta"].visual_ground  # SAM unverified: mock only
 
 
 # ---------- egress ----------
@@ -317,6 +318,21 @@ def test_mock_adapter_conformance_shape():
     assert run(a.discover_models()) == ["mock"]
     r = run(a.probe())
     assert r.ok and r.strategy == "json_schema"
+
+
+def test_visual_ground_mock_shape_meta_honest():
+    from app.providers import meta_adapter as meta_mod
+    from app.providers.mock_adapter import MockAdapter
+    g = run(MockAdapter().ground("aGk=", "the red ball"))
+    assert g["model"] == "mock" and len(g["boxes"]) == 1
+    b = g["boxes"][0]
+    assert b["label"] == "the red ball" and all(0.0 <= b[k] <= 1.0 for k in ("x", "y", "w", "h"))
+    assert meta_mod.SAM_ENDPOINT_UNVERIFIED is None
+    # MetaAdapter.__init__ needs the openai package; ground() refuses before
+    # touching self, so the unbound call proves the honest refusal anywhere.
+    with pytest.raises(ProviderError) as e:
+        run(meta_mod.MetaAdapter.ground(object(), "aGk=", "dog"))
+    assert e.value.code == "unsupported_capability"
 
 
 # ---------- router ----------

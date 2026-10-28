@@ -7,6 +7,11 @@ this module without the web stack.
 from .base import ProviderError, MODEL_NOT_FOUND
 from .capabilities import ProbeResult
 
+# P2 SAM 3.1 highlighting: the endpoint/params were NOT verified against Meta's
+# docs (no network here), so this stays None and ground() refuses honestly.
+# Fill it from the official SAM API reference (record URL + date) before use.
+SAM_ENDPOINT_UNVERIFIED = None
+
 
 class MetaAdapter:
     id = "meta"
@@ -35,6 +40,9 @@ class MetaAdapter:
         if want != self.s.image_model:
             raise ProviderError(MODEL_NOT_FOUND, 502)
         return await self.image.generate(prompt, api_key=self._key(creds))
+
+    async def ground(self, image_b64, phrase, creds=None, model=None):
+        raise ProviderError("unsupported_capability", 502)
 
     async def open_voice(self, language_bias=None, keywords=None, creds=None, model=None):
         want = model or self.s.voice_model
@@ -71,5 +79,6 @@ class MetaAdapter:
         except (ProviderError, ValueError) as e:
             checks["json_schema"] = f"fail:{getattr(e, 'code', 'bad_json')}"
         checks["vision"] = "skipped:meta vision is exercised by the understand smoke test, not the 1x1 probe"
+        checks["visual_ground"] = "skipped:SAM endpoint unverified (no docs/key); see SAM_ENDPOINT_UNVERIFIED"
         strategy = "json_schema" if checks.get("json_schema") == "pass" else "lines"
         return ProbeResult(self.id, want, True, ttfb, strategy, checks)
