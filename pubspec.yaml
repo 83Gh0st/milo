@@ -36,6 +36,7 @@ flutter:
   assets:
     - assets/branding/
     - assets/learn/
+    - assets/sounds/
     - assets/fonts/OFL-Atkinson.txt
     - assets/fonts/OFL-Lexend.txt
     - assets/fonts/OFL-OpenDyslexic.txt
@@ -63,6 +64,7 @@ flutter_launcher_icons:
   image_path: assets/branding/icon.png
   adaptive_icon_background: "#E2E6FF"
   adaptive_icon_foreground: assets/branding/icon_fg.png
+  adaptive_icon_monochrome: assets/branding/icon_mono.png
   remove_alpha_ios: true
 flutter_native_splash:
   color: "#E9EDFF"
