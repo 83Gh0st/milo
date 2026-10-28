@@ -18,7 +18,7 @@ class _BreakState extends ConsumerState<BreakTimeScreen> {
     super.initState();
     final d = ref.read(directorProvider);
     left = d.breakSecs; // a validated set_timer action may have set this; default 5:00
-    _onExit = () => d.setBreathing(false);
+    _onExit = () { try { d.setBreathing(false); } catch (_) {} }; // the director may already be gone (fast pop); breathing off is best-effort
     WidgetsBinding.instance.addPostFrameCallback((_) { d.setBreathing(true); d.emote('sleepy', i: 1, hold: 1e9, force: true); });
     t = Timer.periodic(const Duration(seconds: 1), (_) { if (left > 0 && mounted) setState(() => left--); });
   }

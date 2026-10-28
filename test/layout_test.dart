@@ -35,6 +35,8 @@ Future<void> _pumpCrowded(WidgetTester t, Widget screen, {required Size size, re
   final container = ProviderContainer(overrides: screenOverrides(d));
   container.read(memoryProvider).proposeLocal('use short words');
   await pumpScreen(t, screen, size: size, scale: scale, container: container);
+  await t.pumpWidget(Container()); // unmount while the container is alive: dispose callbacks must run against live providers
+  await t.pump();
   container.dispose();
 }
 

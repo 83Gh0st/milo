@@ -137,7 +137,7 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
   void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => _start()); }
   Future<void> _start() async {
     final v = ref.read(voiceProvider), d = ref.read(directorProvider), chat = ref.read(chatProvider.notifier);
-    _onExit = () { v.stop(); d.setListening(false); };
+    _onExit = () { try { v.stop(); d.setListening(false); } catch (_) {} }; // best-effort: the providers may already be gone on a fast pop
     d.setListening(true);
     await v.start(lang: kLangNames[d.lang] ?? 'English',
       onLevel: (l) => d.micLevel = l, // field only: the frame clock repaints, no rebuilds
