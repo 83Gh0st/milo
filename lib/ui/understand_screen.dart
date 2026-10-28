@@ -70,11 +70,13 @@ class _UState extends ConsumerState<UnderstandScreen> {
       if (mounted && n >= 1 && n <= words.length) _listenFrom(n - 1);
     };
     // lookup_word: the brain sent a word here; use it once, then clear.
+    // The clear must also wait for the post-frame: writing a provider during
+    // initState throws ("tried to modify a provider while building").
     final lookup = ref.read(lookupWordProvider);
-    if (lookup.isNotEmpty) { ref.read(lookupWordProvider.notifier).state = ''; _image = null; WidgetsBinding.instance.addPostFrameCallback((_) => _use(lookup)); }
+    if (lookup.isNotEmpty) { _image = null; WidgetsBinding.instance.addPostFrameCallback((_) { if (!mounted) return; ref.read(lookupWordProvider.notifier).state = ''; _use(lookup); }); }
     // share-in (plan 7.13): text from another app lands the same way.
     final shared = ref.read(sharedTextProvider);
-    if (lookup.isEmpty && shared.isNotEmpty) { ref.read(sharedTextProvider.notifier).state = ''; _image = null; WidgetsBinding.instance.addPostFrameCallback((_) => _use(shared)); }
+    if (lookup.isEmpty && shared.isNotEmpty) { _image = null; WidgetsBinding.instance.addPostFrameCallback((_) { if (!mounted) return; ref.read(sharedTextProvider.notifier).state = ''; _use(shared); }); }
   }
   void _prep() { words = RegExp(r'\S+').allMatches(c.text).map((m) => m.group(0)!).toList(); keys = List.generate(words.length, (_) => GlobalKey()); }
   Future<void> _remember() async {

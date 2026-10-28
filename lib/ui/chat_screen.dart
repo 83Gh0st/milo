@@ -65,8 +65,8 @@ class _ChatState extends ConsumerState<ChatScreen> {
         IconButton(tooltip: 'Read the last answer', onPressed: () { final l = msgs.where((m) => m.milo).lastOrNull; if (l != null) d.speak(l.text); }, icon: const Icon(Icons.volume_up_outlined)),
       ]),
       Expanded(child: msgs.isEmpty
-          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const MiloStage(), const Text('Ask me anything, by voice or by typing.', textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
-              const SizedBox(height: 12), Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) ActionChip(label: Text(s), onPressed: () => _send(s))])])))
+          ? Center(child: SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const MiloStage(), const Text('Ask me anything, by voice or by typing.', textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
+              const SizedBox(height: 12), Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) ActionChip(label: Text(s), onPressed: () => _send(s))])]))))
           : ListView(controller: sc, padding: const EdgeInsets.all(14), children: [
               for (final m in msgs) Align(alignment: m.milo ? Alignment.centerLeft : Alignment.centerRight, child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 5), padding: const EdgeInsets.all(14), constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .8),

@@ -64,25 +64,39 @@ class MiloHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final d = ref.watch(directorProvider);
+    // Narrow phones cannot fit back + title + chip + Break + a full "Help me"
+    // button (45 px overflow at 340 px). Below 380 px, or at text scale >= 1.6
+    // at any width, Help me compacts to an icon button (same 48 dp target,
+    // same semantic label); at text scale >= 1.6 the status chip also compacts
+    // to its icon (tap still explains).
     return Padding(
         padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 12, 4),
         child: SizedBox(
             height: 56,
-            child: Row(children: [
-              SizedBox(width: 48, child: onBack == null ? null : IconButton(tooltip: 'Back', onPressed: onBack, icon: const Icon(Icons.chevron_left, size: 30))),
-              Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: onBack == null ? TextAlign.start : TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800))),
-              const StatusChip(),
-              if (actions != null) actions!,
-              IconButton(tooltip: 'Break', onPressed: () => openScreen('break'), icon: const Icon(Icons.bedtime_outlined)),
-              if (d.presence == Presence.chip) const MiloAvatar(size: 44),
-              FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 48), backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me')),
-            ])));
+            child: LayoutBuilder(builder: (_, bc) {
+              final bigText = MediaQuery.textScalerOf(context).scale(1) >= 1.6;
+              final narrow = bc.maxWidth < 380 || bigText;
+              return Row(children: [
+                SizedBox(width: 48, child: onBack == null ? null : IconButton(tooltip: 'Back', onPressed: onBack, icon: const Icon(Icons.chevron_left, size: 30))),
+                Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: onBack == null ? TextAlign.start : TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800))),
+                StatusChip(compact: bigText),
+                if (actions != null) actions!,
+                IconButton(tooltip: 'Break', onPressed: () => openScreen('break'), icon: const Icon(Icons.bedtime_outlined)),
+                if (d.presence == Presence.chip) const MiloAvatar(size: 44),
+                if (narrow)
+                  IconButton(tooltip: 'Help me', style: IconButton.styleFrom(backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), icon: const Icon(Icons.sos_outlined))
+                else
+                  FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 48), backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me')),
+              ]);
+            })));
   }
 }
 
 /// Offline/resting/sync state as one chip (icon + 1–2 words). Tap explains.
+/// Compact (large text): icon only, same sheet on tap.
 class StatusChip extends ConsumerWidget {
-  const StatusChip({super.key});
+  const StatusChip({super.key, this.compact = false});
+  final bool compact;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ladder = ref.watch(ladderProvider), sync = ref.watch(syncBannerProvider) != null;
@@ -92,6 +106,7 @@ class StatusChip extends ConsumerWidget {
       Ladder.offline => (Icons.cloud_off, 'Offline'),
       Ladder.resting => (Icons.bedtime, 'Resting'),
     };
+    if (compact) return Padding(padding: const EdgeInsetsDirectional.only(end: 4), child: Tooltip(message: label, child: ActionChip(avatar: Icon(icon, size: 16), label: const Text(''), onPressed: () => showStatusSheet(context, ref))));
     return Padding(padding: const EdgeInsetsDirectional.only(end: 4), child: ActionChip(avatar: Icon(icon, size: 16), label: Text(label), onPressed: () => showStatusSheet(context, ref)));
   }
 }
