@@ -137,6 +137,8 @@ class Director extends ChangeNotifier {
   Future<void> Function(String)? onShowImage; // set by the app: fetches the explainer picture into visualProvider
   int breakSecs = 300; // break-screen countdown; a validated set_timer action may change it
   bool ignoreTaps = false, leftHanded = false;
+  bool scanMode = false; // switch/scanning access (plan P2): highlight auto-advances, any tap selects
+  int scanMs = 1200; // highlight dwell per step, 400..3000
   double _lastTap = -99;
   void Function(Map<String, dynamic>)? onMemoryProposal;
   void Function(String, Map<String, dynamic>)? onUnderstand;
@@ -763,6 +765,7 @@ class Director extends ChangeNotifier {
     voiceEngine = VoiceEngineMode.values.where((m) => m.name == s['vengine']).firstOrNull ?? VoiceEngineMode.auto;
     voice.mode = voiceEngine;
     clearSpeech = s['clear'] == '1';
+    scanMode = s['scan'] == '1'; scanMs = (int.tryParse(s['scanms'] ?? '') ?? 1200).clamp(400, 3000).toInt();
     final installDay = int.tryParse(s['install.day'] ?? '');
     daysTogether = installDay == null ? 0 : (DateTime.now().difference(DateTime(2026, 1, 1)).inDays - installDay).clamp(0, 9999).toInt();
     peeked.clear(); peeked.addAll((s['local.peeked'] ?? '').split(',').where((k) => k.isNotEmpty));
@@ -772,7 +775,7 @@ class Director extends ChangeNotifier {
   Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voiceStyle, 'color': '${color.toARGB32()}',
     'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale, 'local.peeked': peeked.join(','),
     'look': look.name, 'mood': '$moodBase', 'install.day': '${DateTime.now().difference(DateTime(2026, 1, 1)).inDays - daysTogether}', 'sound': soundOn ? '1' : '0', 'svol': '$soundVol',
-    'vengine': voiceEngine.name, 'clear': clearSpeech ? '1' : '0'};
+    'vengine': voiceEngine.name, 'clear': clearSpeech ? '1' : '0', 'scan': scanMode ? '1' : '0', 'scanms': '$scanMs'};
 
   /// Body first (emotion + gesture), then words, sentence by sentence.
   Future<void> perform(BrainTurn t) async {

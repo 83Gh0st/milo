@@ -135,6 +135,18 @@ void main() {
     });
   });
 
+  test('scan settings round-trip through settings', () {
+    final d = Director();
+    d.set(() { d.scanMode = true; d.scanMs = 500; });
+    expect(d.toSettings()['scan'], '1');
+    final back = Director()..loadSettings(d.toSettings());
+    expect(back.scanMode, isTrue);
+    expect(back.scanMs, 500);
+    final clamp = Director()..loadSettings({'scanms': '99999'});
+    expect(clamp.scanMs, 3000);
+    expect(clamp.scanMode, isFalse); // off unless explicitly on
+  });
+
   group('memory pause blocks writes, resume restores (plan 7.10)', () {
     test('paused: proposals discarded, request context empty', () async {
       final mem = MemoryManager(FakeDb());

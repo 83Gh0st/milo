@@ -6,6 +6,7 @@ import 'package:milo/core/providers.dart';
 import 'package:milo/data/secure_store.dart';
 import 'package:milo/ui/calm_screens.dart';
 import 'package:milo/ui/chat_screen.dart';
+import 'package:milo/ui/express_screen.dart';
 import 'package:milo/ui/failure_screens.dart';
 import 'package:milo/ui/understand_screen.dart';
 
@@ -81,6 +82,40 @@ void main() {
       await t.tap(find.byType(IconButton).first);
       await settleAgent(t);
       expect(db.progressRows, ['checkin']); // opt-in: counts only, answers never stored
+      expect(t.takeException(), isNull);
+    });
+  });
+
+  group('switch scanning (P2)', () {
+    ProviderContainer scanContainer(FakeDb db, FakeApi api, int ms) => ProviderContainer(overrides: [
+          dbProvider.overrideWithValue(db),
+          storeProvider.overrideWithValue(SecureStore()),
+          directorProvider.overrideWith((_) => Director()
+            ..scanMode = true
+            ..scanMs = ms),
+          apiProvider.overrideWithValue(api),
+          connectionCheckProvider.overrideWithValue(const AsyncValue.data(
+              ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+        ]);
+    testWidgets('any tap picks the highlighted tile', (t) async {
+      final db = FakeDb();
+      final c = scanContainer(db, FakeApi(db, SecureStore()), 60000);
+      addTearDown(c.dispose);
+      await pumpScreen(t, const ExpressScreen(), size: const Size(393, 852), container: c);
+      await t.tap(find.text('Food')); // highlight sits at tile 0, timer effectively frozen
+      await settleAgent(t);
+      expect(find.text('I want'), findsNWidgets(2)); // grid tile + strip bar
+      expect(t.takeException(), isNull);
+    });
+    testWidgets('highlight auto-advances on the interval', (t) async {
+      final db = FakeDb();
+      final c = scanContainer(db, FakeApi(db, SecureStore()), 300);
+      addTearDown(c.dispose);
+      await pumpScreen(t, const ExpressScreen(), size: const Size(393, 852), container: c);
+      await t.pump(const Duration(milliseconds: 150)); // clock 200 -> 350: exactly one 300 ms tick
+      await t.tap(find.text('Food'));
+      await settleAgent(t);
+      expect(find.text('I need'), findsNWidgets(2)); // tile 1, not the tapped tile
       expect(t.takeException(), isNull);
     });
   });

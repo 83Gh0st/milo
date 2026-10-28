@@ -59,6 +59,8 @@ class AccessibilityScreen extends ConsumerWidget {
       _toggle('Ignore repeated taps', d.ignoreTaps, (v) => d.set(() => d.ignoreTaps = v), sub: 'Taps within half a second count once (tremor)'),
       _toggle('Left-handed layout', d.leftHanded, (v) => d.set(() => d.leftHanded = v), sub: 'Milo and choices move to the left'),
       _toggle('Read everything aloud (picture mode)', d.preReader, (v) => d.set(() => d.preReader = v)),
+      _toggle('Scanning (switch access)', d.scanMode, (v) => d.set(() => d.scanMode = v), sub: 'On the board, a highlight moves by itself and any tap picks it'),
+      if (d.scanMode) ...[const Section('Scanning speed'), Slider(value: d.scanMs.toDouble(), min: 400, max: 3000, divisions: 13, label: '${(d.scanMs / 1000).toStringAsFixed(1)} s', onChanged: (v) => d.set(() => d.scanMs = v.round()))],
     ]));
   }
 }
