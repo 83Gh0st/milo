@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import '../companion/director.dart';
+import '../companion/react.dart';
 import 'screen.dart';
 import 'theme.dart';
 
@@ -15,9 +16,17 @@ class _ChatState extends ConsumerState<ChatScreen> {
   void _send(String t) {
     if (t.trim().isEmpty) return;
     c.clear();
+    MiloReact.sent();
     ref.read(chatProvider.notifier).user(t);
     ref.read(directorProvider).ask(t);
   }
+  @override
+  void initState() {
+    super.initState();
+    sc.addListener(() { final v = sc.hasClients ? (sc.position.activity?.velocity ?? 0) : 0; if (v.abs() > 50) MiloReact.scrolled(v); });
+  }
+  @override
+  void dispose() { sc.dispose(); c.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
     final msgs = ref.watch(chatProvider), d = ref.watch(directorProvider), chips = ref.watch(chipsProvider);
@@ -38,7 +47,7 @@ class _ChatState extends ConsumerState<ChatScreen> {
                   if (m.milo) Align(alignment: Alignment.centerRight, child: InkWell(onTap: () => d.speak(m.text), child: const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.volume_up, size: 18, color: T.pri))))]))),
               if (msgs.isNotEmpty && msgs.last.milo) Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: T.pri, side: const BorderSide(color: T.pri)), onPressed: () => _send(s), child: Text(s))]),
             ])),
-      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: TextField(controller: c, onSubmitted: _send, decoration: InputDecoration(hintText: 'Ask me anything…', suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))])))),
+      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: MiloReact.watch(child: TextField(controller: c, onSubmitted: _send, onChanged: (_) => MiloReact.typed(context), decoration: InputDecoration(hintText: 'Ask me anything…', suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))]))))),
     ]);
   }
 }

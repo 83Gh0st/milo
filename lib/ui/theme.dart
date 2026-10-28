@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
+import '../companion/react.dart';
 
 /// Design tokens taken from the wireframes (periwinkle primary, pastel tiles, ink text).
 class T {
@@ -46,7 +47,7 @@ class RowCard extends StatelessWidget {
   final Widget? tag, trailing;
   final bool dim;
   @override
-  Widget build(BuildContext context) => Opacity(opacity: dim ? .5 : 1, child: Card(child: InkWell(borderRadius: BorderRadius.circular(18), onTap: onTap, child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
+  Widget build(BuildContext context) => Opacity(opacity: dim ? .5 : 1, child: Card(child: InkWell(borderRadius: BorderRadius.circular(18), onTap: onTap == null ? null : () { MiloReact.pressed(context); onTap!(); }, child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
         Container(width: 44, height: 44, decoration: BoxDecoration(color: T.soft[color % 4], borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: T.strong[color % 4])),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 13, color: T.mute))])),
@@ -65,7 +66,7 @@ class PastelTile extends StatelessWidget {
   final bool selected, speaker;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => Semantics(button: true, label: label, child: Material(color: T.soft[color % 4], borderRadius: BorderRadius.circular(20), child: InkWell(borderRadius: BorderRadius.circular(20), onTap: onTap, child: Container(
+  Widget build(BuildContext context) => Semantics(button: true, label: label, child: Material(color: T.soft[color % 4], borderRadius: BorderRadius.circular(20), child: InkWell(borderRadius: BorderRadius.circular(20), onTap: onTap == null ? null : () { MiloReact.pressed(context); onTap!(); }, child: Container(
       decoration: selected ? BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: T.pri, width: 2.5)) : null,
       child: Stack(children: [
         if (speaker) const Positioned(right: 10, top: 8, child: Icon(Icons.volume_up, size: 16, color: T.mute)),
@@ -83,7 +84,7 @@ class PillTabs extends StatelessWidget {
   final void Function(int) onChanged;
   @override
   Widget build(BuildContext context) => Row(children: [for (var i = 0; i < labels.length; i++) Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: InkWell(
-      borderRadius: BorderRadius.circular(20), onTap: () => onChanged(i), child: Container(height: 44, alignment: Alignment.center,
+      borderRadius: BorderRadius.circular(20), onTap: () { MiloReact.pressed(context); onChanged(i); }, child: Container(height: 44, alignment: Alignment.center,
       decoration: BoxDecoration(color: i == index ? T.pri : T.priSoft, borderRadius: BorderRadius.circular(20)),
       child: Text(labels[i], style: TextStyle(fontWeight: FontWeight.w700, color: i == index ? Colors.white : T.pri))))))]);
 }
@@ -98,7 +99,7 @@ class BigButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, fg) = switch (kind) { BK.primary => (T.pri, Colors.white), BK.soft => (T.priSoft, T.pri), BK.coral => (T.coral, Colors.white), BK.mint => (T.mint, Colors.white), BK.outline => (Colors.white, T.ink) };
-    return SizedBox(width: double.infinity, height: 58, child: FilledButton(onPressed: onPressed, style: FilledButton.styleFrom(backgroundColor: bg, foregroundColor: fg, disabledBackgroundColor: T.priSoft, side: kind == BK.outline ? const BorderSide(color: T.line) : null),
+    return SizedBox(width: double.infinity, height: 58, child: FilledButton(onPressed: onPressed == null ? null : () { MiloReact.pressed(context); onPressed!(); }, style: FilledButton.styleFrom(backgroundColor: bg, foregroundColor: fg, disabledBackgroundColor: T.priSoft, side: kind == BK.outline ? const BorderSide(color: T.line) : null),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)], Text(label)])));
   }
 }

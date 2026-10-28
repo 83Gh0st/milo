@@ -9,6 +9,10 @@ import '../contracts/events.dart';
 import '../core/safety.dart';
 import '../core/pocket_brain.dart';
 import 'emotion.dart';
+import 'greetings.dart';
+import 'react.dart';
+import 'sounds.dart';
+import 'v2/look.dart';
 
 enum CState { idle, greeting, listening, thinking, speaking, waiting, celebrating, calm }
 enum Presence { stage, buddy, chip, hidden }
@@ -138,6 +142,15 @@ class Director extends ChangeNotifier {
   bool ttsReady = true, greetings = true, offlineForced = false;
   double voiceSpeed = 1.0;
   double motionGain = 1.0; // Milo Lab slider only; 1.0 = shipped behaviour (never persisted)
+  MiloLook look = MiloLook.a; // active 2A direction (persisted); the human picks A/B/C
+  bool legacyRenderer = false; // Lab-only: compare with the pre-Phase-2 painter (never persisted)
+  final sounds = MiloSounds();
+  bool soundOn = true;
+  double soundVol = .8;
+  double moodBase = 0; // slow mood baseline, nudged by emote(), blended into the base face
+  int daysTogether = 0; // days since first launch (no streak language anywhere)
+  String _pendingAsk = ''; // original query while the thinking ladder offers the offline fallback
+  double _antic = 0; // speech anticipation: 150 ms breath + lean before audio starts
 
   // speech
   FlutterTts? _tts;
@@ -149,6 +162,7 @@ class Director extends ChangeNotifier {
   double _lastNudge = -999;
 
   bool get speaking => _speaking;
+  bool get aac => _aac; // the v2 renderer gates idle motion on this (never animate over AAC speech)
   double get amp => kProfiles[profile]!.amp * (presence == Presence.chip ? .35 : 1) * motionGain;
   bool get inhale => math.cos(_bp) > 0;
   String get fx => quiet ? '' : (inten > .5 ? faces[emo]!.fx : faces[kProfiles[profile]!.base]!.fx);
@@ -169,11 +183,13 @@ class Director extends ChangeNotifier {
       await refreshVoices();
     } catch (_) { _tts = null; ttsReady = false; } // no TTS engine: visual-only level of the offline ladder
     try { _accel = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(_onAccel, onError: (_) {}); } catch (_) {}
-    Timer(const Duration(milliseconds: 900), () { if (emo == 'sleepy') emote('happy', i: .7, hold: 3); }); // wake up
+    Timer(const Duration(milliseconds: 900), () { if (emo == 'sleepy') { emote('happy', i: .7, hold: 3); _sfx('wake'); } }); // wake up
+    MiloReact.handler = _onReact;
   }
 
   @override
   void dispose() {
+    if (identical(MiloReact.handler, _onReact)) MiloReact.handler = null;
     _accel?.cancel();
     _nudge?.cancel();
     cancelSpeech();
@@ -238,9 +254,10 @@ class Director extends ChangeNotifier {
     final drowsy = state == CState.idle && !_speaking && clock - _lastAlive > 120;
     final baseF = faces[cfg.base]!;
     final base = Face.lerp(faces['calm']!, baseF, cfg.bias, baseF);
+    final moody = Face.lerp(base, faces[moodBase >= 0 ? 'happy' : 'calm']!, moodBase.abs(), base); // slow mood continuity
     final te = quiet ? 'calm' : drowsy ? 'sleepy' : emo;
     final double di = quiet ? 0 : drowsy ? .6 : inten; // drowsy reads even after the last feeling faded
-    final tgt = Face.lerp(base, faces[te]!, di, faces[di > .5 ? te : cfg.base]!);
+    final tgt = Face.lerp(moody, faces[te]!, di, faces[di > .5 ? te : cfg.base]!);
     face = Face.lerp(face, tgt, 1 - math.exp(-3 * dt), tgt);
 
     // L0 breathing (slower and deeper during a break)
@@ -257,6 +274,7 @@ class Director extends ChangeNotifier {
 
     // L4 gestures + L5 speech performance
     ch = Ch();
+    if (_antic > 0 && !still) { _antic -= dt; ch.dip += 2 * a; ch.zoom += .02 * a; } // breath + lean before speaking
     if (still) { clips.clear(); } else { for (final c in clips) { c.t += dt; _clip(c, ch, a, rm); } clips.removeWhere((c) => c.t >= c.d); }
     pulse *= math.exp(-dt * 9);
     micLevel *= math.exp(-dt * 5); // live mic amplitude decays between audio chunks
@@ -300,7 +318,8 @@ class Director extends ChangeNotifier {
   }
 
   static const _dur = {'wave': 1.2, 'nod': .6, 'shrug': .9, 'point': 1.0, 'lean_in': 1.0, 'think': 1.6, 'celebrate': 2.2, 'giggle': .9,
-    'yawn': 2.0, 'stretch': 1.8, 'hum': 1.5, 'dizzy': 1.2, 'pet': 1.5};
+    'yawn': 2.0, 'stretch': 1.8, 'hum': 1.5, 'dizzy': 1.2, 'pet': 1.5,
+    'tilt_head': 1.0, 'clap': 1.1, 'lean_back': 1.2, 'thinking_hmm': 1.8, 'soft_sigh': 1.6, 'peek': 1.2};
   static List<String> get clipNames => _dur.keys.toList(); // Milo Lab buttons; single source is _dur
 
   void _clip(Clip c, Ch h, double a, bool rm) {
@@ -324,6 +343,12 @@ class Director extends ChangeNotifier {
         if (c.hops == 0 && s > .3) { c.hops = 1; _burst('♪', 2); }
       case 'dizzy': h.tilt += math.sin(s * 14) * .18 * e * (1 - p);
       case 'pet': h.eyes = math.min(1.0, e * 2.5); h.zoom -= .02 * e;
+      case 'tilt_head': h.tilt += .22 * e * c.side; h.dip += 1.5 * e;
+      case 'clap': h.ar += 1.1 * e + math.sin(s * 22) * .3 * e; h.al += 1.1 * e + math.sin(s * 22) * .3 * e; h.dip += 1 * e;
+      case 'lean_back': h.zoom -= .05 * e; h.dip -= 4 * e; h.tilt -= .05 * e;
+      case 'thinking_hmm': h.al += 1.6 * e; h.tilt += .1 * e; if (math.sin(s * 10) > 0) pulse = math.max(pulse, .45);
+      case 'soft_sigh': h.yawn = e * .4; h.dip += 2 * e; h.zoom -= .02 * e;
+      case 'peek': h.lean += .08 * e * c.side; h.dip += 2 * e; h.zoom += .03 * e;
     }
   }
 
@@ -332,20 +357,60 @@ class Director extends ChangeNotifier {
     for (var i = 0; i < n; i++) { parts.add(Part(ch, _rnd(-45, 45), _rnd(-165, -120), _rnd(-18, 18), _rnd(-55, -25), 1.3)); }
   }
 
+  /// Idle library (spec 2D): 20 context-aware micro-behaviours. The gaze-only
+  /// subset runs for Discreet and reduced motion; the full set otherwise.
+  /// Weighted (glances dominate), never twice in a row, never the same
+  /// within 60 s, never during AAC speech or quiet mode (caller gates that).
+  static const idleGaze = ['look', 'glance_far', 'look_up', 'slow_blink', 'settle', 'look_behind'];
+  static const idleFull = [...idleGaze, 'sway', 'stretch', 'yawn', 'hum', 'sprout_wiggle', 'sprout_boing',
+    'foot_shuffle', 'lean_side', 'peek', 'deep_breath', 'tiny_nod', 'hop_tiny', 'giggle_soft', 'gaze_sparkle'];
+
   void _fidget(bool rm) {
     _nf = clock + _rnd(12, 25);
-    final pool = (profile == Profile.discreet || rm) ? ['look'] : ['look', 'yawn', 'stretch', 'hum']; // reduced motion: gaze only, never clips
-    final opts = pool.where((n) => n != _lastFid && clock - (_fidAt[n] ?? -99) > 60).toList(); // never twice in a row
+    final pool = (profile == Profile.discreet || rm) ? idleGaze : idleFull;
+    final opts = <String>[];
+    for (final n in pool) {
+      if (n == _lastFid || clock - (_fidAt[n] ?? -99) < 60) continue;
+      final w = n == 'look' || n == 'glance_far' ? 3 : 1;
+      for (var i = 0; i < w; i++) { opts.add(n); }
+    }
     if (opts.isEmpty) return;
     final n = opts[_r.nextInt(opts.length)];
     _lastFid = n; _fidAt[n] = clock;
-    if (n == 'look') { _wander = Offset(_rnd(-.9, .9), _rnd(-.4, .3)); _nw = clock + 2; } else { clips.add(Clip(n, _dur[n]!, 1)); }
+    _doFidget(n);
   }
+
+  /// One idle behaviour's action (the Lab fires these directly too).
+  void _doFidget(String n) {
+    switch (n) {
+      case 'look': _wander = Offset(_rnd(-.9, .9), _rnd(-.4, .3)); _nw = clock + 2;
+      case 'glance_far': _wander = Offset(_rnd(-1, 1), _rnd(-.6, .4)); _nw = clock + 2.5;
+      case 'look_up': _wander = const Offset(0, -.8); _nw = clock + 2;
+      case 'look_behind': _wander = Offset(_r.nextBool() ? 1 : -1, 0); _nw = clock + 1.5;
+      case 'slow_blink': _nb = clock;
+      case 'settle': sq.v -= 1;
+      case 'sway': lean.v += _rnd(-2, 2);
+      case 'lean_side': lean.v += 3 * (_r.nextBool() ? 1 : -1);
+      case 'sprout_wiggle': s1.v += 4; s2.v += 5;
+      case 'sprout_boing': s1.v += 7; s2.v += 9; _burst('✦', 2); _sfx('sprout_boing');
+      case 'foot_shuffle': hop.v -= 60;
+      case 'hop_tiny': hop.v -= 130;
+      case 'tiny_nod': clips.add(Clip('nod', _dur['nod']!, 1));
+      case 'gaze_sparkle': _wander = Offset(_rnd(-.5, .5), _rnd(-.3, .2)); _nw = clock + 2; _burst('✦', 2);
+      case 'deep_breath': clips.add(Clip('soft_sigh', _dur['soft_sigh']!, 1));
+      case 'giggle_soft': clips.add(Clip('giggle', _dur['giggle']!, 1));
+      case 'stretch': case 'yawn': case 'hum': case 'peek': clips.add(Clip(n, _dur[n]!, 1));
+    }
+  }
+
+  /// Lab-only: fire one idle behaviour now (same action the idle loop uses).
+  void debugFidget(String n) { if (idleFull.contains(n)) _doFidget(n); }
 
   // ───────────────────────── events in ─────────────────────────
   void emote(String n, {double i = .8, double hold = 4, bool force = false}) {
     if (!faces.containsKey(n) || (quiet && !force)) return;
     emo = n; inten = math.min(i, kProfiles[profile]!.ceil); _hold = hold;
+    moodBase = (moodBase + (faces[n]?.valence ?? 0) * .02).clamp(-.3, .3).toDouble();
     if (const ['excited', 'proud', 'playful'].contains(n) && inten > .5 && !_aac && !quiet) _burst('✦', 5);
     if (n == 'encouraging' && inten > .4 && !quiet) _burst('♥', 3);
   }
@@ -356,6 +421,71 @@ class Director extends ChangeNotifier {
     if (!force && clock - (_gAt[n] ?? -99) < 20) return; // same gesture not within 20 s
     _gAt[n] = clock;
     clips.add(Clip(n, _dur[n] ?? 1, (miloCenter?.dx ?? 0) > screenW / 2 ? -1 : 1));
+    final s = _sfxFor(n);
+    if (s != null) _sfx(s);
+  }
+
+  static const _sfxMap = {'wave': 'whoosh', 'celebrate': 'success', 'giggle': 'tap_giggle', 'hum': 'hum',
+    'yawn': 'yawn', 'thinking_hmm': 'think_hmm', 'soft_sigh': 'aww', 'peek': 'sparkle', 'pet': 'aww'};
+  static String? _sfxFor(String n) => _sfxMap[n];
+
+  void _sfx(String n) {
+    sounds.enabled = soundOn;
+    sounds.volume = soundVol;
+    unawaited(sounds.play(n, quiet: quiet, aac: _aac, presence: presence.name));
+  }
+
+  /// The offline-fallback choice offered by the thinking ladder. Handled
+  /// locally by [choose]; never sent to the brain as a query.
+  static const kOfflineChoice = 'Use offline basics';
+
+  // L6 reactions from the shared widgets (spec 2D): rate-limited, presence-
+  // aware (gaze-only in Chip, silent in Hidden), never over AAC speech.
+  final _reactAt = <ReactKind, double>{};
+  void _onReact(ReactEvent e) {
+    markActive();
+    if (_aac || quiet || !reactions || presence == Presence.hidden) return;
+    const gap = {ReactKind.pressDown: .3, ReactKind.focus: 2.0, ReactKind.typed: 4.0, ReactKind.sent: 1.0, ReactKind.scroll: .6, ReactKind.stepDone: 3.0, ReactKind.navigating: 1.0};
+    if (clock - (_reactAt[e.kind] ?? -99) < gap[e.kind]!) return;
+    _reactAt[e.kind] = clock;
+    final gazeOnly = presence == Presence.chip || profile == Profile.discreet || reduce || forceReduce;
+    switch (e.kind) {
+      case ReactKind.pressDown:
+        if (e.at != null) pointerAt(e.at!); // eyes snap; a tiny lean on press
+        if (!gazeOnly) { sq.v -= 1.2; _nb = clock; }
+      case ReactKind.focus:
+        if (e.at != null) lookAtGlobal(e.at!, secs: 3);
+        if (!gazeOnly) lean.v += .4;
+      case ReactKind.typed:
+        if (e.at != null) lookAtGlobal(e.at!, secs: 2);
+        if (!gazeOnly) lean.v += .3;
+      case ReactKind.sent:
+        if (!gazeOnly) gesture('nod');
+      case ReactKind.scroll:
+        touch = Offset(0, (e.data * -.0004).clamp(-.8, .8).toDouble()); touchUntil = clock + .6; // eyes follow the fling
+      case ReactKind.stepDone:
+        emote('proud', i: .6, hold: 2);
+        if (!gazeOnly) gesture('nod', force: true);
+      case ReactKind.navigating:
+        _wander = Offset(e.data.clamp(-1.0, 1.0).toDouble() * .8, 0); _nw = clock + 1.5; // look toward the destination
+    }
+  }
+
+  /// Speech-to-text phrase endpoint (a pause in the partial transcript):
+  /// Milo nods, mirroring a listening person.
+  void phraseNod() { if (state == CState.listening && !_aac && !quiet) gesture('nod'); }
+
+  /// One path for every choice tap (chat chips and dock chips): ladder
+  /// offers are handled locally, everything else is asked.
+  void choose(String c) {
+    if (c == kOfflineChoice) { useOfflineFallback(); return; }
+    if (c == 'Keep waiting') { choices = []; _cap('…'); notifyListeners(); return; }
+    ask(c);
+  }
+
+  Future<void> useOfflineFallback() async {
+    choices = []; notifyListeners();
+    await perform(validateTurn(pocketBrain(_pendingAsk, profile.name)));
   }
 
   Offset _norm(Offset p) {
@@ -378,6 +508,7 @@ class Director extends ChangeNotifier {
     if (ignoreTaps && clock - _lastTap < .6) return; // tremor: taps within half a second count once
     _lastTap = clock;
     if (haptics) HapticFeedback.lightImpact();
+    _sfx('tap_giggle');
     _nb = clock; // blink
     if (profile == Profile.discreet) return; // eyes only
     gesture('giggle', force: true); sq.v -= 2.2;
@@ -385,12 +516,12 @@ class Director extends ChangeNotifier {
   void petMilo() {
     markActive();
     if (!reactions || quiet || _aac || profile == Profile.discreet) return;
-    HapticFeedback.mediumImpact(); clips.add(Clip('pet', 1.5, 1)); emote('happy', i: 1, hold: 2.5, force: true);
+    HapticFeedback.mediumImpact(); clips.add(Clip('pet', 1.5, 1)); emote('happy', i: 1, hold: 2.5, force: true); _sfx('aww');
   }
   void sproutTap() {
     markActive();
     if (!reactions || quiet || _aac || profile == Profile.discreet) return;
-    s1.v += 7; s2.v += 9; _burst('✦', 3);
+    s1.v += 7; s2.v += 9; _burst('✦', 3); _sfx('sprout_boing');
   }
   void dragTo(Offset n) { markActive(); touch = n; touchUntil = clock + 1.5; _dragLean = n.dx * .05; }
   void endDrag() => _dragLean = 0;
@@ -408,7 +539,7 @@ class Director extends ChangeNotifier {
   Presence _auto() => tab == 0 ? (profile == Profile.discreet ? Presence.buddy : Presence.stage) : (screenKind == 'express' ? Presence.chip : Presence.buddy);
   String screenKind = '';
   void setScreenKind(String k) { if (screenKind != k) { screenKind = k; if (presenceOverride == null) { presence = _auto(); notifyListeners(); } } }
-  void setTab(int i) { tab = i; presence = presenceOverride ?? _auto(); emote('curious', i: .5, hold: 2); notifyListeners(); }
+  void setTab(int i) { if (i != tab) MiloReact.navigating(i > tab ? 1 : -1); tab = i; presence = presenceOverride ?? _auto(); emote('curious', i: .5, hold: 2); _sfx('page'); notifyListeners(); }
   void setPresence(Presence? p) { presenceOverride = p; presence = p ?? _auto(); notifyListeners(); persist?.call(); }
   void setProfile(Profile p) { profile = p; if (presenceOverride == null) presence = _auto(); notifyListeners(); persist?.call(); }
 
@@ -440,13 +571,14 @@ class Director extends ChangeNotifier {
     _words = RegExp(r'\S+').allMatches(text).toList(); _onWord = onWord; _gotP = false; _speaking = true; _aac = aac;
     if (aac) clips.clear(); // AAC speech stays neutral: clarity first, no performance
     _set(CState.speaking);
+    _antic = aac || quiet ? 0 : .15;
     final t0 = DateTime.now(), est = _words.length * 330;
     Future.delayed(const Duration(milliseconds: 450), () => _est(gen, 0, rate));
     final tp = (!aac && tone != null) ? (_tones[tone] ?? [1.0, 1.0]) : [1.0, 1.0];
     if (voiceOn && _tts != null) { try { await _tts!.setPitch((_presetPitch * (tp[0] as num)).clamp(.5, 1.6).toDouble()); await _tts!.setSpeechRate(_presetRate * _paceRate * voiceSpeed * rate * (tp[1] as num)); await _tts!.speak(text); } catch (_) {} }
     final el = DateTime.now().difference(t0).inMilliseconds;
     if (gen == _gen && el < est * .5) await Future.delayed(Duration(milliseconds: (est * .7 - el).round())); // visual-only: keep caption up
-    if (gen == _gen) { _gen++; _speaking = false; _aac = false; _onWord = null; _nb = clock; if (state == CState.speaking) _set(CState.idle); }
+    if (gen == _gen) { _gen++; _speaking = false; _aac = false; _onWord = null; _nb = clock; sq.v -= 1.5; if (state == CState.speaking) _set(CState.idle); } // settle after speaking
   }
 
   Future<void> speakAac(String text) { _turn++; choices = []; return speak(text, aac: true); }
@@ -466,8 +598,9 @@ class Director extends ChangeNotifier {
   Future<void> ask(String text) async {
     markActive();
     final id = ++_turn;
-    cancelSpeech(); choices = []; supportActive = false;
+    cancelSpeech(); choices = []; supportActive = false; _pendingAsk = text;
     _set(CState.thinking); emote('thinking', i: .8, hold: 60, force: true); gesture('think', force: true); _cap('…');
+    unawaited(_ladder(id)); // honest escalation while the answer is slow; any turn change cancels it
     if (router != null) { // body already reacted; the router decides local vs cloud
       try { await router!(text); } catch (_) { if (id == _turn || _turn > id) await perform(validateTurn(pocketBrain(text, profile.name))); }
       return;
@@ -475,6 +608,19 @@ class Director extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 650));
     if (id != _turn) return;
     await perform(validateTurn(pocketBrain(text, profile.name)));
+  }
+
+  /// Thinking ladder (plan 4.4): 0-1.5 s the thinking face stands; 1.5-5 s a
+  /// soft "hmm"; past 5 s the honest keep-waiting-or-offline offer, once.
+  Future<void> _ladder(int id) async {
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (id != _turn || state != CState.thinking) return;
+    gesture('thinking_hmm', force: true);
+    await Future.delayed(const Duration(milliseconds: 3500));
+    if (id != _turn || state != CState.thinking) return;
+    _cap('Still thinking — keep waiting, or use offline basics?');
+    choices = ['Keep waiting', kOfflineChoice]; notifyListeners();
+    speak('This is taking a while. You can keep waiting, or ask me something I know offline.', tone: 'calm');
   }
 
   /// Streaming performance: body event first (Milo reacts), then sentences are spoken as they arrive.
@@ -522,7 +668,7 @@ class Director extends ChangeNotifier {
 
   void setListening(bool on) {
     markActive();
-    if (on) { cancelSpeech(); _turn++; emote('listening', i: .9, hold: 60, force: true); _set(CState.listening); } else { relax(); _set(CState.idle); }
+    if (on) { cancelSpeech(); _turn++; emote('listening', i: .9, hold: 60, force: true); _set(CState.listening); _sfx('mic_on'); } else { relax(); _set(CState.idle); _sfx('mic_off'); }
   }
 
   /// Hand-written support flow (doc 6.5): calm, one caring sentence, ask about a trusted grown-up, big buttons. Never generated.
@@ -538,12 +684,18 @@ class Director extends ChangeNotifier {
     highContrast = s['hc'] == '1'; haptics = s['haptics'] != '0'; captions = s['captions'] != '0'; textScale = double.tryParse(s['tscale'] ?? '') ?? 1.0;
     lineSpacing = double.tryParse(s['lspace'] ?? '') ?? 1.5; font = s['font'] ?? 'Lexend'; breakNudgeMin = int.tryParse(s['breaknudge'] ?? '') ?? 0; greetings = s['greetings'] != '0'; voiceSpeed = double.tryParse(s['vspeed'] ?? '') ?? 1.0; offlineForced = s['offline.forced'] == '1'; ignoreTaps = s['ignoretaps'] == '1'; leftHanded = s['lefthand'] == '1'; ttsVoice = s['tts.voice'] ?? ''; ttsLocale = s['tts.locale'] ?? '';
     presence = presenceOverride ?? _auto();
+    look = MiloLook.values.where((l) => l.name == s['look']).firstOrNull ?? MiloLook.a;
+    moodBase = (double.tryParse(s['mood'] ?? '') ?? 0).clamp(-.3, .3).toDouble();
+    soundOn = s['sound'] != '0'; soundVol = double.tryParse(s['svol'] ?? '') ?? .8;
+    final installDay = int.tryParse(s['install.day'] ?? '');
+    daysTogether = installDay == null ? 0 : (DateTime.now().difference(DateTime(2026, 1, 1)).inDays - installDay).clamp(0, 9999).toInt();
     peeked.clear(); peeked.addAll((s['local.peeked'] ?? '').split(',').where((k) => k.isNotEmpty));
     applyVoice();
     notifyListeners();
   }
   Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voice, 'color': '${color.toARGB32()}',
-    'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale, 'local.peeked': peeked.join(',')};
+    'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale, 'local.peeked': peeked.join(','),
+    'look': look.name, 'mood': '$moodBase', 'install.day': '${DateTime.now().difference(DateTime(2026, 1, 1)).inDays - daysTogether}', 'sound': soundOn ? '1' : '0', 'svol': '$soundVol'};
 
   /// Body first (emotion + gesture), then words, sentence by sentence.
   Future<void> perform(BrainTurn t) async {
@@ -584,8 +736,9 @@ class Director extends ChangeNotifier {
     _set(CState.greeting);
     if (c.gesture != 'none') gesture(c.gesture, force: true);
     emote('happy', i: .9);
-    _cap(c.greet);
-    await speak(c.greet, tone: 'warm');
+    final line = greetingFor(profile, lang, DateTime.now(), daysTogether, screenKind);
+    _cap(line);
+    await speak(line, tone: 'warm');
     _set(CState.idle);
   }
 
@@ -593,6 +746,7 @@ class Director extends ChangeNotifier {
   void celebrate({bool goal = false}) {
     if (quiet) return;
     HapticFeedback.lightImpact();
+    if (goal) _sfx('success');
     switch (profile) {
       case Profile.playful: emote('excited', i: 1, hold: 3, force: true); gesture(goal ? 'celebrate' : 'nod', force: true); if (goal) _burst('✦', 8);
       case Profile.friendly: emote('proud', i: .8, hold: 3, force: true); gesture(goal ? 'celebrate' : 'nod', force: true);
