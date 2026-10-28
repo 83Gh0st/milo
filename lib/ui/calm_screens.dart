@@ -12,16 +12,18 @@ class BreakTimeScreen extends ConsumerStatefulWidget { const BreakTimeScreen({su
 class _BreakState extends ConsumerState<BreakTimeScreen> {
   int left = 300;
   Timer? t;
+  VoidCallback? _onExit; // captured where ref is legal: ref.read in dispose() throws (widget defunct)
   @override
   void initState() {
     super.initState();
     final d = ref.read(directorProvider);
     left = d.breakSecs; // a validated set_timer action may have set this; default 5:00
+    _onExit = () => d.setBreathing(false);
     WidgetsBinding.instance.addPostFrameCallback((_) { d.setBreathing(true); d.emote('sleepy', i: 1, hold: 1e9, force: true); });
     t = Timer.periodic(const Duration(seconds: 1), (_) { if (left > 0 && mounted) setState(() => left--); });
   }
   @override
-  void dispose() { t?.cancel(); final d = ref.read(directorProvider); WidgetsBinding.instance.addPostFrameCallback((_) => d.setBreathing(false)); super.dispose(); }
+  void dispose() { t?.cancel(); final cb = _onExit; WidgetsBinding.instance.addPostFrameCallback((_) => cb?.call()); super.dispose(); }
   @override
   Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFFE6E4FA), body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: SingleChildScrollView(child: Column(children: [
     const SizedBox(height: 24), const MiloStage(),

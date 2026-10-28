@@ -132,19 +132,21 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
   String text = '';
   String? error;
   final c = TextEditingController();
+  VoidCallback? _onExit; // captured where ref is legal: ref.read in dispose() throws (widget defunct)
   @override
   void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => _start()); }
   Future<void> _start() async {
-    final v = ref.read(voiceProvider), d = ref.read(directorProvider);
+    final v = ref.read(voiceProvider), d = ref.read(directorProvider), chat = ref.read(chatProvider.notifier);
+    _onExit = () { v.stop(); d.setListening(false); };
     d.setListening(true);
     await v.start(lang: kLangNames[d.lang] ?? 'English',
       onLevel: (l) => d.micLevel = l, // field only: the frame clock repaints, no rebuilds
       onPartial: (t) { d.notePartial(); if (mounted) setState(() { text = t; c.text = t; }); },
-      onFinal: (t) { d.setListening(false); if (mounted) { Navigator.pop(context); } if (t.trim().isNotEmpty) { ref.read(chatProvider.notifier).user(t); d.ask(t); } },
+      onFinal: (t) { d.setListening(false); if (mounted) { Navigator.pop(context); } if (t.trim().isNotEmpty) { chat.user(t); d.ask(t); } },
       onError: (e) { d.setListening(false); if (mounted) setState(() => error = switch (e) { 'mic_denied' => 'The microphone is off. You can type instead.', 'cloud_off' => 'Voice needs cloud AI. Turn it on in Privacy, or type.', _ => 'Voice is not available right now. You can type instead.' }); });
   }
   @override
-  void dispose() { ref.read(voiceProvider).stop(); ref.read(directorProvider).setListening(false); super.dispose(); }
+  void dispose() { _onExit?.call(); c.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
     final d = ref.watch(directorProvider);
