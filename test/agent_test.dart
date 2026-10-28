@@ -79,11 +79,12 @@ void main() {
       final c = agentContainer(db, FakeApi(db, SecureStore()));
       addTearDown(c.dispose);
       await pumpScreen(t, const CheckInScreen(), size: const Size(393, 852), container: c);
-      await t.tap(find.byType(IconButton).first);
+      final mood = find.byIcon(Icons.sentiment_very_satisfied); // a mood face, not the header back button
+      await t.tap(mood);
       await settleAgent(t);
       expect(db.progressRows, isEmpty); // default: nothing in the calm space is recorded
       await db.putFlag('checkin.counts', true);
-      await t.tap(find.byType(IconButton).first);
+      await t.tap(mood);
       await settleAgent(t);
       expect(db.progressRows, ['checkin']); // opt-in: counts only, answers never stored
       expect(t.takeException(), isNull);

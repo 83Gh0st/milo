@@ -20,6 +20,7 @@ ProviderContainer connContainer(FakeDb db, FakeApi api, FakeSync sync) => Provid
     ]);
 
 Future<void> pumpConn(WidgetTester t, ProviderContainer c, {Size size = const Size(360, 640), double scale = 1.0}) async {
+  addTearDown(c.dispose); // undisposed LadderNotifier timers fail teardown
   mockConnectivity(t);
   t.view.physicalSize = Size(size.width * 3, size.height * 3);
   t.view.devicePixelRatio = 3.0;

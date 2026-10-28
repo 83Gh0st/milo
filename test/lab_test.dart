@@ -26,12 +26,15 @@ void main() {
     await t.pumpWidget(ProviderScope(overrides: [directorProvider.overrideWith((_) => d)], child: const MaterialApp(home: Scaffold(body: MiloLab()))));
     await t.pumpAndSettle();
     expect(find.text('sleepy'), findsOneWidget); // all 12 expression chips render
+    await t.scrollUntilVisible(find.text('sleepy'), 300); // 800x600 viewport: below-fold taps find nothing
     await t.tap(find.text('sleepy'));
     await t.pump();
     expect(d.emo, 'sleepy');
+    await t.scrollUntilVisible(find.text('wave'), 300);
     await t.tap(find.text('wave'));
     await t.pump();
     expect(d.clips.map((c) => c.n), contains('wave'));
+    await t.scrollUntilVisible(find.text('Quiet'), 300);
     await t.tap(find.text('Quiet'));
     await t.pump();
     expect(d.quiet, isTrue);
