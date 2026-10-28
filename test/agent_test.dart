@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/companion/director.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/data/secure_store.dart';
+import 'package:milo/net/api.dart';
 import 'package:milo/sys/share_in.dart';
 import 'package:milo/ui/calm_screens.dart';
 import 'package:milo/ui/chat_screen.dart';
@@ -26,8 +27,7 @@ ProviderContainer agentContainer(FakeDb db, FakeApi api, {String lookup = '', St
       apiProvider.overrideWithValue(api),
       lookupWordProvider.overrideWith((_) => lookup),
       sharedTextProvider.overrideWith((_) => shared),
-      connectionCheckProvider.overrideWithValue(const AsyncValue.data(
-          ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+      connectionCheckProvider.overrideWith((_) => Future.value(const ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
     ]);
 
 Future<void> settleAgent(WidgetTester t, [int n = 6]) async {
@@ -98,8 +98,7 @@ void main() {
             ..scanMode = true
             ..scanMs = ms),
           apiProvider.overrideWithValue(api),
-          connectionCheckProvider.overrideWithValue(const AsyncValue.data(
-              ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+          connectionCheckProvider.overrideWith((_) => Future.value(const ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
         ]);
     testWidgets('any tap picks the highlighted tile', (t) async {
       final db = FakeDb();

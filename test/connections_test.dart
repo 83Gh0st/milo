@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/companion/director.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/data/secure_store.dart';
+import 'package:milo/net/api.dart';
 import 'package:milo/ui/trusted_screen.dart';
 
 import 'helpers/fake_db.dart';
@@ -15,8 +16,7 @@ ProviderContainer connContainer(FakeDb db, FakeApi api, FakeSync sync) => Provid
       directorProvider.overrideWith((_) => Director()),
       apiProvider.overrideWithValue(api),
       syncProvider.overrideWithValue(sync),
-      connectionCheckProvider.overrideWithValue(const AsyncValue.data(
-          ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+      connectionCheckProvider.overrideWith((_) => Future.value(const ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
     ]);
 
 Future<void> pumpConn(WidgetTester t, ProviderContainer c, {Size size = const Size(360, 640), double scale = 1.0}) async {

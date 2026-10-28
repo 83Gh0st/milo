@@ -91,13 +91,13 @@ class _MeasuredState extends State<_Measured> {
         final k = s.width / 260 < s.height / 300 ? s.width / 260 : s.height / 300;
         return 'body ${(130 * k).toStringAsFixed(0)}×${(138 * k).toStringAsFixed(0)} eye ${(17 * k).toStringAsFixed(1)} gaze ±${(4.5 * k).toStringAsFixed(1)}';
       }
-      final lod = lodForSize(s!);
+      final lod = lodForSize(s);
       if (lod == MiloLod.avatar) {
-        final k = (s!.width < s!.height ? s!.width : s!.height) / 120;
+        final k = (s.width < s.height ? s.width : s.height) / 120;
         return 'avatar head ${(108 * k).toStringAsFixed(0)} eye ${(30 * 1.25 * k).toStringAsFixed(1)}';
       }
-      final k = lod == MiloLod.full ? (s!.width < s!.height ? s!.width : s!.height) / 200 : (s!.width / 200 < s!.height / 170 ? s!.width / 200 : s!.height / 170);
-      final g = gainFor(lod, s!.height);
+      final k = lod == MiloLod.full ? (s.width < s.height ? s.width : s.height) / 200 : (s.width / 200 < s.height / 170 ? s.width / 200 : s.height / 170);
+      final g = gainFor(lod, s.height);
       final travel = (7.0 * g < (lod == MiloLod.full ? 5 : 3) / k ? (lod == MiloLod.full ? 5 : 3) / k : 7.0 * g) * k;
       return '${lod.name} body ${(150 * k).toStringAsFixed(0)}×${(148 * k).toStringAsFixed(0)} eye ${(30 * k).toStringAsFixed(1)} gaze ±${travel.toStringAsFixed(1)}';
     }

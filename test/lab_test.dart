@@ -39,7 +39,7 @@ void main() {
 
   testWidgets('connection row shows canned health and server address', (t) async {
     const st = ConnStatus(apiBase: 'http://127.0.0.1:8000', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected. Milo can think in the cloud.');
-    await t.pumpWidget(ProviderScope(overrides: [connectionCheckProvider.overrideWithValue(const AsyncValue.data(st))],
+    await t.pumpWidget(ProviderScope(overrides: [connectionCheckProvider.overrideWith((_) => Future.value(st))],
         child: const MaterialApp(home: Scaffold(body: ConnectionCheckRow()))));
     await t.pumpAndSettle();
     expect(find.textContaining('127.0.0.1'), findsOneWidget);

@@ -91,7 +91,7 @@ class Growth extends ConsumerWidget {
       const Section('Milo’s wardrobe (you choose)'),
       Row(children: [for (final l in MiloLook.values) Expanded(child: Container(margin: const EdgeInsets.all(4), child: Material(color: T.soft[l.index], borderRadius: BorderRadius.circular(16), child: InkWell(borderRadius: BorderRadius.circular(16),
         onTap: () { final dd = ref.read(directorProvider); dd.set(() => dd.look = l); },
-        child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Column(children: [Icon(look == l ? Icons.check_circle : Icons.circle_outlined, color: T.pri), const SizedBox(height: 4), Text('Look ${l.name.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.w800))])))))]),
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Column(children: [Icon(look == l ? Icons.check_circle : Icons.circle_outlined, color: T.pri), const SizedBox(height: 4), Text('Look ${l.name.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.w800))])))))))]),
       Container(margin: const EdgeInsets.only(top: 14), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: T.mintSoft, borderRadius: BorderRadius.circular(16)), child: const Text('Milo never wilts when you are away.\nCosmetics are chosen, not locked.', style: TextStyle(fontWeight: FontWeight.w700))),
     ]));
   }

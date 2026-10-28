@@ -85,7 +85,7 @@ async def test_budget_guard_protects_credits(tmp_path):
             h = await token(c)
             assert (await c.post("/v1/brain/turn", json=BR, headers=h)).status_code == 200  # spends past the tiny limit
             r = await c.post("/v1/brain/turn", json=BR, headers=h)
-            assert r.status_code == 503 and r.json()["detail"]["error"] == "budget_exhausted"
+            assert r.status_code == 503 and r.json()["error"] == "budget_exhausted"
             assert (await c.post("/v1/brain/turn", json=BR)).status_code == 401  # unauthenticated callers learn nothing about the budget
 
 

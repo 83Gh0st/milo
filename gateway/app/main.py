@@ -1,6 +1,6 @@
 import json, logging, sys, time, uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from .config import Settings, get_settings, validate_runtime
 from .db import Budget, make_engine, md
@@ -84,6 +84,14 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
         resp.headers["X-Content-Type-Options"] = "nosniff"
         logging.getLogger("milo").info("req", extra={"rid": rid, "path": request.url.path, "status": resp.status_code, "ms": int((time.monotonic() - t0) * 1000)})
         return resp
+
+    @app.exception_handler(HTTPException)
+    async def http_err(request: Request, exc: HTTPException):
+        # Every raise site passes {"error": ...} dicts and the phone reads
+        # body["error"]; return the dict as the body instead of Starlette's
+        # default {"detail": ...} envelope so clients see the documented shape.
+        body = exc.detail if isinstance(exc.detail, dict) else {"error": "http_error"}
+        return JSONResponse(body, status_code=exc.status_code, headers=exc.headers)
 
     @app.exception_handler(Exception)
     async def boom(request: Request, exc: Exception):

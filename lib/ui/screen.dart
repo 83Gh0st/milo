@@ -9,6 +9,7 @@ import 'failure_screens.dart';
 import 'learn_screen.dart';
 import 'more_screen.dart';
 import 'privacy_screens.dart';
+import 'scaffold.dart';
 import 'theme.dart';
 import 'understand_screen.dart';
 import 'widgets.dart';

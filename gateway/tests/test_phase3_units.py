@@ -2,6 +2,8 @@
 Run: python -m pytest tests/test_phase3_units.py --noconftest -p no:cacheprovider -o addopts='' -q -W ignore"""
 import asyncio
 import json
+import pathlib
+import subprocess
 import sys
 
 import pytest
@@ -136,7 +138,17 @@ def test_registry_ids_and_model_rules():
 def test_adapters_import_without_web_stack():
     for pid in ("mock", "openai", "anthropic", "custom"):
         registry.get_adapter(pid)
-    assert "httpx" not in sys.modules and "openai" not in sys.modules and "fastapi" not in sys.modules
+    # In-process sys.modules always contains httpx here (conftest imports it
+    # for the test client), so verify the dependency-free property in a
+    # fresh interpreter instead: -c prepends cwd, which is the gateway dir.
+    gw = pathlib.Path(__file__).resolve().parents[1]
+    code = ("from app.providers import registry; "
+            "[registry.get_adapter(p) for p in ('mock', 'openai', 'anthropic', 'custom')]; "
+            "import sys; "
+            "bad = {'httpx', 'openai', 'fastapi'} & set(sys.modules); "
+            "assert not bad, sorted(bad)")
+    r = subprocess.run([sys.executable, "-c", code], cwd=gw, capture_output=True, text=True)
+    assert r.returncode == 0, (r.stderr or r.stdout)[-2000:]
     assert registry.get_adapter("custom").id == "custom"
     try:
         import openai  # noqa: F401

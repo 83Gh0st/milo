@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
-import '../companion/director.dart';
 import '../companion/react.dart';
 import '../media/photo.dart';
 import 'screen.dart';
@@ -18,6 +17,8 @@ class ChatScreen extends ConsumerStatefulWidget { const ChatScreen({super.key});
 class _ChatState extends ConsumerState<ChatScreen> {
   final c = TextEditingController();
   final sc = ScrollController();
+  double _lastPx = 0;
+  int _lastMs = 0;
   void _send(String t) {
     if (t.trim().isEmpty) return;
     c.clear();
@@ -43,7 +44,14 @@ class _ChatState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    sc.addListener(() { final v = sc.hasClients ? (sc.position.activity?.velocity ?? 0) : 0; if (v.abs() > 50) MiloReact.scrolled(v); });
+    // Scroll velocity from public pixels + timestamps (ScrollPosition.activity is protected).
+    sc.addListener(() {
+      final now = DateTime.now().millisecondsSinceEpoch, px = sc.hasClients ? sc.position.pixels : 0.0, dt = now - _lastMs;
+      final v = dt > 0 ? (px - _lastPx) / dt * 1000 : 0.0;
+      _lastPx = px;
+      _lastMs = now;
+      if (v.abs() > 50) MiloReact.scrolled(v);
+    });
   }
   @override
   void dispose() { sc.dispose(); c.dispose(); super.dispose(); }

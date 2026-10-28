@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -207,7 +205,7 @@ List<Override> screenOverrides(Director d, {ConnStatus? conn}) {
     storeProvider.overrideWithValue(SecureStore()),
     directorProvider.overrideWith((_) => d),
     apiProvider.overrideWithValue(FakeApi(db, SecureStore())),
-    connectionCheckProvider.overrideWithValue(AsyncValue.data(conn ??
+    connectionCheckProvider.overrideWith((_) => Future.value(conn ??
         const ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
   ];
 }

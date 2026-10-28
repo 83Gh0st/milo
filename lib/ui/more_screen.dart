@@ -188,8 +188,8 @@ class ConnectionCheckRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final check = ref.watch(connectionCheckProvider);
     return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [const Expanded(child: Text('Thinking cloud', style: TextStyle(fontWeight: FontWeight.w700)),
-        IconButton(tooltip: 'Check again', onPressed: () => ref.refresh(connectionCheckProvider), icon: const Icon(Icons.refresh))]),
+      Row(children: [const Expanded(child: Text('Thinking cloud', style: TextStyle(fontWeight: FontWeight.w700))),
+        IconButton(tooltip: 'Check again', onPressed: () => ref.invalidate(connectionCheckProvider), icon: const Icon(Icons.refresh))]),
       ...check.when(
         data: (s) => [Text('Server: ${s.apiBase}', style: const TextStyle(color: T.mute, fontSize: 13)),
           Text(s.provider == null ? 'Health: unreachable' : 'Health: ok · ${s.provider} · ${s.brainMode ?? 'json'} · budget ${s.budgetOk == true ? 'ok' : 'used'}', style: const TextStyle(color: T.mute, fontSize: 13)),

@@ -11,7 +11,6 @@ import 'ui/explore_screen.dart';
 import 'ui/home_screen.dart';
 import 'ui/more_screen.dart';
 import 'ui/onboarding.dart';
-import 'ui/scaffold.dart';
 import 'ui/progress_screen.dart';
 import 'ui/screen.dart';
 import 'ui/theme.dart';
@@ -109,7 +108,7 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
       onPointerDown: (e) { d.pointerAt(e.position); if (_first) { _first = false; d.greet(); } }, // eyes look where you touch
       onPointerMove: (e) => d.pointerAt(e.position),
       child: Scaffold(
-        bottomNavigationBar: railMode ? null : NavigationBar(selectedIndex: tab, hideUnselectedLabels: hideLabels, onDestinationSelected: setTab, destinations: [for (final x in dests) NavigationDestination(icon: Icon(x.$1), selectedIcon: Icon(x.$2), label: x.$3)]),
+        bottomNavigationBar: railMode ? null : NavigationBar(selectedIndex: tab, labelBehavior: hideLabels ? NavigationDestinationLabelBehavior.onlyShowSelected : NavigationDestinationLabelBehavior.alwaysShow, onDestinationSelected: setTab, destinations: [for (final x in dests) NavigationDestination(icon: Icon(x.$1), selectedIcon: Icon(x.$2), label: x.$3)]),
         body: SafeArea(
             child: railMode
                 ? Row(children: [

@@ -1,4 +1,4 @@
-import '../director.dart';
+import 'director.dart';
 
 /// Deterministic local greeting pools (spec 2D): 8 lines per profile per
 /// language (en, hi, ml), chosen by time of day, date and days together.
