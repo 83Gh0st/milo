@@ -76,6 +76,9 @@ class LadderNotifier extends StateNotifier<Ladder> {
 }
 final ladderProvider = StateNotifierProvider<LadderNotifier, Ladder>((ref) => LadderNotifier(ref.read(dbProvider), ref.read(apiProvider)));
 
+/// Phase 0 connection check for the About row. Refresh to re-run.
+final connectionCheckProvider = FutureProvider<ConnStatus>((ref) => ref.read(apiProvider).connectionCheck());
+
 // ---- Explainer pictures (concept -> PNG bytes), fetched on demand, memory-only ----
 class VisualNotifier extends StateNotifier<Map<String, Uint8List>> {
   VisualNotifier() : super(const {});
