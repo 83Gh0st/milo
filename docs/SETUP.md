@@ -33,6 +33,53 @@ curl localhost:8000/v1/health
 ```
 Mock mode returns deterministic turns so the whole app works end to end with no credits.
 
+## 1b. Windows (`cmd`) + a physical phone
+
+The gateway commands work in `cmd` with small changes (`set` instead of
+`export`, `python` instead of `python3`):
+
+```cmd
+cd gateway
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements-dev.txt
+python -m pytest -q
+set PROVIDER=mock
+set JWT_SECRET=PASTE_48_RANDOM_CHARS_HERE
+python -m uvicorn app.main:app_factory --factory --port 8000
+```
+
+Make the secret with `python -c "import secrets;print(secrets.token_urlsafe(48))"`.
+Check it answers: open `http://localhost:8000/v1/health` in a browser
+(`curl` also ships with Windows 10+).
+
+Three ways to point a phone at that gateway (all match the app's `API_BASE`
+wiring in `lib/config.dart`; confirm on your own phone):
+
+a) **USB + adb** (no Wi-Fi needed): `adb reverse tcp:8000 tcp:8000`, then
+   `flutter run --dart-define=API_BASE=http://127.0.0.1:8000`
+b) **Same Wi-Fi**: run `ipconfig`, take the PC's IPv4 address, then
+   `flutter run --dart-define=API_BASE=http://<pc-ip>:8000`
+   (debug builds allow cleartext HTTP per §3; never ship cleartext).
+c) **Anywhere via tunnel**: `cloudflared tunnel --url http://localhost:8000`,
+   then `flutter run --dart-define=API_BASE=https://<random>.trycloudflare.com`
+
+Mock first, then Meta: start with `PROVIDER=mock` (deterministic turns, no
+key) and confirm the About → Connection row reads "Connected". Then set
+`PROVIDER=meta` + `MODEL_API_KEY` and re-run the smoke test (§2).
+
+Docker: `deploy/docker-compose.yml` is the VPS/production stack (Caddy on
+80/443; the gateway service publishes no ports, so a phone cannot reach the
+compose stack over your LAN). For a local Docker mock instead:
+
+```cmd
+docker build -f gateway/Dockerfile -t milo-gateway .
+docker run --rm -p 8000:8000 -e PROVIDER=mock -e JWT_SECRET=PASTE_48_RANDOM_CHARS_HERE -e DATABASE_URL=sqlite+aiosqlite:////tmp/milo.db milo-gateway
+```
+
+then (a) or (b) above. (Compose file verified by reading 28 Oct 2026;
+containers not run here — no Docker in this environment.)
+
 ## 2. Gateway, real Meta models (26 Oct onward)
 ```bash
 cd gateway && cp .env.example .env
