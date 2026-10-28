@@ -63,13 +63,13 @@ void main() {
       final db = FakeDb();
       final api = FakeApi(db, SecureStore())..blindError = true;
       final c = agentContainer(db, api);
-      addTearDown(c.dispose);
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
       await c.read(routerProvider).explain(c.read(directorProvider), 'x', imageB64: 'e30=');
       await settleAgent(t, 30);
       expect(find.byType(CloudUnreachableScreen), findsNothing);
       expect(c.read(ladderProvider), Ladder.offline);
       expect(t.takeException(), isNull);
+      c.dispose(); // in-body: teardowns run after the timer invariant check
     });
   });
 
@@ -77,7 +77,6 @@ void main() {
     testWidgets('off by default; opt-in records one count, never the answer', (t) async {
       final db = FakeDb();
       final c = agentContainer(db, FakeApi(db, SecureStore()));
-      addTearDown(c.dispose);
       await pumpScreen(t, const CheckInScreen(), size: const Size(393, 852), container: c);
       final mood = find.byIcon(Icons.sentiment_very_satisfied); // a mood face, not the header back button
       await t.tap(mood);
@@ -87,6 +86,7 @@ void main() {
       await t.tap(mood);
       await settleAgent(t);
       expect(db.progressRows, ['checkin']); // opt-in: counts only, answers never stored
+      c.dispose(); // in-body: teardowns run after the timer invariant check
       expect(t.takeException(), isNull);
     });
   });
@@ -104,23 +104,23 @@ void main() {
     testWidgets('any tap picks the highlighted tile', (t) async {
       final db = FakeDb();
       final c = scanContainer(db, FakeApi(db, SecureStore()), 60000);
-      addTearDown(c.dispose);
       await pumpScreen(t, const ExpressScreen(), size: const Size(393, 852), container: c);
       await t.tap(find.text('Food')); // highlight sits at tile 0, timer effectively frozen
       await settleAgent(t);
       expect(find.text('I want'), findsNWidgets(2)); // grid tile + strip bar
       expect(t.takeException(), isNull);
+      c.dispose(); // in-body: teardowns run after the timer invariant check
     });
     testWidgets('highlight auto-advances on the interval', (t) async {
       final db = FakeDb();
       final c = scanContainer(db, FakeApi(db, SecureStore()), 300);
-      addTearDown(c.dispose);
       await pumpScreen(t, const ExpressScreen(), size: const Size(393, 852), container: c);
       await t.pump(const Duration(milliseconds: 150)); // clock 200 -> 350: exactly one 300 ms tick
       await t.tap(find.text('Food'));
       await settleAgent(t);
       expect(find.text('I need'), findsNWidgets(2)); // tile 1, not the tapped tile
       expect(t.takeException(), isNull);
+      c.dispose(); // in-body: teardowns run after the timer invariant check
     });
   });
 
@@ -130,7 +130,6 @@ void main() {
       db.progressRows.addAll(['read', 'read', 'step', 'checkin']);
       await db.putFlag('checkin.counts', true);
       final c = agentContainer(db, FakeApi(db, SecureStore()));
-      addTearDown(c.dispose);
       await pumpScreen(t, const WeeklySummary(), size: const Size(393, 852), container: c);
       await settleAgent(t);
       expect(find.text('THIS WEEK'), findsOneWidget); // Section headers render upper-cased
@@ -141,17 +140,18 @@ void main() {
       expect(find.text('Things read', skipOffstage: false), findsNWidgets(2));
       expect(find.textContaining('A quiet week'), findsNothing);
       expect(t.takeException(), isNull);
+      c.dispose(); // in-body: teardowns run after the timer invariant check
     });
     testWidgets('quiet week says so gently, no loss language', (t) async {
       final db = FakeDb();
       final c = agentContainer(db, FakeApi(db, SecureStore()));
-      addTearDown(c.dispose);
       await pumpScreen(t, const WeeklySummary(), size: const Size(393, 852), container: c);
       await settleAgent(t);
       expect(find.textContaining('A quiet week'), findsOneWidget);
       expect(find.text('Mood check-ins'), findsNothing); // opt-in off
       expect(find.textContaining('streak'), findsNothing);
       expect(t.takeException(), isNull);
+      c.dispose(); // in-body: teardowns run after the timer invariant check
     });
   });
 
@@ -159,11 +159,11 @@ void main() {
     testWidgets('prefills the Understand reader with the looked-up word', (t) async {
       final db = FakeDb();
       final c = agentContainer(db, FakeApi(db, SecureStore()), lookup: 'photosynthesis');
-      addTearDown(c.dispose);
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
       await settleAgent(t, 30);
       expect(find.text('photosynthesis'), findsWidgets);
       expect(t.takeException(), isNull);
+      c.dispose(); // in-body: teardowns run after the timer invariant check
     });
   });
 
@@ -182,12 +182,12 @@ void main() {
     testWidgets('shared text prefills the Understand reader once', (t) async {
       final db = FakeDb();
       final c = agentContainer(db, FakeApi(db, SecureStore()), shared: 'Shared words');
-      addTearDown(c.dispose);
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
       await settleAgent(t, 30);
       expect(find.textContaining('Shared words'), findsWidgets);
       expect(c.read(sharedTextProvider), isEmpty); // consumed
       expect(t.takeException(), isNull);
+      c.dispose(); // in-body: teardowns run after the timer invariant check
     });
   });
 }

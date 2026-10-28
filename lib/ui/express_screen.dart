@@ -65,8 +65,11 @@ class _EState extends ConsumerState<ExpressScreen> {
     VoidCallback tap(int i) => scan ? order[hi] : order[i]; // scanning: any tap picks the highlight
     Widget quick(String l, String s, {bool help = false}) => Expanded(child: TextButton(onPressed: () => _speak(s, help: help, view: false), child: Text(l, style: const TextStyle(color: T.coral, fontWeight: FontWeight.w800))));
     Widget body;
+    // Large text needs larger tiles: 3 columns overflow at scale 2.0, so drop
+    // to 2 and keep every label full-size and complete (never shrunk/cut AAC).
+    final bigText = MediaQuery.textScalerOf(context).scale(1) >= 1.6;
     if (tab == 0) {
-      body = GridView.count(crossAxisCount: 3, padding: const EdgeInsets.fromLTRB(14, 4, 14, 4), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: .98, children: [
+      body = GridView.count(crossAxisCount: bigText ? 2 : 3, padding: const EdgeInsets.fromLTRB(14, 4, 14, 4), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: .98, children: [
         for (var i = 0; i < _grid.length; i++) PastelTile(icon: _grid[i].$1, label: _grid[i].$2, color: _grid[i].$3, selected: hi == i, onTap: () => tap(i)()),
         PastelTile(icon: Icons.image_outlined, label: 'More', color: 2, selected: hi == 8, onTap: () => tap(8)()),
       ]);
@@ -84,7 +87,7 @@ class _EState extends ConsumerState<ExpressScreen> {
     return MiloScreen(title: 'Communication', kind: 'express', trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Choose a voice', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceChooser())), icon: const Icon(Icons.record_voice_over_outlined)), const SizedBox(width: 4)]), body: Column(children: [
       Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: PillTabs(const ['Phrases', 'Symbols', 'Keyboard'], tab, (i) => setState(() => tab = i))),
       Container(margin: const EdgeInsets.fromLTRB(14, 10, 14, 6), padding: const EdgeInsets.fromLTRB(16, 8, 8, 8), decoration: BoxDecoration(color: T.priSoft, borderRadius: BorderRadius.circular(18)), child: Row(children: [
-        Expanded(child: Text(text.isEmpty ? 'Tap pictures to build a message' : text, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: text.isEmpty ? T.mute : T.ink))),
+        Expanded(child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 150), child: SingleChildScrollView(child: Text(text.isEmpty ? 'Tap pictures to build a message' : text, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: text.isEmpty ? T.mute : T.ink)))),
         if (text.isNotEmpty) Container(decoration: hi == 10 ? BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: T.pri, width: 2.5)) : null,
           child: IconButton(tooltip: 'Clear', onPressed: () => tap(10)(), icon: const Icon(Icons.close))),
         Container(decoration: hi == 9 && text.isNotEmpty ? BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: T.pri, width: 2.5)) : null,

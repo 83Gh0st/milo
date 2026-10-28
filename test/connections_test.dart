@@ -20,7 +20,8 @@ ProviderContainer connContainer(FakeDb db, FakeApi api, FakeSync sync) => Provid
     ]);
 
 Future<void> pumpConn(WidgetTester t, ProviderContainer c, {Size size = const Size(360, 640), double scale = 1.0}) async {
-  addTearDown(c.dispose); // undisposed LadderNotifier timers fail teardown
+  // NOTE: tests dispose their container in-body at the end; addTearDown runs
+  // after the binding's pending-timer invariant check, so it cannot be used.
   mockConnectivity(t);
   t.view.physicalSize = Size(size.width * 3, size.height * 3);
   t.view.devicePixelRatio = 3.0;
@@ -52,23 +53,28 @@ void main() {
   testWidgets('sync off shows the gate, sync on shows the four provider tiles', (t) async {
     var db = FakeDb();
     var api = FakeApi(db, SecureStore());
-    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore(), on: false)));
+    final c1 = connContainer(db, api, FakeSync(db, api, SecureStore(), on: false));
+    await pumpConn(t, c1);
     expect(find.text('Turn on sync first, in Data and privacy. The sync vault identifies your family.'), findsOneWidget);
+    c1.dispose();
 
     db = FakeDb();
     api = FakeApi(db, SecureStore());
-    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    final c2 = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c2);
     for (final label in ['Meta (recommended)', 'OpenAI', 'Anthropic', 'Custom or local']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('Not connected'), findsNWidgets(4));
     expect(t.takeException(), isNull);
+    c2.dispose();
   });
 
   testWidgets('empty vault at 360x640 scale 2.0: everything reachable, save is honest', (t) async {
     final db = FakeDb();
     final api = FakeApi(db, SecureStore());
-    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())), scale: 2.0);
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c, scale: 2.0);
     await t.scrollUntilVisible(find.text('Save choices'), 300);
     await t.tap(find.text('Save choices'));
     await settle(t);
@@ -79,12 +85,14 @@ void main() {
     await settle(t);
     expect(find.text('Custom or local', skipOffstage: false), findsWidgets);
     expect(t.takeException(), isNull);
+    c.dispose();
   });
 
   testWidgets('ack flow: refusal surfaces the checkbox, ack saves the key', (t) async {
     final db = FakeDb();
     final api = FakeApi(db, SecureStore());
-    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c);
     await t.tap(find.text('OpenAI'));
     await settle(t);
     await t.enterText(find.byType(TextField).first, 'sk-test-key-12345678');
@@ -104,6 +112,7 @@ void main() {
     await settle(t);
     expect(await db.get('ai.family_key'), 'family');
     expect(t.takeException(), isNull);
+    c.dispose();
   });
 
   testWidgets('test checklist shows pass and fail honestly; models picker fills the field', (t) async {
@@ -111,7 +120,8 @@ void main() {
     final api = FakeApi(db, SecureStore());
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model',
       'policy': {'trains_on_data': 'unknown', 'needs_ack': true, 'note': 'Fake policy for tests.'}});
-    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c);
     await t.tap(find.text('OpenAI'));
     await settle(t);
     await t.tap(find.text('Test connection'));
@@ -131,13 +141,15 @@ void main() {
     await settle(t);
     expect(find.text('Chat'), findsOneWidget); // fail row still labelled, no crash
     expect(t.takeException(), isNull);
+    c.dispose();
   });
 
   testWidgets('routes save through to the fake vault; remove disconnects', (t) async {
     final db = FakeDb();
     final api = FakeApi(db, SecureStore());
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model', 'policy': {}});
-    await pumpConn(t, connContainer(db, api, FakeSync(db, api, SecureStore())));
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c);
     await t.scrollUntilVisible(find.text('Save choices'), 300);
     await t.tap(find.byType(DropdownButtonFormField<String>).first); // brain first choice
     await settle(t);
@@ -158,5 +170,6 @@ void main() {
     expect(api.savedConns, isEmpty);
     expect(find.text('Not connected'), findsNWidgets(4));
     expect(t.takeException(), isNull);
+    c.dispose();
   });
 }
