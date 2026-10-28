@@ -10,6 +10,7 @@ import 'ui/explore_screen.dart';
 import 'ui/home_screen.dart';
 import 'ui/more_screen.dart';
 import 'ui/onboarding.dart';
+import 'ui/scaffold.dart';
 import 'ui/progress_screen.dart';
 import 'ui/screen.dart';
 import 'ui/theme.dart';
@@ -28,7 +29,7 @@ class MiloApp extends ConsumerWidget {
     final d = ref.watch(directorProvider);
     return MaterialApp(
       title: 'Milo', debugShowCheckedModeBanner: false, navigatorKey: navKey, theme: miloTheme(d), themeMode: ThemeMode.light, home: const Gate(),
-      builder: (c, w) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(d.textScale)), child: w!), // text scales to 200%
+      builder: (c, w) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear((MediaQuery.of(c).textScaler.scale(1.0) * d.textScale).clamp(0.85, 2.4).toDouble())), child: w!), // text scales to 200%
     );
   }
 }
@@ -82,33 +83,35 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
   @override
   void dispose() { WidgetsBinding.instance.removeObserver(this); _syncT?.cancel(); _nudgeT?.cancel(); _tk.dispose(); super.dispose(); }
 
+  Ladder? _said; // Milo speaks once per ladder state change (rate-limited by design)
   @override
   Widget build(BuildContext context) {
     final d = ref.watch(directorProvider);
-    final tab = ref.watch(tabProvider), ladder = ref.watch(ladderProvider), syncBanner = ref.watch(syncBannerProvider);
+    final tab = ref.watch(tabProvider);
     ref.listen<int>(tabProvider, (_, n) => d.setTab(n));
-    final banner = switch (ladder) { Ladder.offline => 'Offline. Your essentials are ready.', Ladder.resting => 'My thinking cloud is resting. I can still help with what is on your phone.', _ => null };
+    ref.listen<Ladder>(ladderProvider, (_, n) { if (n != _said) { _said = n; if (!d.quiet) d.speak(ladderWords(n)); } });
+    const titles = ['Home', 'Explore', 'Milo', 'Progress', 'More'];
+    const kinds = ['home', 'explore', 'chat', 'progress', 'more'];
+    const tabs = [HomeScreen(), ExploreScreen(), ChatScreen(), ProgressScreen(), MoreScreen()];
+    final mq = MediaQuery.sizeOf(context);
+    final railMode = winClassOf(mq.width) != WinClass.compact || isWideLayout(mq);
+    final hideLabels = d.textScale >= 1.6;
+    const dests = [(Icons.home_outlined, Icons.home, 'Home'), (Icons.explore_outlined, Icons.explore, 'Explore'), (Icons.chat_bubble_outline, Icons.chat_bubble, 'Milo'), (Icons.bar_chart_outlined, Icons.bar_chart, 'Progress'), (Icons.more_horiz, Icons.more_horiz, 'More')];
+    final indexed = IndexedStack(index: tab, children: [for (var i = 0; i < 5; i++) ProviderScope(overrides: [miloScopeProvider.overrideWithValue(i)], child: MiloScaffold(title: titles[i], kind: kinds[i], body: tabs[i]))]);
+    void setTab(int i) => ref.read(tabProvider.notifier).state = i;
     return Listener(
       onPointerDown: (e) { d.pointerAt(e.position); if (_first) { _first = false; d.greet(); } }, // eyes look where you touch
       onPointerMove: (e) => d.pointerAt(e.position),
       child: Scaffold(
-        bottomNavigationBar: NavigationBar(selectedIndex: tab, onDestinationSelected: (i) => ref.read(tabProvider.notifier).state = i, destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore), label: 'Explore'),
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Milo'),
-          NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'Progress'),
-          NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
-        ]),
-        body: SafeArea(child: Overlays(bottomPad: 8, child: Column(children: [
-          if (banner != null) Container(width: double.infinity, color: T.amberSoft, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), child: Row(children: [const Icon(Icons.cloud_off, size: 18), const SizedBox(width: 8), Expanded(child: Text(banner, style: const TextStyle(fontWeight: FontWeight.w600)))])),
-          if (syncBanner != null) Container(width: double.infinity, color: T.amberSoft, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), child: Row(children: [const Icon(Icons.sync_problem, size: 18), const SizedBox(width: 8), Expanded(child: Text(syncBanner, style: const TextStyle(fontWeight: FontWeight.w600))),
-            TextButton(onPressed: _sync, child: const Text('Retry')), IconButton(tooltip: 'Dismiss', onPressed: () => ref.read(syncBannerProvider.notifier).state = null, icon: const Icon(Icons.close, size: 18))])),
-          Padding(padding: const EdgeInsets.fromLTRB(12, 2, 8, 0), child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            IconButton(tooltip: 'Break', onPressed: () => openScreen('break'), icon: const Icon(Icons.bedtime_outlined)),
-            FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me')),
-          ])),
-          Expanded(child: IndexedStack(index: tab, children: const [HomeScreen(), ExploreScreen(), ChatScreen(), ProgressScreen(), MoreScreen()])),
-        ]))),
+        bottomNavigationBar: railMode ? null : NavigationBar(selectedIndex: tab, hideUnselectedLabels: hideLabels, onDestinationSelected: setTab, destinations: [for (final x in dests) NavigationDestination(icon: Icon(x.$1), selectedIcon: Icon(x.$2), label: x.$3)]),
+        body: SafeArea(
+            child: railMode
+                ? Row(children: [
+                    if (d.leftHanded) Expanded(child: indexed),
+                    NavigationRail(selectedIndex: tab, labelType: hideLabels ? NavigationRailLabelType.selected : NavigationRailLabelType.all, onDestinationSelected: setTab, destinations: [for (final x in dests) NavigationRailDestination(icon: Icon(x.$1), selectedIcon: Icon(x.$2), label: Text(x.$3))]),
+                    if (!d.leftHanded) Expanded(child: indexed),
+                  ])
+                : indexed),
       ),
     );
   }
