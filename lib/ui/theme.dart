@@ -49,8 +49,8 @@ class RowCard extends StatelessWidget {
   Widget build(BuildContext context) => Opacity(opacity: dim ? .5 : 1, child: Card(child: InkWell(borderRadius: BorderRadius.circular(18), onTap: onTap == null ? null : () { MiloReact.pressed(context); onTap!(); }, child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
         Container(width: 44, height: 44, decoration: BoxDecoration(color: T.soft[color % 4], borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: T.strong[color % 4])),
         const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 13, color: T.mute))])),
-        if (tag != null) Padding(padding: const EdgeInsets.only(right: 6), child: tag),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 13, color: T.mute)),
+          if (tag != null) Padding(padding: const EdgeInsets.only(top: 4), child: tag)])),
         trailing ?? const Icon(Icons.chevron_right, color: T.mute),
       ])))));
 }

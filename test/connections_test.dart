@@ -77,6 +77,7 @@ void main() {
     final api = FakeApi(db, SecureStore());
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c, scale: 2.0);
+    debugDumpApp(); // DIAGNOSTIC-ROUND (revert after): what does the 2.0 tree actually show?
     await t.scrollUntilVisible(find.text('Save choices', skipOffstage: false), 50);
     await t.ensureVisible(find.text('Save choices', skipOffstage: false)); // fully visible: partial stops tap offscreen
     await t.pump();
@@ -147,9 +148,10 @@ void main() {
     await t.tap(find.text('Test connection'));
     await settle(t);
     for (final row in ['Chat', 'Structured replies', 'Pictures']) {
-      await t.ensureVisible(find.text(row, skipOffstage: false).first);
+      // .last: 'Pictures' is also a route-cap label behind the sheet; the checklist row paints later.
+      await t.ensureVisible(find.text(row, skipOffstage: false).last);
       await t.pump();
-      expect(find.text(row), findsOneWidget);
+      expect(find.text(row, skipOffstage: false).last, findsOneWidget);
     }
     await t.ensureVisible(find.text('Find', skipOffstage: false).first);
     await t.pump();
@@ -178,6 +180,7 @@ void main() {
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model', 'policy': {}});
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
+    debugDumpApp(); // DIAGNOSTIC-ROUND (revert after): is the routes section in the tree?
     await t.scrollUntilVisible(find.byType(DropdownButtonFormField<String>, skipOffstage: false).first, 50);
     await t.ensureVisible(find.byType(DropdownButtonFormField<String>, skipOffstage: false).first); // fully visible: partial stops tap offscreen
     await t.pump();

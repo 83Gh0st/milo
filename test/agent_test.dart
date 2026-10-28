@@ -170,12 +170,20 @@ void main() {
       final db = FakeDb();
       final c = agentContainer(db, FakeApi(db, SecureStore()), lookup: 'photosynthesis');
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
+      t.view.physicalSize = const Size(393 * 3, 852 * 3); // pumpScreen resets the viewport; taps need it back
+      t.view.devicePixelRatio = 3.0;
+      addTearDown(() { t.view.resetPhysicalSize(); t.view.resetDevicePixelRatio(); });
+      await t.pump();
       await settleAgent(t, 30);
+      await t.ensureVisible(find.text('Continue', skipOffstage: false));
+      await t.pump();
       await t.tap(find.text('Continue')); // reading -> style
       await settleAgent(t);
+      await t.ensureVisible(find.text('Apply', skipOffstage: false));
+      await t.pump();
       await t.tap(find.text('Apply')); // style -> reader, words visible
       await settleAgent(t);
-      expect(find.text('photosynthesis'), findsWidgets);
+      expect(find.text('photosynthesis', skipOffstage: false), findsWidgets);
       expect(t.takeException(), isNull);
       c.dispose(); // in-body: teardowns run after the timer invariant check
     });
@@ -197,12 +205,20 @@ void main() {
       final db = FakeDb();
       final c = agentContainer(db, FakeApi(db, SecureStore()), shared: 'Shared words');
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
+      t.view.physicalSize = const Size(393 * 3, 852 * 3); // pumpScreen resets the viewport; taps need it back
+      t.view.devicePixelRatio = 3.0;
+      addTearDown(() { t.view.resetPhysicalSize(); t.view.resetDevicePixelRatio(); });
+      await t.pump();
       await settleAgent(t, 30);
+      await t.ensureVisible(find.text('Continue', skipOffstage: false));
+      await t.pump();
       await t.tap(find.text('Continue')); // reading -> style
       await settleAgent(t);
+      await t.ensureVisible(find.text('Apply', skipOffstage: false));
+      await t.pump();
       await t.tap(find.text('Apply')); // style -> reader, words visible
       await settleAgent(t);
-      expect(find.textContaining('Shared words'), findsWidgets);
+      expect(find.textContaining('Shared words', skipOffstage: false), findsWidgets);
       expect(c.read(sharedTextProvider), isEmpty); // consumed
       expect(t.takeException(), isNull);
       c.dispose(); // in-body: teardowns run after the timer invariant check
