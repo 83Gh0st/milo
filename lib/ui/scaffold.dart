@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
 import '../companion/milo_view.dart';
 import '../companion/v2/frame.dart';
-import '../companion/v2/renderer.dart';
 import '../core/providers.dart';
 import 'screen.dart';
 import 'theme.dart';
