@@ -7,19 +7,25 @@ import 'painter.dart';
 /// Paints Milo and turns touches into local reactions. Fills whatever box it is given
 /// (stage, buddy or chip), so presence modes are just different boxes.
 class MiloView extends ConsumerWidget {
-  const MiloView({super.key});
+  const MiloView({super.key, this.buddy = false});
+  final bool buddy;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final d = ref.read(directorProvider);
     final mq = MediaQuery.of(context);
     d.reduce = mq.disableAnimations;
     d.screenW = mq.size.width;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
-      final rb = context.findRenderObject();
-      if (rb is RenderBox && rb.attached && rb.hasSize) d.miloCenter = rb.localToGlobal(rb.size.center(Offset.zero));
-    });
-    return LayoutBuilder(builder: (_, bc) {
+    final route = ModalRoute.of(context);
+    final scope = ref.read(miloScopeProvider);
+    void measure() => WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          if (!(route?.isCurrent ?? true)) return; // covered by another route: don't aim gaze
+          if (scope != null && scope != d.tab) return; // off-screen tab: don't aim gaze
+          final rb = context.findRenderObject();
+          if (rb is RenderBox && rb.attached && rb.hasSize) d.registerMilo(rb.localToGlobal(rb.size.center(Offset.zero)), !buddy);
+        });
+    measure();
+    return NotificationListener<ScrollEndNotification>(onNotification: (_) { measure(); return false; }, child: LayoutBuilder(builder: (_, bc) {
       final sz = Size(bc.maxWidth, bc.maxHeight);
       Offset n(Offset p) => Offset((p.dx / sz.width * 2 - 1).clamp(-1.0, 1.0).toDouble(), (p.dy / sz.height * 2 - 1).clamp(-1.0, 1.0).toDouble());
       return Semantics(
@@ -37,6 +43,6 @@ class MiloView extends ConsumerWidget {
           child: CustomPaint(painter: MiloPainter(d), size: Size.infinite),
         ),
       );
-    });
+    }));
   }
 }

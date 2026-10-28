@@ -97,6 +97,10 @@ class Director extends ChangeNotifier {
   final _fidAt = <String, double>{}, _gAt = <String, double>{};
   Offset _wander = Offset.zero, _jit = Offset.zero;
   Offset? touch, content, miloCenter;
+  double _lastInlineAt = -99;
+  /// Gaze registration (L7): inline Milos always win; the buddy overlay only
+  /// aims gaze when no inline Milo registered in the last second.
+  void registerMilo(Offset c, bool inline) { if (inline) { miloCenter = c; _lastInlineAt = clock; } else if (clock - _lastInlineAt > 1.0) { miloCenter = c; } }
   double touchUntil = 0, contentUntil = 0, screenW = 400, _tilt = 0, _dragLean = 0, _pl = 0, _lastShake = -9;
   final clips = <Clip>[];
   final parts = <Part>[];
@@ -106,6 +110,7 @@ class Director extends ChangeNotifier {
   CState state = CState.idle;
   String caption = 'Tap me to say hi!';
   List<String> choices = [];
+  final Set<String> peeked = {}; // dock collapsed per screen kind (persisted as local.peeked, never synced)
   Presence presence = Presence.stage;
   Presence? presenceOverride;
   int tab = 0;
@@ -533,11 +538,12 @@ class Director extends ChangeNotifier {
     highContrast = s['hc'] == '1'; haptics = s['haptics'] != '0'; captions = s['captions'] != '0'; textScale = double.tryParse(s['tscale'] ?? '') ?? 1.0;
     lineSpacing = double.tryParse(s['lspace'] ?? '') ?? 1.5; font = s['font'] ?? 'Lexend'; breakNudgeMin = int.tryParse(s['breaknudge'] ?? '') ?? 0; greetings = s['greetings'] != '0'; voiceSpeed = double.tryParse(s['vspeed'] ?? '') ?? 1.0; offlineForced = s['offline.forced'] == '1'; ignoreTaps = s['ignoretaps'] == '1'; leftHanded = s['lefthand'] == '1'; ttsVoice = s['tts.voice'] ?? ''; ttsLocale = s['tts.locale'] ?? '';
     presence = presenceOverride ?? _auto();
+    peeked.clear(); peeked.addAll((s['local.peeked'] ?? '').split(',').where((k) => k.isNotEmpty));
     applyVoice();
     notifyListeners();
   }
   Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voice, 'color': '${color.toARGB32()}',
-    'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale};
+    'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale, 'local.peeked': peeked.join(',')};
 
   /// Body first (emotion + gesture), then words, sentence by sentence.
   Future<void> perform(BrainTurn t) async {
