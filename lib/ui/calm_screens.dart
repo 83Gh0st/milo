@@ -58,13 +58,13 @@ class CheckInScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final d = ref.read(directorProvider);
     final faces = [(Icons.sentiment_very_satisfied, T.mint, 'happy'), (Icons.sentiment_satisfied, const Color(0xFF8AD66F), 'happy'), (Icons.sentiment_neutral, T.amber, 'calm'), (Icons.sentiment_dissatisfied, const Color(0xFFFF9F6B), 'concerned'), (Icons.sentiment_very_dissatisfied, T.coral, 'concerned')];
-    return MiloScreen(title: 'Check in', body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
+    return MiloScreen(title: 'Check in', body: Padding(padding: const EdgeInsets.all(20), child: SingleChildScrollView(child: Column(children: [
       const MiloStage(),
       const Text('How are you feeling?', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), const Text('You can skip this any time.', style: TextStyle(color: T.mute)), const SizedBox(height: 18),
       Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [for (final f in faces) IconButton(iconSize: 48, color: f.$2, icon: Icon(f.$1), onPressed: () async { if (await ref.read(dbProvider).flag('checkin.counts')) ref.read(dbProvider).progress('checkin'); d.emote(f.$3, i: .7, hold: 4, force: true); /* opt-in count only (plan 7.11): answers are never stored */ if (f.$3 == 'concerned') { d.perform(const BrainTurn(emotion: 'concerned', say: ['Thank you for telling me.', 'Would a little break help?'], followup: 'wait')); d.set(() => d.choices = ['Take a break', 'Keep going']); } else { d.speak('Thanks for telling me.'); } })]),
-      TextButton(onPressed: () => d.speak('That is okay.'), child: const Text('Not sure')), const Spacer(),
+      TextButton(onPressed: () => d.speak('That is okay.'), child: const Text('Not sure')), const SizedBox(height: 24),
       BigButton('I need a break', () { Navigator.pop(context); openScreen('break'); }, kind: BK.soft), const SizedBox(height: 10),
       BigButton('Keep going', () => Navigator.pop(context)), const SizedBox(height: 10), BigButton('Skip', () => Navigator.pop(context), kind: BK.outline),
-    ])));
+    ]))));
   }
 }

@@ -62,7 +62,7 @@ class _EState extends ConsumerState<ExpressScreen> {
     final order = <VoidCallback>[for (final g in _grid) () => _add(g.$2.replaceAll('’', "'")), _moreSheet,
       if (text.isNotEmpty) () => _speak(text), if (text.isNotEmpty) () => setState(() { strip = []; kb.clear(); })];
     final hi = scan ? _scan % order.length : -1;
-    VoidCallback tap(int i) => scan ? order[hi] : order[i]; // scanning: any tap picks the highlight
+    VoidCallback tap(int i) => scan ? order[_scan % order.length] : order[i]; // scanning: any tap picks the highlight, read live so a tick between frames is never missed
     Widget quick(String l, String s, {bool help = false}) => Expanded(child: TextButton(onPressed: () => _speak(s, help: help, view: false), child: Text(l, style: const TextStyle(color: T.coral, fontWeight: FontWeight.w800))));
     Widget body;
     // Large text needs larger tiles: 3 columns overflow at scale 2.0, so drop

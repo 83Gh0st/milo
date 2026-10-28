@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,8 +66,10 @@ void main() {
       final api = FakeApi(db, SecureStore())..blindError = true;
       final c = agentContainer(db, api);
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
-      await c.read(routerProvider).explain(c.read(directorProvider), 'x', imageB64: 'e30=');
-      await settleAgent(t, 30);
+      // Never directly awaited: explain's caption-linger delay runs on the
+      // fake clock, which only advances while pumping.
+      unawaited(c.read(routerProvider).explain(c.read(directorProvider), 'x', imageB64: 'e30='));
+      await settleAgent(t, 45);
       expect(find.byType(CloudUnreachableScreen), findsNothing);
       expect(c.read(ladderProvider), Ladder.offline);
       expect(t.takeException(), isNull);
@@ -161,6 +165,10 @@ void main() {
       final c = agentContainer(db, FakeApi(db, SecureStore()), lookup: 'photosynthesis');
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
       await settleAgent(t, 30);
+      await t.tap(find.text('Continue')); // reading -> style
+      await settleAgent(t);
+      await t.tap(find.text('Apply')); // style -> reader, words visible
+      await settleAgent(t);
       expect(find.text('photosynthesis'), findsWidgets);
       expect(t.takeException(), isNull);
       c.dispose(); // in-body: teardowns run after the timer invariant check
@@ -184,6 +192,10 @@ void main() {
       final c = agentContainer(db, FakeApi(db, SecureStore()), shared: 'Shared words');
       await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
       await settleAgent(t, 30);
+      await t.tap(find.text('Continue')); // reading -> style
+      await settleAgent(t);
+      await t.tap(find.text('Apply')); // style -> reader, words visible
+      await settleAgent(t);
       expect(find.textContaining('Shared words'), findsWidgets);
       expect(c.read(sharedTextProvider), isEmpty); // consumed
       expect(t.takeException(), isNull);

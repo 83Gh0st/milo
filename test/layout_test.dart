@@ -22,6 +22,7 @@ import 'helpers/harness.dart';
 /// Crowded director state for the matrix: 3 choices, 4-line bubble, speaking.
 void _crowd(Director d, {bool left = false}) => d.set(() {
       d.leftHanded = left;
+      d.presence = Presence.buddy; // the crowded state is a dock state; stage shows no dock
       d.choices = ['Explain it again', 'Say it simpler', 'Show a picture'];
       d.caption = 'Line one of the bubble.\nLine two keeps going.\nLine three and more.\nLine four is the last.';
       d.state = CState.speaking;

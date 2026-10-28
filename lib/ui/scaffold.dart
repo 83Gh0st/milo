@@ -157,7 +157,10 @@ class CompanionDock extends ConsumerWidget {
     final mq = MediaQuery.of(context);
     final peek = d.peeked.contains(kind) || mq.viewInsets.bottom > 0 || (d.textScale >= 1.6 && mq.size.height < 700);
     if (peek) return _PeekBar(kind: kind);
-    return Column(mainAxisSize: MainAxisSize.min, children: [const SupportBar(), _DockBody(kind: kind, horizontal: true)]);
+    // The dock yields to content: when the column is cramped (small screen,
+    // large text, crowded bubble + choices + MemoryConfirm) the dock scrolls
+    // internally instead of squeezing the body into an overflow.
+    return Column(mainAxisSize: MainAxisSize.min, children: [const SupportBar(), Flexible(child: SingleChildScrollView(child: _DockBody(kind: kind, horizontal: true)))]);
   }
 }
 
@@ -203,7 +206,7 @@ class _DockBody extends ConsumerWidget {
       if (d.choices.isNotEmpty)
         Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.choose(c))])),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, materialTapTargetSize: MaterialTapTargetSize.padded, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.choose(c))])),
       const MemoryConfirm(),
     ]);
     final collapse = SizedBox(width: 48, child: Align(alignment: Alignment.topCenter, child: IconButton(tooltip: 'Minimise Milo', onPressed: () => d.set(() => d.peeked.add(kind)), icon: const Icon(Icons.expand_more))));

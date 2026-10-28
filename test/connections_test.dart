@@ -56,6 +56,8 @@ void main() {
     final c1 = connContainer(db, api, FakeSync(db, api, SecureStore(), on: false));
     await pumpConn(t, c1);
     expect(find.text('Turn on sync first, in Data and privacy. The sync vault identifies your family.'), findsOneWidget);
+    await t.pumpWidget(Container()); // unmount: same-type state would otherwise carry syncOn=false into c2
+    await t.pump();
     c1.dispose();
 
     db = FakeDb();
@@ -75,12 +77,14 @@ void main() {
     final api = FakeApi(db, SecureStore());
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c, scale: 2.0);
-    await t.scrollUntilVisible(find.text('Save choices'), 300);
+    await t.ensureVisible(find.text('Save choices')); // fully visible: partial stops tap offscreen
+    await t.pump();
     await t.tap(find.text('Save choices'));
     await settle(t);
     expect(find.text('Connect a provider first.'), findsOneWidget); // no silent mock fallback
     // The sheet opens cleanly at 2.0 too.
-    await t.scrollUntilVisible(find.text('Custom or local'), -300);
+    await t.ensureVisible(find.text('Custom or local'));
+    await t.pump();
     await t.tap(find.text('Custom or local'));
     await settle(t);
     expect(find.text('Custom or local', skipOffstage: false), findsWidgets);
@@ -150,7 +154,8 @@ void main() {
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model', 'policy': {}});
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
-    await t.scrollUntilVisible(find.text('Save choices'), 300);
+    await t.ensureVisible(find.byType(DropdownButtonFormField<String>).first); // fully visible: partial stops tap offscreen
+    await t.pump();
     await t.tap(find.byType(DropdownButtonFormField<String>).first); // brain first choice
     await settle(t);
     await t.tap(find.text('openai/fake-model').last);
