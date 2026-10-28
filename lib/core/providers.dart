@@ -33,6 +33,10 @@ final voiceProvider = Provider((ref) => VoiceClient(ref.read(apiProvider)));
 final memoryProvider = ChangeNotifierProvider((ref) => MemoryManager(ref.read(dbProvider)));
 final tabProvider = StateProvider<int>((_) => 0);
 
+/// Tab index scope for MiloView gaze registration (null outside tabs).
+/// Shell overrides this per tab so only the visible tab's Milo aims gaze.
+final miloScopeProvider = Provider<int?>((_) => null);
+
 /// Chat thread lives in memory only: conversations are not saved unless the person asks Milo to remember.
 class ChatMsg { final bool milo; final String text; const ChatMsg(this.milo, this.text); }
 class ChatNotifier extends StateNotifier<List<ChatMsg>> {
@@ -57,11 +61,15 @@ final chipsProvider = StateNotifierProvider<ChipsNotifier, List<ChipItem>>((_) =
 // ---- offline ladder (doc 4.5) ----
 enum Ladder { full, cloudOff, offline, resting }
 class LadderNotifier extends StateNotifier<Ladder> {
+  Timer? _t;
+  StreamSubscription<List<ConnectivityResult>>? _sub;
   LadderNotifier(this.db, this.api) : super(Ladder.full) {
     refresh();
-    Connectivity().onConnectivityChanged.listen((_) => refresh());
-    Timer.periodic(const Duration(seconds: 90), (_) { if (state != Ladder.full) refresh(); });
+    _sub = Connectivity().onConnectivityChanged.listen((_) => refresh());
+    _t = Timer.periodic(const Duration(seconds: 90), (_) { if (state != Ladder.full) refresh(); });
   }
+  @override
+  void dispose() { _t?.cancel(); _sub?.cancel(); super.dispose(); }
   final MiloDb db;
   final MiloApi api;
   Future<void> refresh() async {
@@ -75,6 +83,9 @@ class LadderNotifier extends StateNotifier<Ladder> {
   void ok() => state = Ladder.full;
 }
 final ladderProvider = StateNotifierProvider<LadderNotifier, Ladder>((ref) => LadderNotifier(ref.read(dbProvider), ref.read(apiProvider)));
+
+/// Phase 0 connection check for the About row. Refresh to re-run.
+final connectionCheckProvider = FutureProvider<ConnStatus>((ref) => ref.read(apiProvider).connectionCheck());
 
 // ---- Explainer pictures (concept -> PNG bytes), fetched on demand, memory-only ----
 class VisualNotifier extends StateNotifier<Map<String, Uint8List>> {

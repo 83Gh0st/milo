@@ -156,4 +156,52 @@ class MiloApi {
     await _send('DELETE', '/v1/sync/provider-key', extra: _vh(vid, key));
     await db.ledger('/v1/sync/provider-key', 'sync', 'family AI key removed', 0, false, false);
   }
+
+  // ---- Phase 0 connection check (About row): which server, what health, plain words ----
+  Future<Map<String, dynamic>> healthDetails() async {
+    try {
+      final r = await _dio.get('/v1/health');
+      return Map<String, dynamic>.from(r.data as Map);
+    } on DioException catch (e) { throw _map(e); } on SocketException { throw ApiError('offline'); }
+  }
+
+  /// One /v1/health check, never throwing: failures become honest words.
+  /// Ungated on purpose (it reports raw reachability; the ladder banner covers gates).
+  Future<ConnStatus> connectionCheck() async {
+    try {
+      final h = await healthDetails();
+      return ConnStatus(apiBase: Env.apiBase, ok: h['status'] == 'ok' && h['budget_ok'] == true,
+          provider: h['provider'] is String ? h['provider'] as String : null,
+          brainMode: h['brain_mode'] is String ? h['brain_mode'] as String : null, budgetOk: h['budget_ok'] == true,
+          words: connectionWords(health: h, error: null));
+    } on ApiError catch (e) { return ConnStatus(apiBase: Env.apiBase, ok: false, words: connectionWords(health: null, error: e.code)); } catch (_) {
+      return ConnStatus(apiBase: Env.apiBase, ok: false, words: connectionWords(health: null, error: 'error'));
+    }
+  }
+}
+
+/// Plain-words result of one /v1/health check. No secrets, no content.
+class ConnStatus {
+  final String apiBase, words;
+  final bool ok;
+  final String? provider, brainMode;
+  final bool? budgetOk;
+  const ConnStatus({required this.apiBase, required this.words, required this.ok, this.provider, this.brainMode, this.budgetOk});
+}
+
+/// Maps a health payload or an ApiError code to one honest sentence. Pure: unit-tested.
+String connectionWords({required Map<String, dynamic>? health, required String? error}) {
+  if (health != null) {
+    if (health['status'] == 'ok' && health['budget_ok'] == true) return 'Connected. Milo can think in the cloud.';
+    if (health['status'] == 'ok') return 'Connected, but the thinking cloud is resting (daily budget used). Everything on this phone still works.';
+    return 'The server answered but looks unwell (status ${health['status']}). Try again in a bit.';
+  }
+  return switch (error) {
+    'offline' => 'Can’t reach the server. Check the gateway is running and this phone can open the address above.',
+    'timeout' => 'The server took too long to answer. Try again.',
+    'rate_limited' => 'Too many checks at once. Wait a minute and try again.',
+    'budget_exhausted' => 'The thinking cloud is resting (daily budget used). Everything on this phone still works.',
+    final c? when c.startsWith('http_') => 'The server answered with an error (${c.substring(5)}). Try again later.',
+    _ => 'Something went wrong checking the connection.',
+  };
 }

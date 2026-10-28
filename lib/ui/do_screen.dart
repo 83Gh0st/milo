@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../companion/milo_view.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import 'screen.dart';
@@ -85,17 +84,17 @@ class _DState extends ConsumerState<DoScreen> {
     } else if (reviewing) {
       title = sel!;
       page = Column(children: [
-        Padding(padding: const EdgeInsets.all(12), child: Row(children: [const SizedBox(width: 56, height: 56, child: MiloView()), const SizedBox(width: 8), const Expanded(child: Speech('Here is a plan. Change anything you like.'))])),
+        Padding(padding: const EdgeInsets.all(12), child: Row(children: [const MiloAvatar(size: 56), const SizedBox(width: 8), const Expanded(child: Speech('Here is a plan. Change anything you like.'))])),
         Expanded(child: ReorderableListView(padding: const EdgeInsets.symmetric(horizontal: 14), onReorderItem: (a, b) => setState(() => steps.insert(b, steps.removeAt(a))), children: [
           for (var i = 0; i < steps.length; i++) Card(key: ValueKey('$i${steps[i][1]}'), child: ListTile(leading: const Icon(Icons.drag_handle, color: T.mute), title: Text('${i + 1}   ${steps[i][1]}', style: const TextStyle(fontSize: 17)), trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => setState(() => steps.removeAt(i)))))])),
         Padding(padding: const EdgeInsets.all(14), child: Column(children: [
           OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 52)), onPressed: _addStep, child: const Text('+ Add a step')),
           const Padding(padding: EdgeInsets.all(8), child: Text('Reorder, skip or edit any step. Nothing starts by itself.', style: TextStyle(fontSize: 12, color: T.mute))),
-          BigButton('Start', steps.isEmpty ? null : () { if (!_routines.containsKey(sel) && !saved.any((t) => t['t'] == sel)) { saved.add({'t': sel, 's': steps}); _saveTasks(); } _start(); }), const SizedBox(height: 80)])),
+          BigButton('Start', steps.isEmpty ? null : () { if (!_routines.containsKey(sel) && !saved.any((t) => t['t'] == sel)) { saved.add({'t': sel, 's': steps}); _saveTasks(); } _start(); })])),
       ]);
     } else if (step >= steps.length) {
       return Scaffold(backgroundColor: const Color(0xFFE9EDFF), body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
-        const Spacer(), const SizedBox(height: 260, child: MiloView()), const Text('You finished!', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)), Text(sel!, style: const TextStyle(color: T.mute, fontSize: 16)), const Spacer(),
+        const Spacer(), const MiloStage(), const Text('You finished!', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)), Text(sel!, style: const TextStyle(color: T.mute, fontSize: 16)), const Spacer(),
         BigButton('Next task', _end), const SizedBox(height: 10),
         BigButton('Ask my teacher', () { final s = sel!; ref.read(expressTextProvider.notifier).state = _handoff[s] ?? 'Can you help me please'; _end(); openScreen('express', replace: true); }, kind: BK.soft), const SizedBox(height: 10),
         BigButton('Take a break', () { _end(); openScreen('break'); }, kind: BK.outline), const SizedBox(height: 10),

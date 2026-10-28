@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import '../companion/director.dart';
-import '../companion/milo_view.dart';
+import '../companion/react.dart';
 import 'screen.dart';
 import 'theme.dart';
 
@@ -16,20 +16,28 @@ class _ChatState extends ConsumerState<ChatScreen> {
   void _send(String t) {
     if (t.trim().isEmpty) return;
     c.clear();
+    MiloReact.sent();
     ref.read(chatProvider.notifier).user(t);
     ref.read(directorProvider).ask(t);
   }
+  @override
+  void initState() {
+    super.initState();
+    sc.addListener(() { final v = sc.hasClients ? (sc.position.activity?.velocity ?? 0) : 0; if (v.abs() > 50) MiloReact.scrolled(v); });
+  }
+  @override
+  void dispose() { sc.dispose(); c.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
     final msgs = ref.watch(chatProvider), d = ref.watch(directorProvider), chips = ref.watch(chipsProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) { if (sc.hasClients) sc.animateTo(sc.position.maxScrollExtent, duration: const Duration(milliseconds: 200), curve: Curves.easeOut); });
     return Column(children: [
-      ScreenHeader('Chat with Milo', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         IconButton(tooltip: 'What Milo knows', onPressed: () => openScreen('context'), icon: Badge(isLabelVisible: chips.isNotEmpty, label: Text('${chips.length}'), child: const Icon(Icons.layers_outlined))),
         IconButton(tooltip: 'Read the last answer', onPressed: () { final l = msgs.where((m) => m.milo).lastOrNull; if (l != null) d.speak(l.text); }, icon: const Icon(Icons.volume_up_outlined)),
-      ])),
+      ]),
       Expanded(child: msgs.isEmpty
-          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const SizedBox(height: 150, child: MiloView()), const Text('Ask me anything, by voice or by typing.', textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
+          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const MiloStage(), const Text('Ask me anything, by voice or by typing.', textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
               const SizedBox(height: 12), Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) ActionChip(label: Text(s), onPressed: () => _send(s))])])))
           : ListView(controller: sc, padding: const EdgeInsets.all(14), children: [
               for (final m in msgs) Align(alignment: m.milo ? Alignment.centerLeft : Alignment.centerRight, child: Container(
@@ -38,9 +46,8 @@ class _ChatState extends ConsumerState<ChatScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(m.text, style: TextStyle(fontSize: 17, height: d.lineSpacing / 1.5 * 1.35, color: m.milo ? T.ink : Colors.white)),
                   if (m.milo) Align(alignment: Alignment.centerRight, child: InkWell(onTap: () => d.speak(m.text), child: const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.volume_up, size: 18, color: T.pri))))]))),
               if (msgs.isNotEmpty && msgs.last.milo) Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: T.pri, side: const BorderSide(color: T.pri)), onPressed: () => _send(s), child: Text(s))]),
-              const SizedBox(height: 150),
             ])),
-      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 120, 10), child: TextField(controller: c, onSubmitted: _send, decoration: InputDecoration(hintText: 'Ask me anything…', suffixIcon: IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen())))))),
+      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: MiloReact.watch(child: TextField(controller: c, onSubmitted: _send, onChanged: (_) => MiloReact.typed(context), decoration: InputDecoration(hintText: 'Ask me anything…', suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))]))))),
     ]);
   }
 }
@@ -70,7 +77,7 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
     final words = text.split(' ').where((w) => w.isNotEmpty).toList();
     return Scaffold(backgroundColor: const Color(0xFFE9EDFF), body: SafeArea(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
       const Text('Listening…', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 250, child: MiloView()),
+      const MiloStage(),
       Wrap(spacing: 8, runSpacing: 8, children: [for (final w in words.length > 6 ? words.sublist(words.length - 6) : words) Chip(label: Text(w, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)), backgroundColor: Colors.white, side: const BorderSide(color: T.pri))]),
       Text(error ?? 'You can edit what I heard.', style: const TextStyle(color: T.mute)),
       if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: c, autofocus: true, onSubmitted: (t) { Navigator.pop(context); ref.read(chatProvider.notifier).user(t); d.ask(t); }, decoration: const InputDecoration(hintText: 'Type here'))),

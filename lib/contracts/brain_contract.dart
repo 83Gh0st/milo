@@ -1,6 +1,6 @@
 // Brain-to-body contract (doc section 5.6). The model proposes; this validates.
 const kEmotions = ['calm','happy','excited','curious','thinking','listening','encouraging','proud','concerned','sleepy','playful','surprised'];
-const kGestures = ['wave','nod','shrug','point','lean_in','think','celebrate','giggle'];
+const kGestures = ['wave','nod','shrug','point','lean_in','think','celebrate','giggle','tilt_head','clap','lean_back','thinking_hmm','soft_sigh','peek'];
 const kTabs = ['home','understand','express','do'];
 const kScreens = [...kTabs, 'break'];
 const kRisks = ['none','check_in','crisis'];

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "emotions": ["calm","happy","excited","curious","thinking","listening","encouraging","proud","concerned","sleepy","playful","surprised"],
-  "gestures": ["wave","nod","shrug","point","lean_in","think","celebrate","giggle"],
+  "gestures": ["wave","nod","shrug","point","lean_in","think","celebrate","giggle","tilt_head","clap","lean_back","thinking_hmm","soft_sigh","peek"],
   "screens": ["home","understand","express","do","break"],
   "risks": ["none","check_in","crisis"],
   "ui_actions": ["highlight","offer_choices","show_image","open_screen","set_timer"],

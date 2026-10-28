@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<!-- Milo mark master (concept A lineage). Body <=3 tones + highlight. -->
+<ellipse cx="256" cy="290" rx="150" ry="140" fill="#8E9BFF"/>
+<ellipse cx="256" cy="310" rx="108" ry="86" fill="#B2BCFF" opacity="0.45"/>
+<ellipse cx="206" cy="220" rx="65" ry="31" fill="#FFFFFF" opacity="0.47"/>
+<ellipse cx="256" cy="270" rx="125" ry="110" fill="#FFFFFF" opacity="0.22"/>
+<ellipse cx="201" cy="260" rx="31" ry="40" fill="#FFFFFF"/>
+<ellipse cx="311" cy="260" rx="31" ry="40" fill="#FFFFFF"/>
+<circle cx="201" cy="262" r="17" fill="#3D4BC4"/><circle cx="311" cy="262" r="17" fill="#3D4BC4"/>
+<circle cx="201" cy="262" r="9" fill="#1F2340"/><circle cx="311" cy="262" r="9" fill="#1F2340"/>
+<circle cx="194" cy="254" r="6" fill="#FFFFFF"/><circle cx="304" cy="254" r="6" fill="#FFFFFF"/>
+<ellipse cx="146" cy="325" rx="27" ry="16" fill="#FF7A7A" opacity="0.6"/>
+<ellipse cx="366" cy="325" rx="27" ry="16" fill="#FF7A7A" opacity="0.6"/>
+<path d="M216 345 Q256 385 296 345" stroke="#1F2340" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M256 145 L256 35" stroke="#34C38F" stroke-width="20" stroke-linecap="round"/>
+<ellipse cx="196" cy="90" rx="60" ry="24" fill="#2FB584" transform="rotate(28 196 90)"/>
+<ellipse cx="316" cy="60" rx="60" ry="24" fill="#2FB584" transform="rotate(-28 316 60)"/>
+</svg>
