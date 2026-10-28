@@ -67,7 +67,7 @@ void showSettings(BuildContext context) {
           h('Presence'),
           _chips<Presence?>([null, ...Presence.values], d.presenceOverride, (p) => p?.name ?? 'auto', d.setPresence),
           h('Voice'),
-          _chips<String>(['Friendly', 'Calm', 'Energetic'], d.voice, (s) => s, (v) { d.set(() => d.voice = v); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.')); }),
+          _chips<String>(['Friendly', 'Calm', 'Energetic'], d.voiceStyle, (s) => s, (v) { d.set(() => d.voiceStyle = v); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.')); }),
           h('Language'),
           _chips<String>(kLangNames.keys.take(5).toList(), d.lang, (k) => kLangNames[k]!, (v) => d.set(() => d.lang = v)),
           SwitchListTile(title: const Text('Read everything aloud (picture mode)'), value: d.preReader, onChanged: (v) => d.set(() => d.preReader = v)),

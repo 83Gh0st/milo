@@ -1,10 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import '../companion/director.dart';
 import '../companion/react.dart';
+import '../media/photo.dart';
 import 'screen.dart';
 import 'theme.dart';
 
@@ -19,6 +24,21 @@ class _ChatState extends ConsumerState<ChatScreen> {
     MiloReact.sent();
     ref.read(chatProvider.notifier).user(t);
     ref.read(directorProvider).ask(t);
+  }
+
+  /// "Show Milo": the Understand route from inside chat. Same prep as the
+  /// reader (resize + EXIF wipe + original deleted); the explanation is
+  /// spoken and lands in this thread; the ledger shows the send.
+  Future<void> _showMilo() async {
+    final x = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2400);
+    if (x == null || !mounted) return;
+    final jpg = await compute(preparePhoto, await x.readAsBytes());
+    try { await File(x.path).delete(); } catch (_) {}
+    if (!mounted) return;
+    final b64 = base64Encode(jpg);
+    ref.read(chatProvider.notifier).userPhoto(b64);
+    MiloReact.sent();
+    await ref.read(routerProvider).explain(ref.read(directorProvider), '', imageB64: b64);
   }
   @override
   void initState() {
@@ -43,11 +63,57 @@ class _ChatState extends ConsumerState<ChatScreen> {
               for (final m in msgs) Align(alignment: m.milo ? Alignment.centerLeft : Alignment.centerRight, child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 5), padding: const EdgeInsets.all(14), constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .8),
                 decoration: BoxDecoration(color: m.milo ? T.priSoft : T.pri, borderRadius: BorderRadius.circular(18)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(m.text, style: TextStyle(fontSize: 17, height: d.lineSpacing / 1.5 * 1.35, color: m.milo ? T.ink : Colors.white)),
-                  if (m.milo) Align(alignment: Alignment.centerRight, child: InkWell(onTap: () => d.speak(m.text), child: const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.volume_up, size: 18, color: T.pri))))]))),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (m.imageB64 != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(base64Decode(m.imageB64!), width: 180, fit: BoxFit.cover, semanticLabel: 'Photo you showed Milo'))),
+                  if (m.text.isNotEmpty) Text(m.text, style: TextStyle(fontSize: 17, height: d.lineSpacing / 1.5 * 1.35, color: m.milo ? T.ink : Colors.white)),
+                  if (m.steps.isNotEmpty) _StepsCard(steps: m.steps),
+                  if (m.milo && m.text.isNotEmpty) Align(alignment: Alignment.centerRight, child: InkWell(onTap: () => d.speak(m.text), child: const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.volume_up, size: 18, color: T.pri))))]))),
               if (msgs.isNotEmpty && msgs.last.milo) Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: T.pri, side: const BorderSide(color: T.pri)), onPressed: () => _send(s), child: Text(s))]),
             ])),
-      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: MiloReact.watch(child: TextField(controller: c, onSubmitted: _send, onChanged: (_) => MiloReact.typed(context), decoration: InputDecoration(hintText: 'Ask me anything…', suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))]))))),
+      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: MiloReact.watch(child: TextField(controller: c, onSubmitted: _send, onChanged: (_) => MiloReact.typed(context), decoration: InputDecoration(hintText: 'Ask me anything…', suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Show Milo', icon: const Icon(Icons.photo_camera_outlined, color: T.pri), onPressed: _showMilo), IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))]))))),
+    ]);
+  }
+}
+
+/// Checklist card from the brain's break_into_steps tool: check steps off
+/// locally; "Save to Do" (the visible confirmation) stores the plan.
+class _StepsCard extends ConsumerStatefulWidget {
+  const _StepsCard({required this.steps});
+  final List<String> steps;
+  @override
+  ConsumerState<_StepsCard> createState() => _StepsCardState();
+}
+
+class _StepsCardState extends ConsumerState<_StepsCard> {
+  final checked = <int>{};
+  bool saved = false;
+  Future<void> _save() async {
+    final db = ref.read(dbProvider);
+    var tasks = <Map<String, dynamic>>[];
+    try {
+      final raw = await db.get('local.tasks');
+      if (raw != null && raw.isNotEmpty) tasks = [for (final t in jsonDecode(raw) as List) Map<String, dynamic>.from(t as Map)];
+    } catch (_) {}
+    tasks.add({'t': 'Chat plan', 's': [for (final s in widget.steps) ['•', s]]});
+    await db.put('local.tasks', jsonEncode(tasks));
+    if (mounted) {
+      setState(() => saved = true);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved to Do.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var i = 0; i < widget.steps.length; i++)
+        InkWell(onTap: () => setState(() => checked.contains(i) ? checked.remove(i) : checked.add(i)),
+            child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [
+              Icon(checked.contains(i) ? Icons.check_circle : Icons.circle_outlined, color: T.pri),
+              const SizedBox(width: 8),
+              Expanded(child: Text(widget.steps[i], style: TextStyle(fontSize: 16, decoration: checked.contains(i) ? TextDecoration.lineThrough : null))),
+            ]))),
+      const SizedBox(height: 4),
+      OutlinedButton.icon(onPressed: saved ? null : _save, icon: const Icon(Icons.save_outlined), label: Text(saved ? 'Saved' : 'Save to Do')),
     ]);
   }
 }
@@ -65,7 +131,7 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
     d.setListening(true);
     await v.start(lang: kLangNames[d.lang] ?? 'English',
       onLevel: (l) => d.micLevel = l, // field only: the frame clock repaints, no rebuilds
-      onPartial: (t) { if (mounted) setState(() { text = t; c.text = t; }); },
+      onPartial: (t) { d.notePartial(); if (mounted) setState(() { text = t; c.text = t; }); },
       onFinal: (t) { d.setListening(false); if (mounted) { Navigator.pop(context); } if (t.trim().isNotEmpty) { ref.read(chatProvider.notifier).user(t); d.ask(t); } },
       onError: (e) { d.setListening(false); if (mounted) setState(() => error = switch (e) { 'mic_denied' => 'The microphone is off. You can type instead.', 'cloud_off' => 'Voice needs cloud AI. Turn it on in Privacy, or type.', _ => 'Voice is not available right now. You can type instead.' }); });
   }
@@ -83,7 +149,7 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
       if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: c, autofocus: true, onSubmitted: (t) { Navigator.pop(context); ref.read(chatProvider.notifier).user(t); d.ask(t); }, decoration: const InputDecoration(hintText: 'Type here'))),
       const Spacer(),
       SizedBox(height: 60, child: AnimatedBuilder(animation: d.frame, builder: (_, __) {
-        final live = d.state == CState.listening, lvl = live ? (.2 + .8 * d.micLevel.clamp(0.0, 1.0)) : .2;
+        final live = d.attenLive, lvl = live ? (.2 + .8 * d.micLevel.clamp(0.0, 1.0)) : .2;
         return Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (var i = 0; i < 28; i++) Container(width: 5, margin: const EdgeInsets.symmetric(horizontal: 2), height: 10 + 38 * (.5 + .5 * math.sin(d.clock * 7 + i * .6)) * lvl, decoration: BoxDecoration(color: T.pri, borderRadius: BorderRadius.circular(3)))]);
       })),
       const SizedBox(height: 16),

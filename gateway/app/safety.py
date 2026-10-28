@@ -116,6 +116,14 @@ class Assembler:
                     out.append(("ui", {"action": a, "seconds": v["seconds"]}))
                 elif a == "show_image" and isinstance(v.get("concept"), str) and v["concept"].strip().lower() in CONCEPTS:
                     out.append(("ui", {"action": a, "concept": v["concept"].strip().lower()}))
+                elif a == "read_aloud" and re.fullmatch(r"w\d{1,4}", str(v.get("span", ""))):
+                    out.append(("ui", {"action": a, "span": v["span"]}))
+                elif a == "break_into_steps" and isinstance(v.get("steps"), list):
+                    steps = [s for s in (clean(s, 140) for s in v["steps"] if isinstance(s, str)) if s][:8]
+                    if steps:
+                        out.append(("ui", {"action": a, "steps": steps}))
+                elif a == "lookup_word" and re.fullmatch(r"[A-Za-z][A-Za-z'’-]{0,39}", str(v.get("word", "")).strip()):
+                    out.append(("ui", {"action": a, "word": str(v["word"]).strip()}))
             elif key == "memory_proposals" and isinstance(v, dict) and self.n["mem"] < 3:
                 # Proposals only, and only for things the person said or confirmed. Inferred facts are rejected.
                 if MEM_CUE.search(self.user_text) and v.get("source") in MEM_SOURCES and v.get("key") in ALL_MEM_KEYS and v.get("type") in ("preference", "approved_fact") and clean(v.get("value", ""), 80):

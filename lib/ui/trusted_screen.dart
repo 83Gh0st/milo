@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/providers.dart';
+import '../net/api.dart';
 import 'privacy_screens.dart';
 import 'screen.dart';
 import 'theme.dart';
@@ -19,7 +20,7 @@ class TrustedScreen extends ConsumerWidget {
       RowCard(icon: Icons.grid_view, title: 'Words and symbols', subtitle: 'Add, edit, order', onTap: () => go(const WordsEditor())),
       RowCard(icon: Icons.menu_book_outlined, title: 'Reading support', subtitle: 'Text size, font, spacing, contrast', color: 1, onTap: () => openScreen('accessibility')),
       RowCard(icon: Icons.cloud_outlined, title: 'Cloud and privacy', subtitle: 'Cloud on or off, memory', color: 2, onTap: () => go(const LedgerScreen())),
-      RowCard(icon: Icons.key_outlined, title: 'Family AI key', subtitle: 'Use your own Meta account', color: 3, onTap: () => go(const ProviderKeyScreen())),
+      RowCard(icon: Icons.key_outlined, title: 'AI connections', subtitle: 'Choose which AI Milo uses', color: 3, onTap: () => go(const ProviderKeyScreen())),
       RowCard(icon: Icons.bedtime_outlined, title: 'Gentle time limits', subtitle: d.breakNudgeMin == 0 ? 'Off' : 'Break nudge every ${d.breakNudgeMin} min', color: 3, onTap: () => go(const TimeLimits())),
       RowCard(icon: Icons.insights, title: 'Weekly summary', subtitle: 'Progress only, no chats', onTap: () => go(const WeeklySummary())),
       RowCard(icon: Icons.phone_outlined, title: 'Trusted contacts', subtitle: 'Used by the Help me sheet', color: 1, onTap: () => go(const Contacts())),
@@ -84,19 +85,39 @@ class WeeklySummary extends ConsumerWidget {
 
 class _SwitchRow extends StatelessWidget { const _SwitchRow(this.t, this.v, this.f); final String t; final bool v; final void Function(bool) f; @override Widget build(BuildContext c) => Card(child: SwitchListTile(title: Text(t), value: v, onChanged: f)); }
 
-/// Family BYOK (trusted adults only): paste the family's own Meta API key once.
-/// It is sent over TLS, stored encrypted on the Milo server, and never kept
-/// on this phone. Needs sync on: the sync vault is the family identity.
+/// Phase 3 AI connections (trusted adults only): the family picks which AI
+/// Milo thinks with — Meta, OpenAI, Anthropic, or a custom/local endpoint.
+/// Keys are sent once over TLS, stored encrypted on the Milo server, and never
+/// kept on this phone. Needs sync on: the sync vault is the family identity.
+/// Honest limit: a ChatGPT/Claude/Meta *app* login is not API access; the
+/// family needs its own API key, billed to its own account.
+const kConnProviders = [('meta', 'Meta (recommended)'), ('openai', 'OpenAI'), ('anthropic', 'Anthropic'), ('custom', 'Custom or local')];
+const kRouteCaps = [('brain', 'Thinking + chat'), ('understand', 'Reading help'), ('visual', 'Pictures'), ('stt', 'Voice in')];
+
+String connWords(Object e) {
+  if (e is! ApiError) return 'Something went wrong.';
+  const m = {'offline': 'No connection to the Milo server.', 'timeout': 'That took too long.', 'rate_limited': 'Too many tries — wait a minute.',
+    'policy_ack_required': 'Please confirm the data note first.', 'key_too_short': 'That key looks too short.', 'key_required': 'A key is needed for this provider.',
+    'bad_base_url': 'That address is not allowed.', 'base_url_required': 'Custom needs an address.', 'model_not_allowed': 'That model is not allowed.',
+    'model_required': 'Pick a model first.', 'no_connection': 'Connect this provider first.', 'no_connections': 'Connect a provider first.',
+    'auth_failed': 'That key was refused. Check it and try again.', 'unreachable': 'That address did not answer.', 'model_not_found': 'That model was not found there.',
+    'quota': 'That account is out of credit.', 'content_filtered': 'The provider refused that test.'};
+  return m[e.code] ?? m[e.detail?['error']] ?? 'Could not reach the server.';
+}
+
 class ProviderKeyScreen extends ConsumerStatefulWidget { const ProviderKeyScreen({super.key}); @override ConsumerState<ProviderKeyScreen> createState() => _PKState(); }
 class _PKState extends ConsumerState<ProviderKeyScreen> {
-  final key = TextEditingController();
   bool? syncOn, useFamily;
-  Map<String, dynamic>? status;
+  Map<String, dynamic>? conns;
+  Map<String, String?> primary = {}, fallback = {};
   bool busy = false;
   String? error;
 
   @override
   void initState() { super.initState(); _load(); }
+
+  List<Map<String, dynamic>> get _list => [for (final c in (conns?['connections'] as List?) ?? []) Map<String, dynamic>.from(c as Map)];
+  Map<String, dynamic>? _conn(String p) { for (final c in _list) { if (c['provider'] == p) return c; } return null; }
 
   Future<void> _load() async {
     final sync = ref.read(syncProvider), db = ref.read(dbProvider), api = ref.read(apiProvider);
@@ -107,63 +128,205 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
     final vh = await sync.vaultHeaders();
     if (vh == null || !mounted) return;
     try {
-      final st = await api.providerKeyStatus(vh['X-Vault-Id']!, vh['X-Vault-Key']!);
+      final st = await api.listConnections(vh['X-Vault-Id']!, vh['X-Vault-Key']!);
       final flag = await db.get('ai.family_key');
-      if (mounted) setState(() { status = st; useFamily = (flag ?? '').isNotEmpty; key.clear(); error = null; });
-    } catch (_) { if (mounted) setState(() => error = 'Could not reach the server.'); }
+      if (!mounted) return;
+      final routes = Map<String, dynamic>.from(st['routes'] as Map? ?? {});
+      for (final (cap, _) in kRouteCaps) {
+        final es = [for (final e in (routes[cap] as List?) ?? []) Map<String, dynamic>.from(e as Map)];
+        primary[cap] = es.isEmpty ? null : '${es[0]['provider']}/${es[0]['model']}';
+        fallback[cap] = es.length < 2 ? null : '${es[1]['provider']}/${es[1]['model']}';
+      }
+      setState(() { conns = st; useFamily = (flag ?? '').isNotEmpty; error = null; });
+    } catch (e) { if (mounted) setState(() => error = connWords(e)); }
   }
 
-  Future<void> _save() async {
-    final k = key.text.trim();
-    if (k.length < 8) { setState(() => error = 'That key looks too short.'); return; }
+  Future<void> _open(String provider) async {
+    final vh = (await ref.read(syncProvider).vaultHeaders())!;
+    if (!mounted) return;
+    await showModalBottomSheet(context: context, isScrollControlled: true, builder: (c) =>
+        Padding(padding: MediaQuery.of(c).viewInsets, child: _ConnSheet(provider: provider, existing: _conn(provider),
+            api: ref.read(apiProvider), vid: vh['X-Vault-Id']!, vkey: vh['X-Vault-Key']!)));
+    _load();
+  }
+
+  Future<void> _saveRoutes() async {
+    for (final (cap, label) in kRouteCaps) {
+      if ((primary[cap]?.endsWith('/') ?? false) || (fallback[cap]?.endsWith('/') ?? false)) {
+        setState(() => error = 'Pick a model for $label first: open the provider, then Find models.');
+        return;
+      }
+    }
     setState(() { busy = true; error = null; });
     try {
       final vh = (await ref.read(syncProvider).vaultHeaders())!;
-      await ref.read(apiProvider).setProviderKey(vh['X-Vault-Id']!, vh['X-Vault-Key']!, 'meta', k);
-      await ref.read(dbProvider).put('ai.family_key', 'meta');
+      Map<String, String> e(String v) { final i = v.indexOf('/'); return {'provider': v.substring(0, i), 'model': v.substring(i + 1)}; }
+      final routes = {for (final (cap, _) in kRouteCaps) if (primary[cap] != null) cap: [e(primary[cap]!), if (fallback[cap] != null) e(fallback[cap]!)]};
+      await ref.read(apiProvider).putRoutes(vh['X-Vault-Id']!, vh['X-Vault-Key']!, routes);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Family key saved. AI now uses your account.')));
-    } catch (_) { if (mounted) setState(() => error = 'Could not save the key.'); }
-    if (mounted) setState(() => busy = false);
-  }
-
-  Future<void> _remove() async {
-    setState(() { busy = true; error = null; });
-    try {
-      final vh = (await ref.read(syncProvider).vaultHeaders())!;
-      await ref.read(apiProvider).deleteProviderKey(vh['X-Vault-Id']!, vh['X-Vault-Key']!);
-      await ref.read(dbProvider).put('ai.family_key', '');
-      await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Family key removed.')));
-    } catch (_) { if (mounted) setState(() => error = 'Could not remove the key.'); }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved. Milo now uses your choices.')));
+    } catch (e) { if (mounted) setState(() => error = connWords(e)); }
     if (mounted) setState(() => busy = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final db = ref.read(dbProvider);
-    return MiloScreen(title: 'Family AI key', body: ListView(padding: const EdgeInsets.all(16), children: [
-      const Text('Milo can use your own Meta AI account instead of the shared one. Meta may charge your account for use. The key is sent once over an encrypted connection, stored encrypted on the Milo server, and never kept on this phone.', style: TextStyle(fontSize: 15)),
+    String label(String p, String m) => '$p/${m.isEmpty ? '(model not set)' : m}';
+    final opts = [(value: 'mock/mock', label: 'mock/mock (Offline demo)'),
+      for (final c in _list) (value: '${c['provider']}/${c['default_model']}', label: label('${c['provider']}', '${c['default_model']}'))];
+    String? valid(String? v) => v != null && opts.any((o) => o.value == v) ? v : null;
+    return MiloScreen(title: 'AI connections', body: ListView(padding: const EdgeInsets.all(16), children: [
+      const Text('Milo can think with your own AI account instead of the shared one. Use is billed to your account by your provider. A key is sent once over an encrypted connection, stored encrypted on the Milo server, and never kept on this phone. A ChatGPT or Claude app login is not enough — you need an API key from your provider.', style: TextStyle(fontSize: 15)),
       const SizedBox(height: 12),
       if (syncOn == false) ...[const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Turn on sync first, in Data and privacy. The sync vault identifies your family.', style: TextStyle(fontSize: 16)))),
         BigButton('Back', () => Navigator.pop(context), kind: BK.soft)]
-      else if (syncOn == null || useFamily == null) ...[const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))]
+      else if (syncOn == null || useFamily == null || conns == null) ...[const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))]
       else ...[
-        Card(child: ListTile(leading: Icon(status == null ? Icons.key_off : Icons.key, color: T.pri),
-            title: Text(status == null ? 'No family key' : 'Key ${status!['hint']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(status == null ? 'AI uses the shared key' : 'Provider: Meta'))),
-        Card(child: SwitchListTile(title: const Text('Use our family key for AI', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('When off, AI uses the shared key'), value: useFamily!, onChanged: status == null ? null : (v) async { await db.put('ai.family_key', v ? 'meta' : ''); setState(() => useFamily = v); })),
-        const Section('Save or replace the key'),
-        TextField(controller: key, obscureText: true, decoration: const InputDecoration(hintText: 'Paste the Meta API key here')),
-        const SizedBox(height: 10),
-        BigButton(busy ? 'Working…' : 'Save family key', busy ? null : _save),
-        if (status != null) ...[const SizedBox(height: 10), BigButton('Remove family key', busy ? null : _remove, kind: BK.outline)],
+        Card(child: SwitchListTile(title: const Text('Use our family AI', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(useFamily! ? 'Milo bills your accounts' : 'When off, Milo uses the shared key'),
+            value: useFamily!, onChanged: _list.isEmpty && useFamily == false ? null : (v) async { await db.put('ai.family_key', v ? 'family' : ''); setState(() => useFamily = v); })),
+        const Section('Providers'),
+        for (final (id, name) in kConnProviders)
+          Card(child: ListTile(leading: Icon(_conn(id) == null ? Icons.key_off : Icons.key, color: T.pri),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(_conn(id) == null ? 'Not connected' : 'Key ${_conn(id)!['hint']} · ${_conn(id)!['default_model']}'),
+              trailing: const Icon(Icons.chevron_right), onTap: () => _open(id))),
+        const Section('Use for'),
+        for (final (cap, capLabel) in kRouteCaps) Card(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(capLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+          DropdownButtonFormField<String>(isExpanded: true, decoration: const InputDecoration(labelText: 'First choice'), initialValue: valid(primary[cap]),
+              items: [for (final o in opts) DropdownMenuItem(value: o.value, child: Text(o.label, overflow: TextOverflow.ellipsis))],
+              onChanged: (v) => setState(() => primary[cap] = v)),
+          DropdownButtonFormField<String>(isExpanded: true, decoration: const InputDecoration(labelText: 'If that fails'), initialValue: valid(fallback[cap]),
+              items: [for (final o in opts) DropdownMenuItem(value: o.value, child: Text(o.label, overflow: TextOverflow.ellipsis))],
+              onChanged: (v) => setState(() => fallback[cap] = v)),
+        ]))),
+        const SizedBox(height: 6),
+        BigButton(busy ? 'Working…' : 'Save choices', busy ? null : _saveRoutes),
         if (error != null) Padding(padding: const EdgeInsets.all(12), child: Text(error!, style: const TextStyle(color: T.coral))),
       ],
     ]));
   }
 }
+
+class _ConnSheet extends StatefulWidget {
+  const _ConnSheet({required this.provider, required this.existing, required this.api, required this.vid, required this.vkey});
+  final String provider, vid, vkey;
+  final Map<String, dynamic>? existing;
+  final MiloApi api;
+  @override
+  State<_ConnSheet> createState() => _ConnSheetState();
+}
+
+class _ConnSheetState extends State<_ConnSheet> {
+  final key = TextEditingController(), base = TextEditingController(), model = TextEditingController();
+  bool ack = false, busy = false;
+  String? error;
+  Map<String, dynamic>? probe, _asked;
+
+  @override
+  void initState() {
+    super.initState();
+    base.text = widget.existing?['base_url'] ?? '';
+    model.text = widget.existing?['default_model'] ?? '';
+  }
+
+  @override
+  void dispose() {
+    key.dispose();
+    base.dispose();
+    model.dispose();
+    super.dispose();
+  }
+
+  Map<String, dynamic> get policy => Map<String, dynamic>.from(widget.existing?['policy'] as Map? ?? _asked ?? {});
+  bool get needsAck => policy['needs_ack'] == true;
+
+  Future<void> _save() async {
+    final k = key.text.trim();
+    if (k.isNotEmpty && k.length < 8) { setState(() => error = 'That key looks too short.'); return; }
+    if (widget.existing == null && k.isEmpty && widget.provider != 'custom') { setState(() => error = 'Paste a key first.'); return; }
+    setState(() { busy = true; error = null; });
+    try {
+      await widget.api.saveConnection(widget.vid, widget.vkey, widget.provider, apiKey: k,
+          baseUrl: base.text.trim(), model: model.text.trim(), ack: ack);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      // First save of an unknown-policy provider: the server sends the policy
+      // with the refusal, so the checkbox can appear right here.
+      if (e is ApiError && e.detail?['error'] == 'policy_ack_required') _asked = Map<String, dynamic>.from(e.detail!['policy'] as Map? ?? {});
+      if (mounted) setState(() => error = connWords(e));
+    }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> _models() async {
+    setState(() { busy = true; error = null; });
+    try {
+      final ms = await widget.api.connectionModels(widget.vid, widget.vkey, widget.provider);
+      if (!mounted) return;
+      final pick = await showDialog<String>(context: context, builder: (c) => AlertDialog(title: const Text('Pick a model'),
+          content: SizedBox(width: double.maxFinite, child: ListView(children: [for (final m in ms) ListTile(title: Text(m), onTap: () => Navigator.pop(c, m))]))));
+      if (pick != null) setState(() => model.text = pick);
+    } catch (e) { if (mounted) setState(() => error = connWords(e)); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> _test() async {
+    setState(() { busy = true; error = null; probe = null; });
+    try {
+      final r = await widget.api.testConnection(widget.vid, widget.vkey, widget.provider, model: model.text.trim());
+      if (mounted) setState(() => probe = r);
+    } catch (e) { if (mounted) setState(() => error = connWords(e)); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> _remove() async {
+    setState(() { busy = true; error = null; });
+    try {
+      await widget.api.deleteConnection(widget.vid, widget.vkey, widget.provider);
+      if (mounted) Navigator.pop(context);
+    } catch (e) { if (mounted) setState(() => error = connWords(e)); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const names = {'chat': 'Chat', 'json_schema': 'Structured replies', 'vision': 'Pictures', 'audio_in': 'Voice in', 'tts': 'Voice out'};
+    final label = dictLabel(widget.provider);
+    return SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+      if (widget.existing != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Connected · key ${widget.existing!['hint']}', style: const TextStyle(color: T.mute))),
+      const SizedBox(height: 12),
+      TextField(controller: key, obscureText: true, decoration: InputDecoration(hintText: widget.existing == null ? 'Paste the API key here' : 'Paste a new key to replace it (leave empty to keep)')),
+      if (widget.provider == 'custom' || widget.provider == 'openai') ...[const SizedBox(height: 10),
+        TextField(controller: base, decoration: InputDecoration(hintText: widget.provider == 'custom' ? 'Address, e.g. http://100.64.0.5:11434/v1' : 'Address (leave empty for OpenAI)'))],
+      const SizedBox(height: 10),
+      Row(children: [Expanded(child: TextField(controller: model, decoration: const InputDecoration(hintText: 'Model, e.g. gpt-4o-mini'))),
+        const SizedBox(width: 8), FilledButton.tonal(onPressed: busy || widget.existing == null ? null : _models, child: const Text('Find'))]),
+      if (needsAck || policy.isNotEmpty) ...[const SizedBox(height: 10), Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('How this provider handles data', style: TextStyle(fontWeight: FontWeight.w700)),
+        Text(policy['note'] ?? 'The provider decides; Milo sends only what the ledger shows.', style: const TextStyle(fontSize: 13)),
+        if (needsAck) CheckboxListTile(title: const Text('I understand my data may train their models', style: TextStyle(fontSize: 14)), value: ack, onChanged: (v) => setState(() => ack = v ?? false), controlAffinity: ListTileControlAffinity.leading),
+      ])))],
+      const SizedBox(height: 10),
+      Row(children: [Expanded(child: FilledButton.tonal(onPressed: busy || widget.existing == null ? null : _test, child: const Text('Test connection'))),
+        const SizedBox(width: 8), Expanded(child: FilledButton(onPressed: busy ? null : _save, child: Text(busy ? 'Working…' : 'Save')))]),
+      if (probe != null) ...[const SizedBox(height: 8), Card(child: Column(children: [
+        for (final e in (probe!['checks'] as Map).entries)
+          ListTile(dense: true, leading: Icon('${e.value}'.startsWith('pass') ? Icons.check_circle : '${e.value}'.startsWith('fail') ? Icons.cancel : Icons.remove_circle,
+              color: '${e.value}'.startsWith('pass') ? T.mint : '${e.value}'.startsWith('fail') ? T.coral : T.mute),
+              title: Text('${names[e.key] ?? e.key}'),
+              subtitle: '${e.value}'.contains(':') ? Text('${e.value}'.split(':').last) : null),
+      ]))],
+      if (widget.existing != null) ...[const SizedBox(height: 8), BigButton('Remove this connection', busy ? null : _remove, kind: BK.outline)],
+      if (error != null) Padding(padding: const EdgeInsets.all(12), child: Text(error!, style: const TextStyle(color: T.coral))),
+    ]));
+  }
+}
+
+String dictLabel(String id) => switch (id) { 'meta' => 'Meta', 'openai' => 'OpenAI', 'anthropic' => 'Anthropic', 'custom' => 'Custom or local', _ => id };
 
 class Contacts extends ConsumerStatefulWidget { const Contacts({super.key}); @override ConsumerState<Contacts> createState() => _ContactsState(); }
 class _ContactsState extends ConsumerState<Contacts> {

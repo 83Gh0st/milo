@@ -106,6 +106,34 @@ JUDGE_BASE_URL=http://localhost:11434/v1 JUDGE_MODEL=glimmer python ../eval/run_
 ```
 Note: when pointed at **mock** mode the `strategy_switch` check fails by design (the mock returns the same text for every strategy). Run it against the real model.
 
+## 2b. Gateway, family AI connections (Phase 3, Windows `cmd`)
+
+The gateway is a multi-provider router now: Meta first, plus OpenAI-compatible
+endpoints (GPT, Ollama, LM Studio, vLLM), Anthropic, and mock. Families connect
+their own keys in the app (Trusted adult → AI connections), but everything is
+also doable from this terminal, coding-agent style. Keys are never command-line
+arguments: hidden prompt, `--key-env NAME`, or `--key-stdin`.
+```cmd
+cd gateway
+docker compose up -d --build
+docker compose exec gateway python -m app.cli vault-new
+set VID=<id from above>& set VKEY=<key from above>
+docker compose exec -e VAULT_ID=%VID% -e VAULT_KEY=%VKEY% gateway python -m app.cli connect openai
+docker compose exec -e VAULT_ID=%VID% -e VAULT_KEY=%VKEY% gateway python -m app.cli list
+docker compose exec -e VAULT_ID=%VID% -e VAULT_KEY=%VKEY% gateway python -m app.cli test openai
+docker compose exec -e VAULT_ID=%VID% -e VAULT_KEY=%VKEY% gateway python -m app.cli use brain openai/gpt-4o-mini --fallback mock/mock
+docker compose exec -e VAULT_ID=%VID% -e VAULT_KEY=%VKEY% gateway python -m app.cli status
+```
+(Omit the `-e` flags and the CLI prompts for the vault id + key instead.)
+Local models (Ollama on this PC, dev only): allow LAN endpoints in `gateway/.env`
+with `ALLOW_LAN_PROVIDERS=true`, then `connect custom --base-url http://<pc-ip>:11434/v1 --no-key`
+(data never leaves your network). Production refuses non-https, LAN, and
+cloud-metadata addresses. Without docker, run from `gateway/` with the env set:
+`set VAULT_ID=...& set VAULT_KEY=...& python -m app.cli ...`.
+Families should prefer the app UI; the CLI is for setup and support.
+See `docs/BYOK.md` for the trust model. `python scripts/smoke_providers.py`
+probes every configured provider when keys are present (skips cleanly without).
+
 ## 3. Flutter app
 ```bash
 cd milo                                   # repo root (has pubspec.yaml and lib/)

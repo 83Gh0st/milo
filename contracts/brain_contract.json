@@ -4,7 +4,7 @@
   "gestures": ["wave","nod","shrug","point","lean_in","think","celebrate","giggle","tilt_head","clap","lean_back","thinking_hmm","soft_sigh","peek"],
   "screens": ["home","understand","express","do","break"],
   "risks": ["none","check_in","crisis"],
-  "ui_actions": ["highlight","offer_choices","show_image","open_screen","set_timer"],
+  "ui_actions": ["highlight","offer_choices","show_image","open_screen","set_timer","read_aloud","break_into_steps","lookup_word"],
   "gaze_targets": ["content_span","person","mic","wander"],
   "followups": ["wait","ask","none"],
   "memory_sources": ["user_stated","user_confirmed"],

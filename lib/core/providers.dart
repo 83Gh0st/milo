@@ -38,13 +38,17 @@ final tabProvider = StateProvider<int>((_) => 0);
 final miloScopeProvider = Provider<int?>((_) => null);
 
 /// Chat thread lives in memory only: conversations are not saved unless the person asks Milo to remember.
-class ChatMsg { final bool milo; final String text; const ChatMsg(this.milo, this.text); }
+class ChatMsg { final bool milo; final String text; final List<String> steps; final String? imageB64; const ChatMsg(this.milo, this.text, {this.steps = const [], this.imageB64}); }
 class ChatNotifier extends StateNotifier<List<ChatMsg>> {
   ChatNotifier() : super(const []);
   void user(String t) => state = [...state, ChatMsg(false, t)];
-  void said(String t) { if (state.isNotEmpty && state.last.milo) { state = [...state.sublist(0, state.length - 1), ChatMsg(true, '${state.last.text}\n$t')]; } else { state = [...state, ChatMsg(true, t)]; } }
+  void userPhoto(String imageB64) => state = [...state, ChatMsg(false, '', imageB64: imageB64)];
+  void said(String t) { if (state.isNotEmpty && state.last.milo && state.last.steps.isEmpty) { state = [...state.sublist(0, state.length - 1), ChatMsg(true, '${state.last.text}\n$t')]; } else { state = [...state, ChatMsg(true, t)]; } }
+  void addSteps(List<String> steps) => state = [...state, ChatMsg(true, '', steps: steps)];
   void clear() => state = const [];
 }
+/// A word the brain asked to look up: UnderstandScreen picks it up once, then clears it.
+final lookupWordProvider = StateProvider<String>((_) => '');
 final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMsg>>((_) => ChatNotifier());
 final expressTextProvider = StateProvider<String>((_) => '');
 final syncProvider = Provider((ref) => SyncService(ref.read(dbProvider), ref.read(apiProvider), ref.read(storeProvider)));
@@ -221,7 +225,13 @@ class CoreRouter {
       if (e is ApiError) ref.read(ladderProvider.notifier).failed(e.code);
       if (e is StreamError) ref.read(ladderProvider.notifier).failed(e.code);
       if (cached != null) { ust.load(cached); await d.perform(const BrainTurn(emotion: 'calm', say: ['Here is the explanation I saved earlier.'])); }
-      else { ust.done(); if (e is CloudDisabled) { await d.perform(validateTurn(pocketBrain('', d.profile.name, cloud: 'off'))); } else { openScreen('unreachable'); } }
+      else {
+        ust.done();
+        if (e is CloudDisabled) { await d.perform(validateTurn(pocketBrain('', d.profile.name, cloud: 'off'))); }
+        // A blind model is not a broken network: say what is actually wrong.
+        else if (imageB64 != null && ((e is StreamError && e.code == 'unsupported_capability') || (e is ApiError && e.code == 'unsupported_capability'))) { await d.perform(const BrainTurn(emotion: 'calm', say: ['This model cannot look at pictures. A trusted adult can pick one that can, in AI connections.'])); }
+        else { openScreen('unreachable'); }
+      }
     }
   }
 }
@@ -234,6 +244,8 @@ final directorProvider = ChangeNotifierProvider<Director>((ref) {
   d.persist = () { final m = d.toSettings(); for (final e in m.entries) { db.put(e.key, e.value); } };
   d.onMemoryProposal = ref.read(memoryProvider).propose;
   d.onSaid = (t) => ref.read(chatProvider.notifier).said(t);
+  d.onSteps = (s) => ref.read(chatProvider.notifier).addSteps(s);
+  d.onLookupWord = (w) { ref.read(lookupWordProvider.notifier).state = w; openScreen('understand'); };
   d.onShowImage = (c) async {
     if (ref.read(visualProvider).containsKey(c)) return;
     try {
@@ -246,6 +258,10 @@ final directorProvider = ChangeNotifierProvider<Director>((ref) {
     if (n == Ladder.offline || n == Ladder.cloudOff) d.emote('calm', i: .6, hold: 4);
     if (n == Ladder.resting) d.emote('sleepy', i: .4, hold: 4);
   });
+  d.voice.neural.api = ref.read(apiProvider);
+  d.voice.neural.cacheGet = db.get;
+  d.voice.neural.cachePut = db.put;
+  d.voice.onlineAllowed = () => ref.read(ladderProvider) == Ladder.full;
   db.allSettings().then((s) => d.loadSettings(s));
   d.init();
   ref.onDispose(d.dispose);

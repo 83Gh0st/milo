@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     sync_max_records: int = 20_000
     sync_max_bytes: int = 50_000_000
     attestation_mode: str = "off"          # off | enforce
+    allow_lan_providers: bool = False    # dev only: permit http + LAN endpoints for local models (Ollama/LM Studio)
+    speak_engine: str = "auto"           # auto | mock | piper | openai (auto: piper if installed, else mock in dev, else honest 503)
+    speak_api_key: str = ""              # deployer TTS key (hosted engines); families use their own vault keys
+    speak_model: str = "gpt-4o-mini-tts"  # UNVERIFIED default (no network 28 Oct 2026); first keyed run confirms
+    piper_voice: str = ""                # path to a Piper .onnx voice model (local, no key)
+    speak_price_per_1k: float = 0.0      # USD per 1k chars; 0 = unmetered until the human prices it from the terms
 
     @property
     def allowed_models(self) -> set[str]:

@@ -1,0 +1,95 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:milo/companion/director.dart';
+import 'package:milo/core/providers.dart';
+import 'package:milo/data/secure_store.dart';
+import 'package:milo/ui/calm_screens.dart';
+import 'package:milo/ui/chat_screen.dart';
+import 'package:milo/ui/failure_screens.dart';
+import 'package:milo/ui/understand_screen.dart';
+
+import 'helpers/fake_db.dart';
+import 'helpers/harness.dart';
+
+/// Widget tests for the Phase 5 safe multimodal agent: the steps checklist
+/// (visible confirmation before anything is saved) and the lookup_word
+/// cross-screen handoff into the Understand reader.
+ProviderContainer agentContainer(FakeDb db, FakeApi api, {String lookup = ''}) => ProviderContainer(overrides: [
+      dbProvider.overrideWithValue(db),
+      storeProvider.overrideWithValue(SecureStore()),
+      directorProvider.overrideWith((_) => Director()),
+      apiProvider.overrideWithValue(api),
+      lookupWordProvider.overrideWith((_) => lookup),
+      connectionCheckProvider.overrideWithValue(const AsyncValue.data(
+          ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+    ]);
+
+Future<void> settleAgent(WidgetTester t, [int n = 6]) async {
+  for (var i = 0; i < n; i++) {
+    await t.pump(const Duration(milliseconds: 100));
+  }
+}
+
+void main() {
+  group('agent steps card', () {
+    testWidgets('checks steps off and saves to Do on confirmation', (t) async {
+      final db = FakeDb();
+      final c = agentContainer(db, FakeApi(db, SecureStore()));
+      addTearDown(c.dispose);
+      await pumpScreen(t, const ChatScreen(), size: const Size(393, 852), container: c);
+      c.read(chatProvider.notifier).addSteps(['Open the book', 'Read one page']);
+      await settleAgent(t);
+      expect(find.text('Open the book'), findsOneWidget);
+      expect(find.text('Save to Do'), findsOneWidget);
+      await t.tap(find.text('Open the book'));
+      await t.pump();
+      await t.tap(find.text('Save to Do'));
+      await settleAgent(t);
+      // The visible confirmation is what writes: nothing landed before the tap.
+      expect(db.settings['local.tasks'], contains('Read one page'));
+      expect(find.text('Saved'), findsOneWidget);
+      expect(t.takeException(), isNull);
+    });
+  });
+
+  group('blind model honesty', () {
+    testWidgets('an image turn on a blind model explains, not "unreachable"', (t) async {
+      final db = FakeDb();
+      final api = FakeApi(db, SecureStore())..blindError = true;
+      final c = agentContainer(db, api);
+      addTearDown(c.dispose);
+      await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
+      await c.read(routerProvider).explain(c.read(directorProvider), 'x', imageB64: 'e30=');
+      await settleAgent(t, 30);
+      expect(find.byType(CloudUnreachableScreen), findsNothing);
+      expect(c.read(ladderProvider), Ladder.offline);
+      expect(t.takeException(), isNull);
+    });
+  });
+
+  group('check-in counts (§0.1)', () {
+    testWidgets('tapping a feeling records one count, never the answer', (t) async {
+      final db = FakeDb();
+      final c = agentContainer(db, FakeApi(db, SecureStore()));
+      addTearDown(c.dispose);
+      await pumpScreen(t, const CheckInScreen(), size: const Size(393, 852), container: c);
+      await t.tap(find.byType(IconButton).first);
+      await settleAgent(t);
+      expect(db.progressRows, ['checkin']); // counts only: answers are never stored
+      expect(t.takeException(), isNull);
+    });
+  });
+
+  group('lookup_word handoff', () {
+    testWidgets('prefills the Understand reader with the looked-up word', (t) async {
+      final db = FakeDb();
+      final c = agentContainer(db, FakeApi(db, SecureStore()), lookup: 'photosynthesis');
+      addTearDown(c.dispose);
+      await pumpScreen(t, const UnderstandScreen(), size: const Size(393, 852), container: c);
+      await settleAgent(t, 30);
+      expect(find.text('photosynthesis'), findsWidgets);
+      expect(t.takeException(), isNull);
+    });
+  });
+}

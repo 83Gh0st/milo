@@ -8,7 +8,7 @@ from .security import RateLimiter
 
 
 class JsonFormatter(logging.Formatter):
-    KEYS = ("rid", "path", "status", "ms", "kind", "tok_in", "tok_cached", "tok_out", "err", "bytes", "dev")  # never prompt or response text
+    KEYS = ("rid", "path", "status", "ms", "kind", "tok_in", "tok_cached", "tok_out", "err", "bytes", "dev", "prov", "pmodel")  # never prompt or response text
 
     def format(self, r):
         d = {"ts": round(r.created, 3), "lvl": r.levelname, "msg": r.getMessage()}
@@ -47,6 +47,32 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
     else:
         from .providers.meta import MetaImage, MetaReasoning, MetaVoice
         app.state.reasoning, app.state.image, app.state.voice = reasoning or MetaReasoning(s), image or MetaImage(s), voice or MetaVoice(s)
+    from .providers.meta_adapter import MetaAdapter
+    from .providers.mock_adapter import MockAdapter
+    from .providers.openai_compat import Creds
+    from .providers.registry import RouteEntry, get_adapter
+    from .routing import Router
+    if hasattr(app.state.reasoning, "discover_models") and hasattr(app.state.reasoning, "probe"):
+        home = app.state.reasoning  # tests may inject a full protocol adapter
+    elif s.provider == "mock":
+        home = MockAdapter(reasoning=app.state.reasoning, image=app.state.image, voice=app.state.voice)
+    else:
+        home = MetaAdapter(s, reasoning=app.state.reasoning, image=app.state.image, voice=app.state.voice)
+    adapters = {s.provider: home}
+    for pid in ("openai", "anthropic", "custom"):
+        adapters[pid] = get_adapter(pid)
+    if s.provider != "mock":
+        adapters["mock"] = get_adapter("mock")
+    app.state.adapters = adapters
+    if s.provider == "mock":
+        one = [RouteEntry("mock", "mock")]
+        app.state.default_routes = {c: list(one) for c in ("brain", "understand", "plan", "compose", "visual", "stt", "tts")}
+    else:
+        app.state.default_routes = {"brain": [RouteEntry("meta", s.spark_model)], "understand": [RouteEntry("meta", s.spark_model)],
+                                    "plan": [RouteEntry("meta", s.spark_model)], "compose": [RouteEntry("meta", s.spark_model)],
+                                    "visual": [RouteEntry("meta", s.image_model)], "stt": [RouteEntry("meta", s.voice_model)], "tts": []}
+    app.state.router = Router(adapters, app.state.default_routes)
+    app.state.deployer_creds = {"meta": Creds(base_url=s.meta_base_url, api_key=s.model_api_key)} if s.provider == "meta" else {}
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
@@ -64,10 +90,14 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
         logging.getLogger("milo").error("unhandled", extra={"err": type(exc).__name__})
         return JSONResponse({"error": "internal"}, status_code=500)
 
+    from .connections import router as conn_router
     from .routes import router
+    from .speak import router as speak_router
     from .sync import router as sync_router
     app.include_router(router)
     app.include_router(sync_router)
+    app.include_router(conn_router)
+    app.include_router(speak_router)
 
     @app.get("/healthz")
     async def healthz():

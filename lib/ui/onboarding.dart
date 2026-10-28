@@ -36,7 +36,7 @@ class _OState extends ConsumerState<Onboarding> {
     await db.logConsent('ai_disclosure', 'acknowledged', 'user'); // "Milo is an AI", said in plain words
     if (who == 'child') await db.put('local.child', '1');
     await db.put('onboarded', skipped ? '0' : '1');
-    d.set(() { d.lang = lang; d.voice = voice; d.color = col; d.preReader = readAloud; });
+    d.set(() { d.lang = lang; d.voiceStyle = voice; d.color = col; d.preReader = readAloud; });
     d.setProfile(who == 'child' ? Profile.playful : Profile.friendly);
     d.applyVoice();
     ref.read(ladderProvider.notifier).refresh();
@@ -69,7 +69,7 @@ class _OState extends ConsumerState<Onboarding> {
       _page('What brings you here?', [for (final b in [('Learn and understand', Icons.menu_book_outlined), ('Express and communicate', Icons.chat_bubble_outline), ('Daily tasks', Icons.check_circle_outline), ('Just explore', Icons.explore_outlined)]) _row(b.$1, '', brings.contains(b.$1), () => setState(() => brings.contains(b.$1) ? brings.remove(b.$1) : brings.add(b.$1)), icon: b.$2)], say: 'What would you like Milo to help with?'),
       _page('Personalise Milo', [const MiloStage(),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (final c in [0xFF8E9BFF, 0xFFFFA3C0, 0xFF6FD9B0, 0xFFFFD166, 0xFFC3A6FF]) GestureDetector(onTap: () { setState(() => col = Color(c)); d.set(() => d.color = Color(c)); }, child: Container(margin: const EdgeInsets.all(6), width: 40, height: 40, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle, border: Border.all(width: 3, color: col == Color(c) ? T.ink : Colors.transparent))))]),
-        const Section('Voice'), for (final v in [('Friendly', 'Warm and bright'), ('Calm', 'Soft and slow'), ('Energetic', 'Quick and playful')]) _row(v.$1, v.$2, voice == v.$1, () { setState(() => voice = v.$1); d.set(() => d.voice = v.$1); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.')); }, icon: Icons.play_arrow),
+        const Section('Voice'), for (final v in [('Friendly', 'Warm and bright'), ('Calm', 'Soft and slow'), ('Energetic', 'Quick and playful')]) _row(v.$1, v.$2, voice == v.$1, () { setState(() => voice = v.$1); d.set(() => d.voiceStyle = v.$1); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.')); }, icon: Icons.play_arrow),
         const SizedBox(height: 6), TextField(controller: name, decoration: const InputDecoration(hintText: 'Name (optional, stays on this phone)'))], say: 'This is how I look and sound. Pick what you like.'),
       _page('Privacy, in plain words', [
         for (final c in [(Icons.smart_toy_outlined, 'Milo is an AI', 'A helper, not a person.', 0), (Icons.lock_outline, 'Your things stay here', 'Saved on this phone only.', 3), (Icons.language, 'You choose the internet', 'Milo asks before using it.', 2)]) Container(margin: const EdgeInsets.symmetric(vertical: 6), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: T.soft[c.$4], borderRadius: BorderRadius.circular(20)), child: Row(children: [Icon(c.$1, color: T.strong[c.$4]), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(c.$2, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), Text(c.$3)])), const Icon(Icons.volume_up, size: 18, color: T.mute)])),

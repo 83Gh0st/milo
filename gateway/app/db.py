@@ -13,6 +13,14 @@ sync_records = Table("sync_records", md, Column("vault_id", String(64), primary_
                      Column("ciphertext", LargeBinary), Index("ix_sync_seq", "vault_id", "seq"))
 vault_keys = Table("vault_keys", md, Column("vault_id", String(64), primary_key=True), Column("provider", String(16)),
                    Column("key_enc", String(1024)), Column("key_hint", String(16)), Column("created", BigInteger), Column("updated_at", BigInteger))
+# Phase 3: one row per (vault, provider). routes_json holds the vault's route
+# table redundantly on every row (written together by save_routes); readers
+# take the first non-empty value. Legacy vault_keys rows are lazily migrated
+# here on first access (see vaultstore.migrate_legacy).
+vault_connections = Table("vault_connections", md, Column("vault_id", String(64), primary_key=True), Column("provider", String(16), primary_key=True),
+                          Column("base_url", String(500)), Column("key_enc", String(2048)), Column("key_hint", String(16)),
+                          Column("default_model", String(128)), Column("caps_json", String(4000)), Column("routes_json", String(8000)),
+                          Column("updated_at", BigInteger))
 
 
 def make_engine(url: str) -> AsyncEngine:

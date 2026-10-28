@@ -2,19 +2,24 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../contracts/brain_contract.dart';
 import '../contracts/events.dart';
+import '../net/api.dart';
 import '../core/safety.dart';
 import '../core/pocket_brain.dart';
+import '../voice/normalize.dart';
+import '../voice/voice_output.dart';
 import 'emotion.dart';
 import 'greetings.dart';
 import 'react.dart';
 import 'sounds.dart';
 import 'v2/look.dart';
 
-enum CState { idle, greeting, listening, thinking, speaking, waiting, celebrating, calm }
+/// Turn-taking states: idle → listening → endpointing → thinking → speaking
+/// → waiting. `endpointing` (partials paused, final not yet here) looks like
+/// listening; it exists so the turn table is explicit and testable.
+enum CState { idle, greeting, listening, endpointing, thinking, speaking, waiting, celebrating, calm }
 enum Presence { stage, buddy, chip, hidden }
 enum Profile { playful, friendly, discreet }
 
@@ -120,13 +125,15 @@ class Director extends ChangeNotifier {
   int tab = 0;
   Profile profile = Profile.playful;
   bool quiet = false, reactions = true, voiceOn = true, forceReduce = false, reduce = false, breathing = false;
-  String voice = 'Friendly';
+  String voiceStyle = 'Friendly';
   Color color = const Color(0xFF8E9BFF);
   int paceSecs = 3;
   void Function(String)? onOpenScreen;
   Future<void> Function(String)? router; // set by the app: Core router (safety -> memory -> local -> cloud -> pocket brain)
   void Function()? persist;
   void Function(String)? onHighlight, onGaze, onSaid;
+  void Function(String)? onReadAloud, onLookupWord; // read-only tools: set by the reader / app wiring
+  void Function(List<String>)? onSteps;
   Future<void> Function(String)? onShowImage; // set by the app: fetches the explainer picture into visualProvider
   int breakSecs = 300; // break-screen countdown; a validated set_timer action may change it
   bool ignoreTaps = false, leftHanded = false;
@@ -141,6 +148,13 @@ class Director extends ChangeNotifier {
   String lang = 'en';
   bool ttsReady = true, greetings = true, offlineForced = false;
   double voiceSpeed = 1.0;
+  VoiceEngineMode voiceEngine = VoiceEngineMode.auto; // online-voice setting (platform until a real sink ships)
+  bool clearSpeech = false; // dyslexic-reader option: slightly slower, extra-careful delivery
+  VoiceRouter voice = VoiceRouter(platform: PlatformVoice(), neural: NeuralVoice(sink: NoopAudioSink())); // non-final test seam: tests substitute fake outputs
+  double _mouthLevel = 0; // neural envelope feed (0 when platform speaks); decays every tick
+  double _partialAt = -1; // clock of the last STT partial; listening → endpointing after a 1.5 s pause
+  double _listenSince = -1; // clock when listening started; attenLive self-exits after 25 s (no stuck Listening)
+  StreamSubscription? _voiceSub;
   double motionGain = 1.0; // Milo Lab slider only; 1.0 = shipped behaviour (never persisted)
   MiloLook look = MiloLook.a; // active 2A direction (persisted); the human picks A/B/C
   bool legacyRenderer = false; // Lab-only: compare with the pre-Phase-2 painter (never persisted)
@@ -153,7 +167,6 @@ class Director extends ChangeNotifier {
   double _antic = 0; // speech anticipation: 150 ms breath + lean before audio starts
 
   // speech
-  FlutterTts? _tts;
   bool _speaking = false, _aac = false, _gotP = false;
   int _gen = 0, _turn = 0;
   List<RegExpMatch> _words = [];
@@ -172,16 +185,15 @@ class Director extends ChangeNotifier {
   void _cap(String s) { caption = s; notifyListeners(); }
 
   Future<void> init() async {
-    try {
-      _tts = FlutterTts();
-      await _tts!.awaitSpeakCompletion(true);
-      _tts!.setProgressHandler((String t, int s, int e, String w) {
-        _gotP = true;
-        final i = _words.indexWhere((m) => m.end > s);
-        _pulseWord(i < 0 ? 0 : i);
-      });
-      await refreshVoices();
-    } catch (_) { _tts = null; ttsReady = false; } // no TTS engine: visual-only level of the offline ladder
+    await voice.platform.init();
+    _voiceSub = voice.platform.events.listen((e) {
+      if (e.kind != VoiceEventKind.word) return;
+      _gotP = true;
+      final i = _words.indexWhere((m) => m.end > e.charOffset);
+      _pulseWord(i < 0 ? 0 : i);
+    });
+    if (!voice.platform.ready) ttsReady = false; // no TTS engine: visual-only level of the offline ladder
+    await refreshVoices();
     try { _accel = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(_onAccel, onError: (_) {}); } catch (_) {}
     Timer(const Duration(milliseconds: 900), () { if (emo == 'sleepy') { emote('happy', i: .7, hold: 3); _sfx('wake'); } }); // wake up
     MiloReact.handler = _onReact;
@@ -192,21 +204,19 @@ class Director extends ChangeNotifier {
     if (identical(MiloReact.handler, _onReact)) MiloReact.handler = null;
     _accel?.cancel();
     _nudge?.cancel();
+    _voiceSub?.cancel();
     cancelSpeech();
+    unawaited(voice.dispose());
     frame.dispose();
     super.dispose();
   }
 
   Future<void> applyVoice() async {
-    final v = {'Friendly': [1.15, .475], 'Calm': [1.0, .425], 'Energetic': [1.25, .525], 'Device': [1.0, .5]}[voice] ?? [1.15, .475];
+    final v = {'Friendly': [1.15, .475], 'Calm': [1.0, .425], 'Energetic': [1.25, .525], 'Device': [1.0, .5]}[voiceStyle] ?? [1.15, .475];
     _presetPitch = (v[0] as num).toDouble();
     _presetRate = (v[1] as num).toDouble();
-    try {
-      await _tts?.setLanguage(ttsLocale.isNotEmpty ? ttsLocale : lang);
-      if (ttsVoice.isNotEmpty) await _tts?.setVoice({'name': ttsVoice, 'locale': ttsLocale.isNotEmpty ? ttsLocale : lang});
-      await _tts?.setPitch(_presetPitch);
-      await _tts?.setSpeechRate(_presetRate);
-    } catch (_) {}
+    await voice.platform.applyVoice(
+        lang: ttsLocale.isNotEmpty ? ttsLocale : lang, voice: ttsVoice, locale: ttsLocale.isNotEmpty ? ttsLocale : lang, pitch: _presetPitch, rate: _presetRate);
   }
 
   /// Lists the phone's real TTS voices (best first), keeps the saved choice
@@ -214,11 +224,9 @@ class Director extends ChangeNotifier {
   /// error means "default voice only": still usable, said honestly in the UI.
   Future<void> refreshVoices() async {
     try {
-      final v = await _tts?.getVoices;
-      ttsReady = v == null ? true : (v as List).isNotEmpty;
-      final all = [for (final e in (v as List?) ?? []) {'name': '${e['name'] ?? ''}', 'locale': '${e['locale'] ?? ''}'}]
-          .where((m) => m['name']!.isNotEmpty)
-          .toList();
+      final got = await voice.platform.getVoices();
+      ttsReady = got == null ? true : got.isNotEmpty;
+      final all = got ?? [];
       all.sort((a, b) => voiceScore(b, lang, ttsVoice.isEmpty ? null : ttsVoice).compareTo(voiceScore(a, lang, ttsVoice.isEmpty ? null : ttsVoice)));
       ttsVoices = all.take(8).toList();
       if (ttsVoice.isNotEmpty && !ttsVoices.any((m) => m['name'] == ttsVoice)) {
@@ -236,6 +244,25 @@ class Director extends ChangeNotifier {
     set(() { ttsVoice = name; ttsLocale = locale; });
     await applyVoice();
     await speak('Hello, I’m Milo.', tone: 'warm');
+  }
+
+  void setVoiceEngine(VoiceEngineMode m) => set(() { voiceEngine = m; voice.mode = m; });
+
+  /// Short fixed lines worth caching after first synthesis: instant next
+  /// time, and playable offline. Mock placeholder audio is never cached.
+  static const kFixedVoiceLines = ['Well done!', 'Try again — you can do it.', 'Take your time. I’m right here.', 'Good morning!', 'Good night.'];
+
+  /// Downloads the fixed lines for offline use. Returns [done, total];
+  /// failures are counted in the total but never throw.
+  Future<(int, int)> cacheFixedLines({void Function(int done, int total)? onProgress}) async {
+    final lines = [...greetingPool(profile, lang).take(4), ...kFixedVoiceLines];
+    final pace = voiceSpeed * (clearSpeech ? .9 : 1);
+    var done = 0;
+    for (final l in lines) {
+      if (await voice.neural.prefetch(l, lang: lang, profile: VoiceRouter.voiceIdFor(lang), pace: pace)) done++;
+      onProgress?.call(done, lines.length);
+    }
+    return (done, lines.length);
   }
 
   // ───────────────────────── per-frame update ─────────────────────────
@@ -271,14 +298,17 @@ class Director extends ChangeNotifier {
     if (clock > _nw) { _wander = Offset(_rnd(-.5, .5), _rnd(-.3, .25)); _nw = clock + _rnd(2, 5); }
     if (clock > _nj) { _jit = Offset(_rnd(-.05, .05), _rnd(-.05, .05)); _nj = clock + _rnd(.4, 1.2); }
     if (!still && state == CState.idle && presence != Presence.hidden && clock > _nf) _fidget(rm);
+    if (state == CState.listening && _partialAt >= 0 && clock - _partialAt > 1.5) _set(CState.endpointing); // partials paused: still attentive, about to think
+    if (attenLive && _listenSince >= 0 && clock - _listenSince > 25) { relax(); _partialAt = -1; _listenSince = -1; _set(CState.idle); } // server went quiet: never stuck
 
     // L4 gestures + L5 speech performance
     ch = Ch();
     if (_antic > 0 && !still) { _antic -= dt; ch.dip += 2 * a; ch.zoom += .02 * a; } // breath + lean before speaking
     if (still) { clips.clear(); } else { for (final c in clips) { c.t += dt; _clip(c, ch, a, rm); } clips.removeWhere((c) => c.t >= c.d); }
     pulse *= math.exp(-dt * 9);
+    _mouthLevel *= math.exp(-dt * 10); // neural envelope decays between 50 ms feeds; silence shuts the mouth
     micLevel *= math.exp(-dt * 5); // live mic amplitude decays between audio chunks
-    mouth = aac ? 0 : math.max(face.mouth, math.max(pulse * .85, ch.yawn * .95));
+    mouth = aac ? 0 : math.max(face.mouth, math.max(pulse * .85, math.max(ch.yawn * .95, _mouthLevel)));
     if (_speaking && !aac) ch.dip += pulse * 2;
 
     // L2 attention: touch > content > mic > person > wander. Eyes lead, head follows (spring lag).
@@ -286,7 +316,7 @@ class Director extends ChangeNotifier {
     final range = rm ? .4 : 1.0;
     eyeX.t = g.dx * range; eyeY.t = g.dy * range;
     headX.t = g.dx * 6 * range;
-    headY.t = g.dy * 3 * range + ch.dip * a + (state == CState.listening ? micLevel * 4 * range : 0); // the head rides the voice while listening
+    headY.t = g.dy * 3 * range + ch.dip * a + (attenLive ? micLevel * 4 * range : 0); // the head rides the voice while listening
 
     // L0 physics targets
     final tiltDev = (reactions && profile != Profile.discreet && !rm) ? _tilt : 0.0;
@@ -309,10 +339,17 @@ class Director extends ChangeNotifier {
     frame.ping();
   }
 
+  /// Actively attending to the person's voice (listening or endpointing):
+  /// gaze, head-ride, rings and the chat live-dot all follow this.
+  bool get attenLive => state == CState.listening || state == CState.endpointing;
+
+  /// An STT partial arrived: stay in `listening` while words keep coming.
+  void notePartial() { if (state == CState.listening) _partialAt = clock; }
+
   Offset _gaze() {
     if (touch != null && clock < touchUntil) return touch!;
     if (content != null && clock < contentUntil) return content!;
-    if (state == CState.listening) return const Offset(0, .4);
+    if (attenLive) return const Offset(0, .4);
     if (emo == 'thinking' && inten > .4) return const Offset(-.6, -.7);
     return _wander + _jit;
   }
@@ -565,31 +602,64 @@ class Director extends ChangeNotifier {
   /// Small on purpose: warmth comes from the voice and the words, not falsetto.
   static const _tones = {'playful': [1.06, 1.1], 'warm': [1.0, 1.0], 'calm': [.95, .88], 'gentle': [.92, .8]};
 
+  /// Neural lip-sync feed: amplitude 0..1 from the audio envelope. Sets the
+  /// mouth directly and rides the speech pulse (no viseme flip, no word
+  /// callback — neural engines supply no word timings). Ignored for AAC.
+  void feedMouth(double level) {
+    if (!_speaking || _aac) return;
+    _mouthLevel = level.clamp(0.0, 1.0).toDouble();
+    pulse = math.max(pulse, _mouthLevel * .9);
+  }
+
   Future<void> speak(String text, {void Function(int)? onWord, bool aac = false, double rate = 1, String? tone}) async {
     markActive();
     final gen = ++_gen;
-    _words = RegExp(r'\S+').allMatches(text).toList(); _onWord = onWord; _gotP = false; _speaking = true; _aac = aac;
+    // Read-aloud speaks the ORIGINAL text (highlight indices must match it
+    // exactly); everything else gets normalised + sentence-split per profile.
+    final norm = onWord == null ? normalizeForSpeech(text, lang) : text;
+    final parts = onWord == null
+        ? splitSentences(norm, const {Profile.playful: 10, Profile.friendly: 14, Profile.discreet: 20}[profile]!)
+        : [(text: norm, wordOffset: 0)];
+    _words = RegExp(r'\S+').allMatches(norm).toList(); _onWord = onWord; _gotP = false; _speaking = true; _aac = aac;
     if (aac) clips.clear(); // AAC speech stays neutral: clarity first, no performance
     _set(CState.speaking);
     _antic = aac || quiet ? 0 : .15;
     final t0 = DateTime.now(), est = _words.length * 330;
     Future.delayed(const Duration(milliseconds: 450), () => _est(gen, 0, rate));
     final tp = (!aac && tone != null) ? (_tones[tone] ?? [1.0, 1.0]) : [1.0, 1.0];
-    if (voiceOn && _tts != null) { try { await _tts!.setPitch((_presetPitch * (tp[0] as num)).clamp(.5, 1.6).toDouble()); await _tts!.setSpeechRate(_presetRate * _paceRate * voiceSpeed * rate * (tp[1] as num)); await _tts!.speak(text); } catch (_) {} }
+    String? notice;
+    if (voiceOn) {
+      final pace = (voiceSpeed * rate * (tp[1] as num) * _paceRate * (clearSpeech ? .9 : 1)).toDouble();
+      try {
+        notice = await voice.speakAll(parts,
+            pitch: (_presetPitch * (tp[0] as num)).clamp(.5, 1.6).toDouble(),
+            rate: _presetRate * pace, pace: pace,
+            lang: lang, tone: aac ? null : tone, readAloud: onWord != null, onMouth: feedMouth,
+            onSentence: (s) async { if (s.trim().endsWith('!') && !aac && gen == _gen) gesture('nod'); });
+      } on VoiceCancelled {} // barge-in / turn change: fall through to cleanup
+    }
     final el = DateTime.now().difference(t0).inMilliseconds;
     if (gen == _gen && el < est * .5) await Future.delayed(Duration(milliseconds: (est * .7 - el).round())); // visual-only: keep caption up
-    if (gen == _gen) { _gen++; _speaking = false; _aac = false; _onWord = null; _nb = clock; sq.v -= 1.5; if (state == CState.speaking) _set(CState.idle); } // settle after speaking
+    if (gen == _gen) {
+      if (notice != null && voiceOn) {
+        await voice.platform.speakSentence(
+            notice == 'online_voice_unavailable' ? 'My online voice is not set up yet, so I’ll use my phone voice.' : 'My online voice cut out, so I’ll use my phone voice.',
+            pitch: _presetPitch, rate: _presetRate * voiceSpeed);
+        if (gen != _gen) return;
+      }
+      _gen++; _speaking = false; _aac = false; _onWord = null; _mouthLevel = 0; _nb = clock; sq.v -= 1.5; if (state == CState.speaking) _set(CState.idle); // settle after speaking
+    }
   }
 
   Future<void> speakAac(String text) { _turn++; choices = []; return speak(text, aac: true); }
-  void cancelSpeech() { _gen++; _speaking = false; _aac = false; try { _tts?.stop(); } catch (_) {} }
+  void cancelSpeech() { _gen++; _speaking = false; _aac = false; _mouthLevel = 0; unawaited(voice.stopNow()); }
 
   /// Language-screen speaker preview: a short greeting in that language's
   /// voice, then the saved voice is restored. Only en/hi/ml have a reviewed
   /// translation; other languages preview the voice with the English sample.
   static const _previews = {'en': 'Hello! I’m Milo.', 'hi': 'नमस्ते! मैं मीलो हूँ।', 'ml': 'ഹലോ! ഞാൻ മിലോ ആണ്.'};
   Future<void> previewLang(String code) async {
-    try { await _tts?.setLanguage(code); } catch (_) {}
+    await voice.platform.applyVoice(lang: code, voice: '', locale: '', pitch: _presetPitch, rate: _presetRate);
     await speak(_previews[code] ?? _previews['en']!, tone: 'warm');
     await applyVoice();
   }
@@ -653,6 +723,9 @@ class Director extends ChangeNotifier {
           if (d['action'] == 'highlight') onHighlight?.call('${d['span']}');
           if (d['action'] == 'show_image') unawaited(onShowImage?.call('${d['concept']}') ?? Future.value());
           if (d['action'] == 'set_timer' && d['seconds'] is int) { breakSecs = (d['seconds'] as int).clamp(5, 3600).toInt(); notifyListeners(); }
+          if (d['action'] == 'read_aloud') onReadAloud?.call('${d['span']}');
+          if (d['action'] == 'break_into_steps' && d['steps'] is List) onSteps?.call([for (final s in d['steps'] as List) '$s']);
+          if (d['action'] == 'lookup_word') onLookupWord?.call('${d['word']}');
         case 'memory': onMemoryProposal?.call(d);
         case 'key_point' || 'simple' || 'vocab' || 'check': onUnderstand?.call(e.type, d);
         case 'error': throw StreamError('${d['code']}');
@@ -668,7 +741,7 @@ class Director extends ChangeNotifier {
 
   void setListening(bool on) {
     markActive();
-    if (on) { cancelSpeech(); _turn++; emote('listening', i: .9, hold: 60, force: true); _set(CState.listening); _sfx('mic_on'); } else { relax(); _set(CState.idle); _sfx('mic_off'); }
+    if (on) { cancelSpeech(); _turn++; _partialAt = -1; _listenSince = clock; emote('listening', i: .9, hold: 60, force: true); _set(CState.listening); _sfx('mic_on'); } else { relax(); _partialAt = -1; _listenSince = -1; _set(CState.idle); _sfx('mic_off'); }
   }
 
   /// Hand-written support flow (doc 6.5): calm, one caring sentence, ask about a trusted grown-up, big buttons. Never generated.
@@ -677,7 +750,7 @@ class Director extends ChangeNotifier {
   void loadSettings(Map<String, String> s) {
     profile = Profile.values.firstWhere((p) => p.name == s['profile'], orElse: () => Profile.friendly);
     presenceOverride = Presence.values.where((p) => p.name == s['presence']).firstOrNull;
-    voice = s['voice'] ?? 'Friendly';
+    voiceStyle = s['voice'] ?? 'Friendly';
     final c = int.tryParse(s['color'] ?? ''); if (c != null) color = Color(c);
     quiet = s['quiet'] == '1'; reactions = s['reactions'] != '0'; voiceOn = s['voiceOn'] != '0'; forceReduce = s['reduce'] == '1';
     paceSecs = int.tryParse(s['pace'] ?? '') ?? 3; preReader = s['prereader'] == '1'; lang = s['lang'] ?? 'en';
@@ -687,15 +760,19 @@ class Director extends ChangeNotifier {
     look = MiloLook.values.where((l) => l.name == s['look']).firstOrNull ?? MiloLook.a;
     moodBase = (double.tryParse(s['mood'] ?? '') ?? 0).clamp(-.3, .3).toDouble();
     soundOn = s['sound'] != '0'; soundVol = double.tryParse(s['svol'] ?? '') ?? .8;
+    voiceEngine = VoiceEngineMode.values.where((m) => m.name == s['vengine']).firstOrNull ?? VoiceEngineMode.auto;
+    voice.mode = voiceEngine;
+    clearSpeech = s['clear'] == '1';
     final installDay = int.tryParse(s['install.day'] ?? '');
     daysTogether = installDay == null ? 0 : (DateTime.now().difference(DateTime(2026, 1, 1)).inDays - installDay).clamp(0, 9999).toInt();
     peeked.clear(); peeked.addAll((s['local.peeked'] ?? '').split(',').where((k) => k.isNotEmpty));
     applyVoice();
     notifyListeners();
   }
-  Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voice, 'color': '${color.toARGB32()}',
+  Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voiceStyle, 'color': '${color.toARGB32()}',
     'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale, 'local.peeked': peeked.join(','),
-    'look': look.name, 'mood': '$moodBase', 'install.day': '${DateTime.now().difference(DateTime(2026, 1, 1)).inDays - daysTogether}', 'sound': soundOn ? '1' : '0', 'svol': '$soundVol'};
+    'look': look.name, 'mood': '$moodBase', 'install.day': '${DateTime.now().difference(DateTime(2026, 1, 1)).inDays - daysTogether}', 'sound': soundOn ? '1' : '0', 'svol': '$soundVol',
+    'vengine': voiceEngine.name, 'clear': clearSpeech ? '1' : '0'};
 
   /// Body first (emotion + gesture), then words, sentence by sentence.
   Future<void> perform(BrainTurn t) async {
@@ -708,6 +785,9 @@ class Director extends ChangeNotifier {
     if (t.highlight != null) onHighlight?.call(t.highlight!);
     if (t.showImage != null) unawaited(onShowImage?.call(t.showImage!) ?? Future.value());
     if (t.timerSeconds != null) { breakSecs = t.timerSeconds!; notifyListeners(); }
+    if (t.readAloud != null) onReadAloud?.call(t.readAloud!);
+    if (t.steps.isNotEmpty) onSteps?.call(t.steps);
+    if (t.lookupWord != null) onLookupWord?.call(t.lookupWord!);
     if (t.choices.isNotEmpty) gesture('nod'); // acknowledgement: Milo nods as it offers choices
     final tone = toneForEmotion(t.emotion);
     for (final s in t.say) {
