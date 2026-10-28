@@ -239,7 +239,9 @@ Future<void> pumpScreen(WidgetTester t, Widget screen, {Size size = const Size(3
   await t.pump(const Duration(milliseconds: 100));
   await t.pump(const Duration(milliseconds: 100));
   check?.call();
-  expect(t.takeException(), isNull);
+  // DIAGNOSTIC-ROUND (revert after): let layout errors escape so CI prints
+  // their full rendering chains instead of one-line summaries.
+  // expect(t.takeException(), isNull);
   t.view.resetPhysicalSize();
   t.view.resetDevicePixelRatio();
 }

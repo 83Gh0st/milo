@@ -98,8 +98,10 @@ class BigButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, fg) = switch (kind) { BK.primary => (T.pri, Colors.white), BK.soft => (T.priSoft, T.pri), BK.coral => (T.coral, Colors.white), BK.mint => (T.mint, Colors.white), BK.outline => (Colors.white, T.ink) };
-    return SizedBox(width: double.infinity, height: 58, child: FilledButton(onPressed: onPressed == null ? null : () { MiloReact.pressed(context); onPressed!(); }, style: FilledButton.styleFrom(backgroundColor: bg, foregroundColor: fg, disabledBackgroundColor: T.priSoft, side: kind == BK.outline ? const BorderSide(color: T.line) : null),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)], Text(label)])));
+    // Long labels wrap to two lines instead of overflowing (38 px seen on
+    // 'Remove this connection'); the button grows, never clips the label.
+    return SizedBox(width: double.infinity, child: ConstrainedBox(constraints: const BoxConstraints(minHeight: 58), child: FilledButton(onPressed: onPressed == null ? null : () { MiloReact.pressed(context); onPressed!(); }, style: FilledButton.styleFrom(backgroundColor: bg, foregroundColor: fg, disabledBackgroundColor: T.priSoft, side: kind == BK.outline ? const BorderSide(color: T.line) : null),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)], Flexible(child: Text(label, textAlign: TextAlign.center))]))));
   }
 }
 

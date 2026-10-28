@@ -77,12 +77,14 @@ void main() {
     final api = FakeApi(db, SecureStore());
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c, scale: 2.0);
+    await t.scrollUntilVisible(find.text('Save choices', skipOffstage: false), 50);
     await t.ensureVisible(find.text('Save choices', skipOffstage: false)); // fully visible: partial stops tap offscreen
     await t.pump();
     await t.tap(find.text('Save choices'));
     await settle(t);
     expect(find.text('Connect a provider first.'), findsOneWidget); // no silent mock fallback
     // The sheet opens cleanly at 2.0 too.
+    await t.scrollUntilVisible(find.text('Custom or local', skipOffstage: false), 50);
     await t.ensureVisible(find.text('Custom or local', skipOffstage: false));
     await t.pump();
     await t.tap(find.text('Custom or local'));
@@ -120,6 +122,8 @@ void main() {
     await t.pump();
     expect(find.textContaining('Key …5678'), findsOneWidget);
     // The family switch is usable now and persists the flag.
+    await t.ensureVisible(find.byType(SwitchListTile, skipOffstage: false));
+    await t.pump();
     await t.tap(find.byType(SwitchListTile));
     await settle(t);
     expect(await db.get('ai.family_key'), 'family');
@@ -138,16 +142,16 @@ void main() {
     await t.pump();
     await t.tap(find.text('OpenAI'));
     await settle(t);
-    await t.ensureVisible(find.text('Test connection', skipOffstage: false));
+    await t.ensureVisible(find.text('Test connection', skipOffstage: false).first);
     await t.pump();
     await t.tap(find.text('Test connection'));
     await settle(t);
     for (final row in ['Chat', 'Structured replies', 'Pictures']) {
-      await t.ensureVisible(find.text(row, skipOffstage: false));
+      await t.ensureVisible(find.text(row, skipOffstage: false).first);
       await t.pump();
       expect(find.text(row), findsOneWidget);
     }
-    await t.ensureVisible(find.text('Find', skipOffstage: false));
+    await t.ensureVisible(find.text('Find', skipOffstage: false).first);
     await t.pump();
     await t.tap(find.text('Find'));
     await settle(t);
@@ -157,11 +161,11 @@ void main() {
     expect(find.text('fake-model-b'), findsOneWidget); // model field filled, dialog closed
 
     api.failProbe = true;
-    await t.ensureVisible(find.text('Test connection', skipOffstage: false));
+    await t.ensureVisible(find.text('Test connection', skipOffstage: false).first);
     await t.pump();
     await t.tap(find.text('Test connection'));
     await settle(t);
-    await t.ensureVisible(find.text('Chat', skipOffstage: false));
+    await t.ensureVisible(find.text('Chat', skipOffstage: false).first);
     await t.pump();
     expect(find.text('Chat'), findsOneWidget); // fail row still labelled, no crash
     expect(t.takeException(), isNull);
@@ -174,6 +178,7 @@ void main() {
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model', 'policy': {}});
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
+    await t.scrollUntilVisible(find.byType(DropdownButtonFormField<String>, skipOffstage: false).first, 50);
     await t.ensureVisible(find.byType(DropdownButtonFormField<String>, skipOffstage: false).first); // fully visible: partial stops tap offscreen
     await t.pump();
     await t.tap(find.byType(DropdownButtonFormField<String>).first); // brain first choice

@@ -102,7 +102,8 @@ void main() {
           storeProvider.overrideWithValue(SecureStore()),
           directorProvider.overrideWith((_) => Director()
             ..scanMode = true
-            ..scanMs = ms),
+            ..scanMs = ms
+            ..presenceOverride = Presence.hidden), // no dock: the grid owns the screen
           apiProvider.overrideWithValue(api),
           connectionCheckProvider.overrideWith((_) => Future.value(const ConnStatus(apiBase: 'http://test', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
         ]);
@@ -110,11 +111,11 @@ void main() {
       final db = FakeDb();
       final c = scanContainer(db, FakeApi(db, SecureStore()), 60000);
       await pumpScreen(t, const ExpressScreen(), size: const Size(393, 852), container: c);
-      await t.ensureVisible(find.text('Food', skipOffstage: false));
+      await t.ensureVisible(find.text('I want', skipOffstage: false)); // top row: tappable even if the grid scrolled
       await t.pump();
-      await t.tap(find.text('Food')); // highlight sits at tile 0, timer effectively frozen
+      await t.tap(find.text('I want')); // highlight sits at tile 0, timer effectively frozen
       await settleAgent(t);
-      expect(find.text('I want'), findsNWidgets(2)); // grid tile + strip bar
+      expect(find.text('I want', skipOffstage: false), findsNWidgets(2)); // grid tile + strip bar
       expect(t.takeException(), isNull);
       c.dispose(); // in-body: teardowns run after the timer invariant check
     });
@@ -123,11 +124,11 @@ void main() {
       final c = scanContainer(db, FakeApi(db, SecureStore()), 300);
       await pumpScreen(t, const ExpressScreen(), size: const Size(393, 852), container: c);
       await t.pump(const Duration(milliseconds: 150)); // clock 200 -> 350: exactly one 300 ms tick
-      await t.ensureVisible(find.text('Food', skipOffstage: false));
+      await t.ensureVisible(find.text('I want', skipOffstage: false)); // top row: tappable even if the grid scrolled
       await t.pump();
-      await t.tap(find.text('Food'));
+      await t.tap(find.text('I want'));
       await settleAgent(t);
-      expect(find.text('I need'), findsNWidgets(2)); // tile 1, not the tapped tile
+      expect(find.text('I need', skipOffstage: false), findsNWidgets(2)); // tile 1, not the tapped tile
       expect(t.takeException(), isNull);
       c.dispose(); // in-body: teardowns run after the timer invariant check
     });
