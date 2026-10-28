@@ -49,6 +49,16 @@ Future<void> settle(WidgetTester t) async {
   await t.pump(const Duration(milliseconds: 100));
 }
 
+/// Blind-drags [scrollable] until [f] resolves. ListView lazily builds: below-
+/// fold children don't exist in the tree, so scrollUntilVisible/ensureVisible
+/// throw "No element" before scrolling a pixel. This forces the build first.
+Future<void> dragToBuild(WidgetTester t, Finder f, Finder scrollable, {double dy = -400}) async {
+  for (var i = 0; i < 12 && f.evaluate().isEmpty; i++) {
+    await t.drag(scrollable, Offset(0, dy));
+    await t.pump();
+  }
+}
+
 void main() {
   testWidgets('sync off shows the gate, sync on shows the four provider tiles', (t) async {
     var db = FakeDb();
@@ -77,7 +87,7 @@ void main() {
     final api = FakeApi(db, SecureStore());
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c, scale: 2.0);
-    debugDumpApp(); // DIAGNOSTIC-ROUND (revert after): what does the 2.0 tree actually show?
+    await dragToBuild(t, find.text('Save choices', skipOffstage: false), find.byType(ListView).first);
     await t.scrollUntilVisible(find.text('Save choices', skipOffstage: false), 50);
     await t.ensureVisible(find.text('Save choices', skipOffstage: false)); // fully visible: partial stops tap offscreen
     await t.pump();
@@ -85,6 +95,7 @@ void main() {
     await settle(t);
     expect(find.text('Connect a provider first.'), findsOneWidget); // no silent mock fallback
     // The sheet opens cleanly at 2.0 too.
+    await dragToBuild(t, find.text('Custom or local', skipOffstage: false), find.byType(ListView).first, dy: 400);
     await t.scrollUntilVisible(find.text('Custom or local', skipOffstage: false), 50);
     await t.ensureVisible(find.text('Custom or local', skipOffstage: false));
     await t.pump();
@@ -180,7 +191,8 @@ void main() {
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model', 'policy': {}});
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
-    debugDumpApp(); // DIAGNOSTIC-ROUND (revert after): is the routes section in the tree?
+    final list = find.byType(ListView).first;
+    await dragToBuild(t, find.byType(DropdownButtonFormField<String>, skipOffstage: false).first, list);
     await t.scrollUntilVisible(find.byType(DropdownButtonFormField<String>, skipOffstage: false).first, 50);
     await t.ensureVisible(find.byType(DropdownButtonFormField<String>, skipOffstage: false).first); // fully visible: partial stops tap offscreen
     await t.pump();
@@ -188,6 +200,7 @@ void main() {
     await settle(t);
     await t.tap(find.text('openai/fake-model').last);
     await settle(t);
+    await dragToBuild(t, find.text('Save choices', skipOffstage: false), list);
     await t.ensureVisible(find.text('Save choices', skipOffstage: false));
     await t.pump();
     await t.tap(find.text('Save choices'));
@@ -195,6 +208,7 @@ void main() {
     expect(api.savedRoutes['brain']!.first, {'provider': 'openai', 'model': 'fake-model'});
     expect(find.text('Saved. Milo now uses your choices.'), findsOneWidget);
 
+    await dragToBuild(t, find.text('OpenAI', skipOffstage: false), list, dy: 400);
     await t.ensureVisible(find.text('OpenAI', skipOffstage: false));
     await t.pump();
     await t.tap(find.text('OpenAI'));
