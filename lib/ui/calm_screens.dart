@@ -23,15 +23,15 @@ class _BreakState extends ConsumerState<BreakTimeScreen> {
   @override
   void dispose() { t?.cancel(); final d = ref.read(directorProvider); WidgetsBinding.instance.addPostFrameCallback((_) => d.setBreathing(false)); super.dispose(); }
   @override
-  Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFFE6E4FA), body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(children: [
-    const Spacer(), const MiloStage(),
+  Widget build(BuildContext context) => Scaffold(backgroundColor: const Color(0xFFE6E4FA), body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: SingleChildScrollView(child: Column(children: [
+    const SizedBox(height: 24), const MiloStage(),
     const Text('Take your time.', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)), const Text('I’m right here.', style: TextStyle(color: T.mute, fontSize: 16)), const SizedBox(height: 18),
     Container(padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Text('${left ~/ 60}:${(left % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800))),
-    const Spacer(),
+    const SizedBox(height: 24),
     BigButton('Back to what I was doing', () => Navigator.pop(context)), const SizedBox(height: 10),
     BigButton('Longer break', () => setState(() => left += 300), kind: BK.soft), const SizedBox(height: 10),
     TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BreatheScreen())), child: const Text('Breathe with Milo')),
-  ]))));
+  ])))));
 }
 
 /// Wireframe 9.2: Milo breathes 4 s in, 4 s out, driven by the same breath input as the rig. Optional soft haptic.

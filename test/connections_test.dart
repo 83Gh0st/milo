@@ -52,8 +52,18 @@ Future<void> settle(WidgetTester t) async {
 /// Blind-drags [scrollable] until [f] resolves. ListView lazily builds: below-
 /// fold children don't exist in the tree, so scrollUntilVisible/ensureVisible
 /// throw "No element" before scrolling a pixel. This forces the build first.
+/// True when [f] resolves; chained selectors (.first/.last/.single) throw
+/// instead of returning empty, so evaluation must be guarded.
+bool _resolves(Finder f) {
+  try {
+    return f.evaluate().isNotEmpty;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<void> dragToBuild(WidgetTester t, Finder f, Finder scrollable, {double dy = -400}) async {
-  for (var i = 0; i < 12 && f.evaluate().isEmpty; i++) {
+  for (var i = 0; i < 12 && !_resolves(f); i++) {
     await t.drag(scrollable, Offset(0, dy));
     await t.pump();
   }

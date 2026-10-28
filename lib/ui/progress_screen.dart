@@ -30,7 +30,7 @@ class _PState extends ConsumerState<ProgressScreen> {
         if (!on) const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('Progress is turned off.', style: TextStyle(fontSize: 17))))
         else ...[
           Card(child: Padding(padding: const EdgeInsets.all(14), child: Row(children: [const MiloAvatar(size: 64), const SizedBox(width: 12),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('$days days together', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)), const Text('Never resets. Never lost.', style: TextStyle(color: T.mute))])]))),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('$days days together', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)), const Text('Never resets. Never lost.', style: TextStyle(color: T.mute))]))]))),
           Row(children: tab == 0 ? [stat(c['read'] ?? 0, 'Stories', 0), stat(c['word'] ?? 0, 'Words', 3), stat(c['step'] ?? 0, 'Steps', 1)] : tab == 1 ? [stat(c['spoken'] ?? 0, 'Messages', 0), stat(c['message'] ?? 0, 'Chats', 3), stat(c['help'] ?? 0, 'Asked for help', 1)] : [stat(c['step'] ?? 0, 'Steps', 0), stat(c['task'] ?? 0, 'Plans done', 3), stat(c['help'] ?? 0, 'Asked for help', 1)]),
           const Section('This week'),
           SizedBox(height: 120, child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [for (final d in order) Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
