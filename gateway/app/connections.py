@@ -15,7 +15,7 @@ from .egress import check_base_url
 from .models import ConnectionReq, ProbeReq, RoutesReq
 from .providers.base import ProviderError, redact
 from .providers.capabilities import DECLARED, DISPLAY_NAMES
-from .providers.registry import CAPABILITIES_NEEDED, adapter_ids, check_model, get_adapter
+from .providers.registry import CAPABILITIES_NEEDED, adapter_ids, check_model, get_adapter_for
 from .sync import vault_auth
 from .vaultkeys import key_hint, open_vault_key, seal_vault_key
 
@@ -27,12 +27,16 @@ log = logging.getLogger("milo")
 DEFAULT_BASE_URLS = {"openai": "https://api.openai.com/v1", "anthropic": "https://api.anthropic.com"}
 
 
-def _adapter(provider: str):
+def _check_provider(provider: str):
     # modal is deployer-only (hosted GPU spend is always the deployer's);
     # mock is not a real vendor. Neither accepts family connections.
     if provider not in adapter_ids() or provider in ("mock", "modal"):
         raise HTTPException(422, {"error": "unknown_provider"})
-    return get_adapter(provider)
+
+
+def _adapter(provider: str, s):
+    _check_provider(provider)
+    return get_adapter_for(provider, s)
 
 
 @router.get("")
@@ -54,7 +58,7 @@ def _policy(provider: str) -> dict:
 @router.post("/{provider}")
 async def save_connection(provider: str, body: ConnectionReq, request: Request, vid: str = Depends(vault_auth)):
     s = request.app.state.settings
-    adapter = _adapter(provider)
+    _check_provider(provider)  # validate only: saving a key never instantiates an adapter
     base = (body.base_url or "").strip() or DEFAULT_BASE_URLS.get(provider) or ""
     if provider == "meta":
         base = s.meta_base_url
@@ -96,7 +100,7 @@ async def save_connection(provider: str, body: ConnectionReq, request: Request, 
 async def list_models(provider: str, request: Request, vid: str = Depends(vault_auth)):
     from .providers.openai_compat import Creds
     s = request.app.state.settings
-    adapter = _adapter(provider)
+    adapter = _adapter(provider, s)
     row = await vaultstore.get_connection_key(request.app.state.engine, vid, provider)
     if not row:
         raise HTTPException(404, {"error": "no_connection"})
@@ -116,7 +120,7 @@ async def list_models(provider: str, request: Request, vid: str = Depends(vault_
 async def test_connection(provider: str, body: ProbeReq, request: Request, vid: str = Depends(vault_auth)):
     from .providers.openai_compat import Creds
     s = request.app.state.settings
-    adapter = _adapter(provider)
+    adapter = _adapter(provider, s)
     row = await vaultstore.get_connection_key(request.app.state.engine, vid, provider)
     if not row:
         raise HTTPException(404, {"error": "no_connection"})

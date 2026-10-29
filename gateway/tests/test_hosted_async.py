@@ -14,15 +14,17 @@ V = {"X-Vault-Id": "f" * 32, "X-Vault-Key": "e" * 64}
 
 
 async def _family(app, c, headers):
-    await c.post("/v1/sync/vault", headers=headers)
-    await c.put("/v1/connections/openai", headers=headers,
-                json={"api_key": "milo-family-key-12345678", "default_model": "gpt-x", "ack_data_policy": True})
+    r = await c.post("/v1/sync/vault", headers=headers)
+    assert r.status_code == 201, r.text
+    r = await c.post("/v1/connections/openai", headers=headers,
+                     json={"api_key": "milo-family-key-12345678", "default_model": "gpt-x", "ack_data_policy": True})
+    assert r.status_code == 200, r.text
 
 
 async def test_family_turns_cannot_reach_deployer_creds(tmp_path):
     """A family route to a provider the family never configured must fail
     honestly — never silently spend the deployer's key. The injected
-    fake-meta adapter records any credentials it receives."""
+    fake-meta adapter records any invocation on its reasoning mock."""
     app = mk(tmp_path)
     fake_meta = MockAdapter()
     app.state.adapters["meta"] = fake_meta
@@ -33,12 +35,15 @@ async def test_family_turns_cannot_reach_deployer_creds(tmp_path):
             vh = dict(h);
             vh.update(V)
             await _family(app, c, vh)
-            await c.put("/v1/connections/routes", headers=vh,
-                        json={"routes": {"brain": [{"provider": "meta", "model": "m"}]}})
+            r = await c.put("/v1/connections/routes", headers=vh,
+                            json={"routes": {"brain": [{"provider": "meta", "model": "m"}]}})
+            assert r.status_code == 200, r.text
             r = await c.post("/v1/brain/turn", json=BR, headers=vh)
             assert r.status_code == 200  # SSE envelope always 200; the error rides inside
             assert '"code": "unsupported_capability"' in r.text
-            assert getattr(fake_meta, "last_api_key", None) is None  # deployer key never handed over
+            assert fake_meta.reasoning.calls == 0  # skipped before any adapter call ...
+            assert getattr(fake_meta.reasoning, "last_api_key", None) is None  # ... so no key was handed over
+            assert "DEPLOYER-SPEND-ME" not in r.text
 
 
 async def test_family_routes_synthesized_from_saved_keys(tmp_path):
@@ -67,12 +72,16 @@ async def test_successful_probe_stamps_tested_at(tmp_path):
     from app import vaultstore
     app = mk(tmp_path)
     async with app.router.lifespan_context(app):
-        eng = app.state.engine
-        await vaultstore.save_caps(eng, "f" * 32, "openai",
-                                   {"gpt-x": {"strategy": "json_schema", "ttfb_ms": 12, "checks": {"chat": "pass"},
-                                              "tested_at": "2026-10-29T00:00:00Z"}})
-        conns = await vaultstore.list_connections(eng, "f" * 32)
-        assert conns[0]["caps"]["gpt-x"]["tested_at"] == "2026-10-29T00:00:00Z"
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+            h = await token(c)
+            vh = dict(h);
+            vh.update(V)
+            await _family(app, c, vh)
+            await vaultstore.save_caps(app.state.engine, V["X-Vault-Id"], "openai",
+                                       {"gpt-x": {"strategy": "json_schema", "ttfb_ms": 12, "checks": {"chat": "pass"},
+                                                  "tested_at": "2026-10-29T00:00:00Z"}})
+            g = (await c.get("/v1/connections", headers=vh)).json()
+            assert g["connections"][0]["caps"]["gpt-x"]["tested_at"] == "2026-10-29T00:00:00Z"
 
 
 async def test_db_less_chat_with_honest_vault_outage(tmp_path):

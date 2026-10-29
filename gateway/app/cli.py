@@ -88,7 +88,7 @@ async def cmd_connect(args):
     from .providers.base import ProviderError
     from .providers.capabilities import DECLARED
     from .providers.openai_compat import Creds
-    from .providers.registry import check_model, get_adapter
+    from .providers.registry import check_model, get_adapter_for
     from .vaultkeys import key_hint, seal_vault_key
     provider = args.provider
     _check_provider(provider)
@@ -125,7 +125,7 @@ async def cmd_connect(args):
         if input("type YES to acknowledge: ").strip() != "YES":
             print("aborted", file=sys.stderr)
             raise SystemExit(2)
-    adapter = get_adapter(provider)
+    adapter = get_adapter_for(provider, s)
     creds = Creds(base_url=base, api_key=key)
     model = (args.model or "").strip()
     if not model:
@@ -189,7 +189,7 @@ async def cmd_list(args):
 async def cmd_models(args):
     from .providers.base import ProviderError
     from .providers.openai_compat import Creds
-    from .providers.registry import get_adapter
+    from .providers.registry import get_adapter_for
     from .vaultkeys import open_vault_key
     from . import vaultstore
     _check_provider(args.provider)
@@ -205,7 +205,7 @@ async def cmd_models(args):
         print("stored key no longer decrypts (re-connect)", file=sys.stderr)
         raise SystemExit(EXIT_AUTH)
     try:
-        models = await get_adapter(args.provider).discover_models(Creds(base_url=row.base_url or "", api_key=key))
+        models = await get_adapter_for(args.provider, s).discover_models(Creds(base_url=row.base_url or "", api_key=key))
     except ProviderError as e:
         print(f"discovery failed: {e.code}", file=sys.stderr)
         raise SystemExit(EXIT_PROVIDER)
@@ -215,7 +215,7 @@ async def cmd_models(args):
 async def cmd_test(args):
     from .providers.base import ProviderError
     from .providers.openai_compat import Creds
-    from .providers.registry import get_adapter
+    from .providers.registry import get_adapter_for
     from .vaultkeys import open_vault_key
     from . import vaultstore
     engine, s = _engine_and_settings()
@@ -245,7 +245,7 @@ async def cmd_test(args):
         print("stored key no longer decrypts (re-connect)", file=sys.stderr)
         raise SystemExit(EXIT_AUTH)
     try:
-        probe = await get_adapter(provider).probe(Creds(base_url=row.base_url or "", api_key=key), model)
+        probe = await get_adapter_for(provider, s).probe(Creds(base_url=row.base_url or "", api_key=key), model)
     except ProviderError as e:
         print(f"probe failed: {e.code}", file=sys.stderr)
         raise SystemExit(EXIT_PROVIDER)

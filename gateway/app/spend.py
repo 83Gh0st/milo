@@ -4,8 +4,8 @@ Why this exists: ordinary chat must work without PostgreSQL, but a
 resettable in-memory counter must never be the SOLE protection on shared
 money. So the ledger has three backends, resolved explicitly:
 
-- ``postgres``: totals in the Spend table (survives everything short of a
-  DB loss). Used whenever DATABASE_URL is set.
+- ``postgres``: totals in the ``spend`` table (survives everything short
+  of a DB loss). Used whenever DATABASE_URL is set.
 - ``modal_dict``: totals in a Modal Dict (survives container restarts and
   redeploys without any database). Used when SPEND_BACKEND=modal_dict or
   when auto-resolution finds no DATABASE_URL but a configured dict name.
@@ -34,7 +34,7 @@ def utc_month() -> str:
 
 
 class PostgresSpend:
-    """Ledger over the Spend table. Async (shares the app's async engine)."""
+    """Ledger over the ``spend`` table. Async (shares the app's async engine)."""
 
     persistent = True
 
@@ -44,30 +44,30 @@ class PostgresSpend:
     async def add(self, usd: float) -> None:
         from sqlalchemy import insert, select, update
 
-        from .db import Spend
+        from .db import spend as spend_table
         day = utc_day()
         async with self.engine.begin() as c:
-            r = (await c.execute(select(Spend.c.usd).where(Spend.c.day == day))).scalar()
+            r = (await c.execute(select(spend_table.c.usd).where(spend_table.c.day == day))).scalar()
             if r is None:
-                await c.execute(insert(Spend).values(day=day, usd=usd))
+                await c.execute(insert(spend_table).values(day=day, usd=usd))
             else:
-                await c.execute(update(Spend).where(Spend.c.day == day).values(usd=float(r) + usd))
+                await c.execute(update(spend_table).where(spend_table.c.day == day).values(usd=float(r) + usd))
 
     async def spent_day(self) -> float:
         from sqlalchemy import select
 
-        from .db import Spend
+        from .db import spend as spend_table
         async with self.engine.connect() as c:
-            r = (await c.execute(select(Spend.c.usd).where(Spend.c.day == utc_day()))).scalar()
+            r = (await c.execute(select(spend_table.c.usd).where(spend_table.c.day == utc_day()))).scalar()
             return float(r or 0)
 
     async def spent_month(self) -> float:
         from sqlalchemy import select
 
-        from .db import Spend
+        from .db import spend as spend_table
         prefix = utc_month()
         async with self.engine.connect() as c:
-            rows = (await c.execute(select(Spend.c.usd).where(Spend.c.day.like(prefix + "%")))).scalars().all()
+            rows = (await c.execute(select(spend_table.c.usd).where(spend_table.c.day.like(prefix + "%")))).scalars().all()
             return float(sum(rows or []))
 
 

@@ -4,12 +4,13 @@ end-to-end coverage lives in test_hosted_async.py (CI)."""
 import pytest
 
 from app.config import Settings, validate_runtime
-from app.connections import _adapter
+from app.connections import _adapter, _check_provider
 from app.main import create_app
 from app.providers.capabilities import DECLARED
+from app.providers.meta_adapter import MetaAdapter
 from app.providers.modal_hosted import ModalAdapter
 from app.providers.openai_compat import OpenAICompatAdapter
-from app.providers.registry import adapter_ids
+from app.providers.registry import adapter_ids, get_adapter_for
 from app.spend import effective_limits, resolve_backend_name
 from fastapi import HTTPException
 
@@ -66,6 +67,14 @@ def test_modal_payload_disables_thinking():
 def test_modal_is_deployer_only_and_known():
     assert "modal" in adapter_ids()
     with pytest.raises(HTTPException):
-        _adapter("modal")  # families can never save a modal connection
+        _check_provider("modal")  # families can never save a modal connection
     with pytest.raises(HTTPException):
-        _adapter("launch_missiles")
+        _check_provider("launch_missiles")
+
+
+def test_settings_aware_construction():
+    s = Settings()
+    assert isinstance(_adapter("meta", s), MetaAdapter)  # meta needs suite settings (endpoint URLs)
+    assert get_adapter_for("openai", None).id == "openai"  # the rest build with no args, settings never as transport
+    with pytest.raises(HTTPException):
+        _adapter("modal", s)

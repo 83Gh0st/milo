@@ -57,6 +57,16 @@ def get_adapter(provider: str, *args, **kwargs):
     return inst
 
 
+def get_adapter_for(provider: str, settings):
+    """Settings-aware construction: only the meta adapter needs suite
+    settings (endpoint URLs); every other adapter builds with no args
+    (their first constructor parameter is an HTTP transport, NOT
+    settings, so passing settings blindly would corrupt them)."""
+    if provider == "meta":
+        return get_adapter(provider, settings)
+    return get_adapter(provider)
+
+
 def deny_model(model: str) -> str | None:
     """Global model deny rules. Returns the reason, or None when allowed."""
     if not model or not model.strip():
