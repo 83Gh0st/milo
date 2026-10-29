@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
 import '../companion/react.dart';
 
@@ -50,8 +49,8 @@ class RowCard extends StatelessWidget {
   Widget build(BuildContext context) => Opacity(opacity: dim ? .5 : 1, child: Card(child: InkWell(borderRadius: BorderRadius.circular(18), onTap: onTap == null ? null : () { MiloReact.pressed(context); onTap!(); }, child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
         Container(width: 44, height: 44, decoration: BoxDecoration(color: T.soft[color % 4], borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: T.strong[color % 4])),
         const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 13, color: T.mute))])),
-        if (tag != null) Padding(padding: const EdgeInsets.only(right: 6), child: tag),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 13, color: T.mute)),
+          if (tag != null) Padding(padding: const EdgeInsets.only(top: 4), child: tag)])),
         trailing ?? const Icon(Icons.chevron_right, color: T.mute),
       ])))));
 }
@@ -99,8 +98,10 @@ class BigButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, fg) = switch (kind) { BK.primary => (T.pri, Colors.white), BK.soft => (T.priSoft, T.pri), BK.coral => (T.coral, Colors.white), BK.mint => (T.mint, Colors.white), BK.outline => (Colors.white, T.ink) };
-    return SizedBox(width: double.infinity, height: 58, child: FilledButton(onPressed: onPressed == null ? null : () { MiloReact.pressed(context); onPressed!(); }, style: FilledButton.styleFrom(backgroundColor: bg, foregroundColor: fg, disabledBackgroundColor: T.priSoft, side: kind == BK.outline ? const BorderSide(color: T.line) : null),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)], Text(label)])));
+    // Long labels wrap to two lines instead of overflowing (38 px seen on
+    // 'Remove this connection'); the button grows, never clips the label.
+    return SizedBox(width: double.infinity, child: ConstrainedBox(constraints: const BoxConstraints(minHeight: 58), child: FilledButton(onPressed: onPressed == null ? null : () { MiloReact.pressed(context); onPressed!(); }, style: FilledButton.styleFrom(backgroundColor: bg, foregroundColor: fg, disabledBackgroundColor: T.priSoft, side: kind == BK.outline ? const BorderSide(color: T.line) : null),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)], Flexible(child: Text(label, textAlign: TextAlign.center))]))));
   }
 }
 

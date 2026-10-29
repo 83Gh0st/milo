@@ -28,9 +28,11 @@ def make_engine(url: str) -> AsyncEngine:
 
 
 class Budget:
-    """Daily spend estimate in USD, persisted so restarts do not reset the guard."""
-    def __init__(self, engine: AsyncEngine, limit: float):
-        self.engine, self.limit = engine, limit
+    """Daily + monthly spend estimates in USD, persisted so restarts do not
+    reset the guards. Only deployer-path (shared-key) spend is metered here;
+    family-keyed turns spend the family's quota, never this budget."""
+    def __init__(self, engine: AsyncEngine, limit: float, monthly_limit: float = 100.0):
+        self.engine, self.limit, self.monthly_limit = engine, limit, monthly_limit
 
     @staticmethod
     def _day() -> str:
@@ -43,6 +45,15 @@ class Budget:
 
     async def ok(self) -> bool:
         return await self.spent() < self.limit
+
+    async def spent_month(self) -> float:
+        prefix = time.strftime("%Y-%m", time.gmtime())
+        async with self.engine.connect() as c:
+            rows = (await c.execute(select(spend.c.usd).where(spend.c.day.like(prefix + "%")))).scalars().all()
+            return float(sum(rows or []))
+
+    async def month_ok(self) -> bool:
+        return await self.spent_month() < self.monthly_limit
 
     async def add(self, usd: float) -> None:
         if usd <= 0:

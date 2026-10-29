@@ -172,6 +172,13 @@ void main() {
       // the pool is actually used across days
       final seen = {for (var day = 1; day <= 12; day++) greetingFor(Profile.friendly, 'en', DateTime(2026, 1, day, 20), 9, 'chat')};
       expect(seen.length, greaterThan(1));
+      // P2 languages beyond the demo: every hour bucket yields a real pool line
+      for (final l in ['hi', 'ml']) {
+        for (final h in [2, 9, 15, 21]) {
+          final g = greetingFor(Profile.friendly, l, DateTime(2026, 10, 28, h), 5, 'home');
+          expect(greetingPool(Profile.friendly, l), contains(g), reason: '$l/$h');
+        }
+      }
     });
     test('ladder choices route locally; contract gestures all exist as clips', () {
       final d = Director();

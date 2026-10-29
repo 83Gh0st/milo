@@ -64,6 +64,19 @@ class MockImage:
         return PNG
 
 
+class MockGround:
+    """Deterministic stand-in for SAM-style visual grounding (P2): one centred
+    box labelled with the asked phrase, normalised 0..1 coordinates."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def ground(self, image_b64: str, phrase: str, api_key=None) -> dict:
+        self.calls += 1
+        self.last_api_key = api_key
+        return {"boxes": [{"x": 0.3, "y": 0.3, "w": 0.4, "h": 0.4, "label": phrase[:40]}], "model": "mock"}
+
+
 class _S:
     def __init__(self):
         self.n = 0

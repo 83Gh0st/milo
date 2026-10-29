@@ -6,7 +6,7 @@ from .db import visual_cache
 from .models import BrainReq, ComposeReq, PlanReq, SessionReq, UnderstandReq, VisualReq
 from .prompts import PRESENTATION, build_messages
 from .providers.base import FAILOVER_CODES, ProviderError, Usage
-from .safety import Assembler, CAPS, cap_sentence, clean, is_crisis
+from .safety import Assembler, CAPS, cap_sentence, clean, is_crisis, no_new_content
 from .security import auth, issue_token, verify_token
 from .providers.registry import resolve_strategy
 from .sync import VaultCtx, vault_ctx
@@ -33,7 +33,8 @@ def cost_chat(s, u: Usage) -> float:
 async def budget_guard(request: Request):
     if request.headers.get("x-vault-id"):
         return  # family-keyed calls spend the family's quota, not the deployer's (per-request auth still applies)
-    if not await request.app.state.budget.ok():
+    b = request.app.state.budget
+    if not await b.ok() or not await b.month_ok():
         raise HTTPException(503, {"error": "budget_exhausted"})
 
 
@@ -48,7 +49,7 @@ async def session(req: SessionReq, request: Request):
 async def health(request: Request):
     st = request.app.state
     return {"status": "ok", "provider": st.settings.provider, "models": {"reasoning": st.settings.spark_model, "voice": st.settings.voice_model, "image": st.settings.image_model},
-            "budget_ok": await st.budget.ok(), "brain_mode": st.settings.brain_mode}
+            "budget_ok": await st.budget.ok(), "budget_month_ok": await st.budget.month_ok(), "brain_mode": st.settings.brain_mode}
 
 
 def _peek_lines(st, ctx, cap, need=None) -> bool:
@@ -219,22 +220,6 @@ async def plan(req: PlanReq, request: Request, dev: str = Depends(auth), _b: Non
     return {"steps": steps}
 
 
-_FEEL = {"happy", "sad", "angry", "love", "hate", "scared", "sorry", "worried", "excited"}
-_CONSENT = {"agree", "agrees", "consent", "promise", "allow", "yes"}
-
-
-def no_new_content(strip: list[str], cand: str) -> bool:
-    """Heuristic guard: wording help may rephrase but not add facts, names, numbers, feelings or consent."""
-    src = {w.lower().strip(".,!?") for s in strip for w in s.split()}
-    words = [w.strip(".,!?") for w in cand.split()]
-    if any(any(ch.isdigit() for ch in w) and w not in src for w in words):
-        return False
-    if any(w[:1].isupper() and i > 0 and w.lower() not in src for i, w in enumerate(words)):
-        return False
-    low = {w.lower() for w in words}
-    return not ((low & _FEEL) - src) and not ((low & _CONSENT) - src)
-
-
 @router.post("/compose")
 async def compose(req: ComposeReq, request: Request, dev: str = Depends(auth), _b: None = Depends(budget_guard)):
     st = request.app.state
@@ -308,7 +293,7 @@ async def voice(ws: WebSocket):
             await ws.send_json({"type": "error", "code": e.detail.get("error", "bad_vault") if isinstance(e.detail, dict) else "bad_vault"})
             await ws.close()
             return
-    if ctx is None and not await st.budget.ok():
+    if ctx is None and (not await st.budget.ok() or not await st.budget.month_ok()):
         await ws.send_json({"type": "error", "code": "budget_exhausted"})
         await ws.close()
         return

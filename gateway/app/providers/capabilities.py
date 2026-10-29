@@ -13,10 +13,11 @@ class Capabilities:
     tts: bool = False
     image_gen: bool = False
     realtime: bool = False
+    visual_ground: bool = False  # SAM-style "point at the words" boxes (P2; mock only until docs verified)
 
     def as_dict(self) -> dict:
         return {k: getattr(self, k) for k in (
-            "text_stream", "json_schema", "tool_calls", "vision", "audio_in", "tts", "image_gen", "realtime")}
+            "text_stream", "json_schema", "tool_calls", "vision", "audio_in", "tts", "image_gen", "realtime", "visual_ground")}
 
 
 @dataclass
@@ -40,7 +41,7 @@ DECLARED = {
     "openai": Capabilities(text_stream=True, json_schema=True, tool_calls=True, vision=True, audio_in=True, tts=True, image_gen=True),
     "anthropic": Capabilities(text_stream=True, tool_calls=True, vision=True),
     "custom": Capabilities(text_stream=True, json_schema=True, tool_calls=True, vision=True, audio_in=True, tts=True, image_gen=True),
-    "mock": Capabilities(text_stream=True, json_schema=True, vision=True, audio_in=True, image_gen=True),
+    "mock": Capabilities(text_stream=True, json_schema=True, vision=True, audio_in=True, image_gen=True, visual_ground=True),
 }
 
 DISPLAY_NAMES = {"meta": "Meta", "openai": "OpenAI", "anthropic": "Anthropic", "custom": "Custom / local", "mock": "Mock (offline demo)"}

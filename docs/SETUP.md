@@ -15,8 +15,14 @@ Milo is two deployable pieces plus an optional sync channel:
    character, board, memory, TTS
 ```
 * **Frontend** (`/lib`, Flutter): works offline for the board, routines, memory, read-aloud and all animation.
-* **Backend** (`/gateway`, FastAPI): the only place the Meta key lives. Stateless for user content. Stores only opaque encrypted sync blobs.
+* **Backend** (`/gateway`, FastAPI): the only place the deployer key lives. Stateless for user content. Stores only opaque encrypted sync blobs.
 * **Cloud sync** is optional, end-to-end encrypted, and a separate permission from cloud AI (see `SYNC_DESIGN.md`).
+* **AI choice:** Milo hosted (the gateway's model, no sync needed) or the
+  family's own providers (Trusted adult → AI connections; needs sync as the
+  family identity). See `BYOK.md` and `lib/core/ai_provider.dart`.
+* **Releases:** `RELEASE.md` (Android + iOS builds, signing, TestFlight),
+  `VOICE_CHECKLIST.md` (speech lifecycle + device checks), `MODAL.md`
+  (serverless hosting + cost controls).
 
 ## 0. Prerequisites
 | Need | For | Notes |
@@ -86,6 +92,14 @@ docker run --rm -p 8000:8000 -e PROVIDER=mock -e JWT_SECRET=PASTE_48_RANDOM_CHAR
 
 then (a) or (b) above. (Compose file verified by reading 28 Oct 2026;
 containers not run here — no Docker in this environment.)
+
+## 1c. Gateway on Modal (serverless, no PC needed)
+
+To run the gateway without Docker or a PC that stays on, deploy the same
+code to Modal: see **`docs/MODAL.md`** (security audit, Windows `cmd`
+runbook, secrets, health checks, rollback, teardown). The Flutter side needs
+no code change — build the APK with
+`--dart-define=API_BASE=https://<your-modal-url>` per `MODAL.md` §5.
 
 ## 2. Gateway, real Meta models (26 Oct onward)
 ```bash

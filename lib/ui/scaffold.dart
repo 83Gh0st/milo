@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
 import '../companion/milo_view.dart';
-import '../companion/v2/renderer.dart';
+import '../companion/v2/frame.dart';
 import '../core/providers.dart';
 import 'screen.dart';
 import 'theme.dart';
@@ -25,12 +25,18 @@ String ladderWords(Ladder l) => switch (l) {
     };
 
 // ---- presence widgets: size from available space ----
-/// Stage Milo: 38–45% of content height (min 220, max 440 dp on phones).
+/// Stage Milo: ~40% of content height on roomy screens, less on short ones so
+/// the first action card stays visible without scrolling (min 200, max 400).
 class MiloStage extends StatelessWidget {
   const MiloStage({super.key});
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (c, bc) {
-        final h = bc.hasBoundedHeight ? (bc.maxHeight * .42).clamp(220.0, 440.0).toDouble() : (MediaQuery.sizeOf(c).height * .35).clamp(220.0, 440.0).toDouble();
+        if (bc.hasBoundedHeight) {
+          final h = (bc.maxHeight * .42).clamp(200.0, 400.0).toDouble();
+          return SizedBox(height: h, child: const MiloView(lod: MiloLod.full));
+        }
+        final mh = MediaQuery.sizeOf(c).height;
+        final h = (mh * (mh < 700 ? .30 : .35)).clamp(200.0, 400.0).toDouble();
         return SizedBox(height: h, child: const MiloView(lod: MiloLod.full));
       });
 }
@@ -64,25 +70,40 @@ class MiloHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final d = ref.watch(directorProvider);
+    // Narrow phones cannot fit back + title + chip + Break + a full "Help me"
+    // button (45 px overflow at 340 px). Below 400 px, or at text scale >= 1.6
+    // at any width, Help me compacts to an icon button (same 48 dp target,
+    // same semantic label); at text scale >= 1.6, or below 400 px with header
+    // actions present, the status chip also compacts to its icon (48 dp,
+    // labelled by tooltip, tap still explains).
     return Padding(
         padding: const EdgeInsetsDirectional.fromSTEB(8, 4, 12, 4),
         child: SizedBox(
             height: 56,
-            child: Row(children: [
-              SizedBox(width: 48, child: onBack == null ? null : IconButton(tooltip: 'Back', onPressed: onBack, icon: const Icon(Icons.chevron_left, size: 30))),
-              Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: onBack == null ? TextAlign.start : TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800))),
-              const StatusChip(),
-              if (actions != null) actions!,
-              IconButton(tooltip: 'Break', onPressed: () => openScreen('break'), icon: const Icon(Icons.bedtime_outlined)),
-              if (d.presence == Presence.chip) const MiloAvatar(size: 44),
-              FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 48), backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me')),
-            ])));
+            child: LayoutBuilder(builder: (_, bc) {
+              final bigText = MediaQuery.textScalerOf(context).scale(1) >= 1.6;
+              final narrow = bc.maxWidth < 400 || bigText;
+              return Row(children: [
+                SizedBox(width: 48, child: onBack == null ? null : IconButton(tooltip: 'Back', onPressed: onBack, icon: const Icon(Icons.chevron_left, size: 30))),
+                Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: onBack == null ? TextAlign.start : TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800))),
+                StatusChip(compact: bigText || (narrow && actions != null)),
+                if (actions != null) actions!,
+                IconButton(tooltip: 'Break', onPressed: () => openScreen('break'), icon: const Icon(Icons.bedtime_outlined)),
+                if (d.presence == Presence.chip) const MiloAvatar(size: 44),
+                if (narrow)
+                  IconButton(tooltip: 'Help me', style: IconButton.styleFrom(backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), icon: const Icon(Icons.help_outline))
+                else
+                  FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 48), backgroundColor: T.coralSoft, foregroundColor: T.coral), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me')),
+              ]);
+            })));
   }
 }
 
 /// Offline/resting/sync state as one chip (icon + 1–2 words). Tap explains.
+/// Compact (large text): icon only, same sheet on tap.
 class StatusChip extends ConsumerWidget {
-  const StatusChip({super.key});
+  const StatusChip({super.key, this.compact = false});
+  final bool compact;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ladder = ref.watch(ladderProvider), sync = ref.watch(syncBannerProvider) != null;
@@ -92,6 +113,7 @@ class StatusChip extends ConsumerWidget {
       Ladder.offline => (Icons.cloud_off, 'Offline'),
       Ladder.resting => (Icons.bedtime, 'Resting'),
     };
+    if (compact) return Padding(padding: const EdgeInsetsDirectional.only(end: 4), child: SizedBox(width: 48, height: 48, child: Tooltip(message: label, child: ActionChip(avatar: Icon(icon, size: 16), label: const Text(''), onPressed: () => showStatusSheet(context, ref)))));
     return Padding(padding: const EdgeInsetsDirectional.only(end: 4), child: ActionChip(avatar: Icon(icon, size: 16), label: Text(label), onPressed: () => showStatusSheet(context, ref)));
   }
 }
@@ -141,7 +163,10 @@ class CompanionDock extends ConsumerWidget {
     final mq = MediaQuery.of(context);
     final peek = d.peeked.contains(kind) || mq.viewInsets.bottom > 0 || (d.textScale >= 1.6 && mq.size.height < 700);
     if (peek) return _PeekBar(kind: kind);
-    return Column(mainAxisSize: MainAxisSize.min, children: [const SupportBar(), _DockBody(kind: kind, horizontal: true)]);
+    // The dock yields to content: capped at 300 dp so fixed-chrome bodies
+    // (Express at large text needs ~250) always keep room; anything taller
+    // (crowded bubble + choices + MemoryConfirm) scrolls inside the dock.
+    return Column(mainAxisSize: MainAxisSize.min, children: [const SupportBar(), ConstrainedBox(constraints: const BoxConstraints(maxHeight: 300), child: SingleChildScrollView(child: _DockBody(kind: kind, horizontal: true)))]);
   }
 }
 
@@ -187,7 +212,7 @@ class _DockBody extends ConsumerWidget {
       if (d.choices.isNotEmpty)
         Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.choose(c))])),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [for (final c in d.choices) ActionChip(backgroundColor: T.priSoft, side: BorderSide.none, materialTapTargetSize: MaterialTapTargetSize.padded, label: Text(c, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: T.pri)), onPressed: () => d.choose(c))])),
       const MemoryConfirm(),
     ]);
     final collapse = SizedBox(width: 48, child: Align(alignment: Alignment.topCenter, child: IconButton(tooltip: 'Minimise Milo', onPressed: () => d.set(() => d.peeked.add(kind)), icon: const Icon(Icons.expand_more))));

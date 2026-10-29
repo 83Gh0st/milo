@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/providers.dart';
 import 'painter.dart';
+import 'v2/frame.dart';
+import 'v2/milo2.dart';
 import 'v2/renderer.dart';
 
 /// Paints Milo and turns touches into local reactions. Fills whatever box it is given

@@ -9,12 +9,19 @@ renderer reads from `DirectorFrame`, and `RiveRenderer`
 
 ## Layer names
 
-`shadow | legs | feet | body | armL | armR | sproutStem | leafL1 | leafR1 |
-leafL2 | leafR2 | head | facePatch | cheekL | cheekR | eyeL | eyeR | lidUpL |
-lidUpR | lidLoL | lidLoR | browL | browR | mouth | fx | particles`
+`shadow | legs | feet | armL | armR | body | bodyOcclusion | bodySheen |
+sproutShadow | sproutStem | leafL | leafR | cheekL* | cheekR* | eyeL | eyeR |
+lidUpL | lidUpR | lidLoL | lidLoR | browL | browR | mouth | fx | particles`
+(`cheek*` = three nested soft layers per cheek: outer/mid/core diffused blush.)
+
+There is deliberately **no** `head` disc and no `facePatch`: the face sits
+directly on the body volume. Arms are single-piece curved limbs in the body
+colour, drawn behind the body so the shoulders melt into the volume; the
+sprout is one smooth stem with a single pair of plump tip leaves.
 
 Eyes are nested artboards: `eye` contains `sclera | iris | pupil | hi1 | hi2`.
-Brows are tapered-arc shapes with skewable inner/outer bones.
+Brows are soft short rounded arcs (reduced alpha) with skewable inner/outer
+ends — expressive, never harsh wedges.
 
 ## State-machine inputs (1:1 with DirectorFrame channels)
 

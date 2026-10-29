@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/companion/director.dart';
 import 'package:milo/data/secure_store.dart';
+import 'package:milo/net/api.dart';
 import 'package:milo/voice/normalize.dart';
 import 'package:milo/voice/voice_output.dart';
 
@@ -110,7 +111,7 @@ void main() {
   group('router', () {
     test('auto with a silent sink stays on platform; offline forces platform', () async {
       final r = rig();
-      r.router.neural.sink.isReal = false; // ship state: NoopAudioSink
+      r.sink.isReal = false; // ship state: NoopAudioSink
       expect(await r.router.speakAll(parts(['hi']), pitch: 1, rate: 1), isNull);
       expect(r.router.engineInUse, 'platform');
       expect(r.platform.spoken, ['hi']);
@@ -169,7 +170,7 @@ void main() {
       r.router.mode = VoiceEngineMode.online;
       r.sink.playTime = const Duration(milliseconds: 200);
       var cancelled = false;
-      final f = r.router.speakAll(parts(['a', 'b', 'c']), pitch: 1, rate: 1).then((_) {}, onError: (e) => cancelled = e is VoiceCancelled);
+      final f = r.router.speakAll(parts(['a', 'b', 'c']), pitch: 1, rate: 1).then((_) {}, onError: (e) { cancelled = e is VoiceCancelled; });
       await Future.delayed(const Duration(milliseconds: 30));
       final t0 = DateTime.now();
       await r.router.stopNow();

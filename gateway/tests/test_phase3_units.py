@@ -2,6 +2,8 @@
 Run: python -m pytest tests/test_phase3_units.py --noconftest -p no:cacheprovider -o addopts='' -q -W ignore"""
 import asyncio
 import json
+import pathlib
+import subprocess
 import sys
 
 import pytest
@@ -76,9 +78,10 @@ def test_redact():
 # ---------- capabilities ----------
 
 def test_capabilities_shape():
-    assert set(Capabilities().as_dict()) == {"text_stream", "json_schema", "tool_calls", "vision", "audio_in", "tts", "image_gen", "realtime"}
+    assert set(Capabilities().as_dict()) == {"text_stream", "json_schema", "tool_calls", "vision", "audio_in", "tts", "image_gen", "realtime", "visual_ground"}
     assert set(DECLARED) == {"meta", "openai", "anthropic", "custom", "mock"}
     assert DECLARED["mock"].text_stream and DECLARED["anthropic"].tool_calls and not DECLARED["anthropic"].tts
+    assert DECLARED["mock"].visual_ground and not DECLARED["meta"].visual_ground  # SAM unverified: mock only
 
 
 # ---------- egress ----------
@@ -135,7 +138,17 @@ def test_registry_ids_and_model_rules():
 def test_adapters_import_without_web_stack():
     for pid in ("mock", "openai", "anthropic", "custom"):
         registry.get_adapter(pid)
-    assert "httpx" not in sys.modules and "openai" not in sys.modules and "fastapi" not in sys.modules
+    # In-process sys.modules always contains httpx here (conftest imports it
+    # for the test client), so verify the dependency-free property in a
+    # fresh interpreter instead: -c prepends cwd, which is the gateway dir.
+    gw = pathlib.Path(__file__).resolve().parents[1]
+    code = ("from app.providers import registry; "
+            "[registry.get_adapter(p) for p in ('mock', 'openai', 'anthropic', 'custom')]; "
+            "import sys; "
+            "bad = {'httpx', 'openai', 'fastapi'} & set(sys.modules); "
+            "assert not bad, sorted(bad)")
+    r = subprocess.run([sys.executable, "-c", code], cwd=gw, capture_output=True, text=True)
+    assert r.returncode == 0, (r.stderr or r.stdout)[-2000:]
     assert registry.get_adapter("custom").id == "custom"
     try:
         import openai  # noqa: F401
@@ -317,6 +330,21 @@ def test_mock_adapter_conformance_shape():
     assert run(a.discover_models()) == ["mock"]
     r = run(a.probe())
     assert r.ok and r.strategy == "json_schema"
+
+
+def test_visual_ground_mock_shape_meta_honest():
+    from app.providers import meta_adapter as meta_mod
+    from app.providers.mock_adapter import MockAdapter
+    g = run(MockAdapter().ground("aGk=", "the red ball"))
+    assert g["model"] == "mock" and len(g["boxes"]) == 1
+    b = g["boxes"][0]
+    assert b["label"] == "the red ball" and all(0.0 <= b[k] <= 1.0 for k in ("x", "y", "w", "h"))
+    assert meta_mod.SAM_ENDPOINT_UNVERIFIED is None
+    # MetaAdapter.__init__ needs the openai package; ground() refuses before
+    # touching self, so the unbound call proves the honest refusal anywhere.
+    with pytest.raises(ProviderError) as e:
+        run(meta_mod.MetaAdapter.ground(object(), "aGk=", "dog"))
+    assert e.value.code == "unsupported_capability"
 
 
 # ---------- router ----------

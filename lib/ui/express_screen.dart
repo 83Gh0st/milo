@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,9 +20,14 @@ class _EState extends ConsumerState<ExpressScreen> {
   List<List<String>> custom = [];
   String symCat = 'People';
   final kb = TextEditingController();
+  Timer? _scanT; // switch/scanning access (plan P2): highlight auto-advances, any tap selects
+  int _scan = 0, _scanMs = 0;
+  bool _scanHold = false; // held while the Speaking view is up
 
   @override
   void initState() { super.initState(); _load(); }
+  @override
+  void dispose() { _scanT?.cancel(); super.dispose(); }
   Future<void> _load() async {
     final db = ref.read(dbProvider);
     final t = await db.tiles(), r = await db.recentPhrases();
@@ -32,9 +38,11 @@ class _EState extends ConsumerState<ExpressScreen> {
   Future<void> _speak(String text, {bool help = false, bool view = true}) async {
     final db = ref.read(dbProvider), d = ref.read(directorProvider);
     db.bumpPhrase(text); db.progress('spoken'); if (help) { db.progress('help'); }
-    if (view) { await Navigator.push(context, MaterialPageRoute(builder: (_) => SpeakingView(text))); } else { d.speakAac(text); }
+    if (view) { _scanHold = true; await Navigator.push(context, MaterialPageRoute(builder: (_) => SpeakingView(text))); _scanHold = false; } else { d.speakAac(text); }
     _load();
   }
+
+  void _moreSheet() => showModalBottomSheet(context: context, builder: (_) => ListView(padding: const EdgeInsets.all(16), children: [Wrap(spacing: 8, runSpacing: 8, children: [for (final w in _more) ActionChip(label: Text(w, style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(w); })]), const Divider(), Wrap(spacing: 8, runSpacing: 8, children: [for (final c in custom) ActionChip(avatar: Text(c[0]), label: Text(c[1], style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(c[1]); })])]));
   List<String> _predict() {
     final w = kb.text.split(' ').last.toLowerCase();
     if (w.isEmpty) return ['shop', 'park', 'doctor'];
@@ -45,18 +53,31 @@ class _EState extends ConsumerState<ExpressScreen> {
   @override
   Widget build(BuildContext context) {
     final ladder = ref.watch(ladderProvider);
+    final dd = ref.watch(directorProvider);
     ref.listen<String>(expressTextProvider, (_, n) { if (n.isNotEmpty) { setState(() { strip = n.split(' '); kb.text = n; }); ref.read(expressTextProvider.notifier).state = ''; } });
     final text = strip.join(' ');
+    final scan = dd.scanMode && tab == 0; // scanning runs on the Phrases grid only
+    if (scan && (_scanT == null || _scanMs != dd.scanMs)) { _scanT?.cancel(); _scanMs = dd.scanMs; _scan = 0; _scanT = Timer.periodic(Duration(milliseconds: _scanMs), (_) { if (!_scanHold && mounted) setState(() => _scan++); }); }
+    if (!scan && _scanT != null) { _scanT?.cancel(); _scanT = null; }
+    final order = <VoidCallback>[for (final g in _grid) () => _add(g.$2.replaceAll('’', "'")), _moreSheet,
+      if (text.isNotEmpty) () => _speak(text), if (text.isNotEmpty) () => setState(() { strip = []; kb.clear(); })];
+    final hi = scan ? _scan % order.length : -1;
+    VoidCallback tap(int i) => scan ? order[_scan % order.length] : order[i]; // scanning: any tap picks the highlight, read live so a tick between frames is never missed
     Widget quick(String l, String s, {bool help = false}) => Expanded(child: TextButton(onPressed: () => _speak(s, help: help, view: false), child: Text(l, style: const TextStyle(color: T.coral, fontWeight: FontWeight.w800))));
     Widget body;
+    // Large text needs larger tiles: 3 columns overflow at scale 2.0, so drop
+    // to 2 and keep every label full-size and complete (never shrunk/cut AAC).
+    final bigText = MediaQuery.textScalerOf(context).scale(1) >= 1.6;
     if (tab == 0) {
-      body = GridView.count(crossAxisCount: 3, padding: const EdgeInsets.fromLTRB(14, 4, 14, 4), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: .98, children: [
-        for (final g in _grid) PastelTile(icon: g.$1, label: g.$2, color: g.$3, onTap: () => _add(g.$2.replaceAll('’', "'"))),
-        PastelTile(icon: Icons.image_outlined, label: 'More', color: 2, onTap: () => showModalBottomSheet(context: context, builder: (_) => ListView(padding: const EdgeInsets.all(16), children: [Wrap(spacing: 8, runSpacing: 8, children: [for (final w in _more) ActionChip(label: Text(w, style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(w); })]), const Divider(), Wrap(spacing: 8, runSpacing: 8, children: [for (final c in custom) ActionChip(avatar: Text(c[0]), label: Text(c[1], style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(c[1]); })])]))),
+      // Shrink-wrapped: the outer scroll owns scrolling, so fixed chrome can
+      // never squeeze the grid into a bottom overflow at any size/scale.
+      body = GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: bigText ? 2 : 3, padding: const EdgeInsets.fromLTRB(14, 4, 14, 4), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: .98, children: [
+        for (var i = 0; i < _grid.length; i++) PastelTile(icon: _grid[i].$1, label: _grid[i].$2, color: _grid[i].$3, selected: hi == i, onTap: () => tap(i)()),
+        PastelTile(icon: Icons.image_outlined, label: 'More', color: 2, selected: hi == 8, onTap: () => tap(8)()),
       ]);
     } else if (tab == 1) {
       body = Column(children: [SizedBox(height: 46, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 10), children: [for (final k in _symbols.keys) Padding(padding: const EdgeInsets.all(4), child: ChoiceChip(label: Text(k), selected: symCat == k, onSelected: (_) => setState(() => symCat = k)))])),
-        Expanded(child: GridView.count(crossAxisCount: 4, padding: const EdgeInsets.all(12), mainAxisSpacing: 8, crossAxisSpacing: 8, children: [for (var i = 0; i < _symbols[symCat]!.length; i++) PastelTile(icon: null, emoji: _symbols[symCat]![i], label: '', color: i, onTap: () => _add(const {'👩': 'woman', '👨': 'man', '👧': 'girl', '👦': 'boy', '👵': 'grandma', '👴': 'grandpa', '🧑‍⚕️': 'doctor', '🧑‍🏫': 'teacher', '💧': 'water', '🍎': 'apple', '🍞': 'bread', '🥛': 'milk', '🍚': 'rice', '🍌': 'banana', '🍪': 'biscuit', '🍕': 'pizza', '🏠': 'home', '🏫': 'school', '🏥': 'hospital', '🛒': 'shop', '🌳': 'park', '🚌': 'bus', '🚻': 'toilet', '🛏️': 'bed', '🏃': 'run', '🍽️': 'eat', '🛁': 'bath', '🎮': 'play', '📖': 'read', '😴': 'sleep', '🎵': 'music', '🚶': 'walk'}[_symbols[symCat]![i]] ?? 'it'))])),
+        GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 4, padding: const EdgeInsets.all(12), mainAxisSpacing: 8, crossAxisSpacing: 8, children: [for (var i = 0; i < _symbols[symCat]!.length; i++) PastelTile(icon: null, emoji: _symbols[symCat]![i], label: '', color: i, onTap: () => _add(const {'👩': 'woman', '👨': 'man', '👧': 'girl', '👦': 'boy', '👵': 'grandma', '👴': 'grandpa', '🧑‍⚕️': 'doctor', '🧑‍🏫': 'teacher', '💧': 'water', '🍎': 'apple', '🍞': 'bread', '🥛': 'milk', '🍚': 'rice', '🍌': 'banana', '🍪': 'biscuit', '🍕': 'pizza', '🏠': 'home', '🏫': 'school', '🏥': 'hospital', '🛒': 'shop', '🌳': 'park', '🚌': 'bus', '🚻': 'toilet', '🛏️': 'bed', '🏃': 'run', '🍽️': 'eat', '🛁': 'bath', '🎮': 'play', '📖': 'read', '😴': 'sleep', '🎵': 'music', '🚶': 'walk'}[_symbols[symCat]![i]] ?? 'it'))]),
         const Padding(padding: EdgeInsets.all(6), child: Text('Emoji symbols. ARASAAC pictograms can replace them (non-commercial licence).', style: TextStyle(fontSize: 11, color: T.mute)))]);
     } else {
       final pred = _predict();
@@ -65,18 +86,21 @@ class _EState extends ConsumerState<ExpressScreen> {
         const SizedBox(height: 10), Wrap(spacing: 8, children: [for (final p in pred) ActionChip(side: const BorderSide(color: T.pri), backgroundColor: Colors.white, label: Text(p, style: const TextStyle(fontSize: 18, color: T.pri, fontWeight: FontWeight.w700)), onPressed: () => setState(() { final parts = kb.text.split(' '); parts.last = p; kb.text = '${parts.join(' ')} '; strip = kb.text.split(' ').where((x) => x.isNotEmpty).toList(); }))]),
         const Padding(padding: EdgeInsets.all(8), child: Text('Word prediction runs on the phone.', style: TextStyle(fontSize: 12, color: T.mute)))]));
     }
-    return MiloScreen(title: 'Communication', kind: 'express', trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Choose a voice', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceChooser())), icon: const Icon(Icons.record_voice_over_outlined)), const SizedBox(width: 4)]), body: Column(children: [
+    return MiloScreen(title: 'Communication', kind: 'express', trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Choose a voice', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceChooser())), icon: const Icon(Icons.record_voice_over_outlined)), const SizedBox(width: 4)]), body: SingleChildScrollView(child: Column(children: [
       Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: PillTabs(const ['Phrases', 'Symbols', 'Keyboard'], tab, (i) => setState(() => tab = i))),
       Container(margin: const EdgeInsets.fromLTRB(14, 10, 14, 6), padding: const EdgeInsets.fromLTRB(16, 8, 8, 8), decoration: BoxDecoration(color: T.priSoft, borderRadius: BorderRadius.circular(18)), child: Row(children: [
-        Expanded(child: Text(text.isEmpty ? 'Tap pictures to build a message' : text, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: text.isEmpty ? T.mute : T.ink))),
-        if (text.isNotEmpty) IconButton(tooltip: 'Clear', onPressed: () => setState(() { strip = []; kb.clear(); }), icon: const Icon(Icons.close)),
-        FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(88, 48)), onPressed: text.isEmpty ? null : () => _speak(text), child: const Text('Speak'))])), // never spoken until the person taps Speak
+        Expanded(child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 150), child: SingleChildScrollView(child: Text(text.isEmpty ? 'Tap pictures to build a message' : text, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: text.isEmpty ? T.mute : T.ink))))),
+        if (text.isNotEmpty) Container(decoration: hi == 10 ? BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: T.pri, width: 2.5)) : null,
+          child: IconButton(tooltip: 'Clear', onPressed: () => tap(10)(), icon: const Icon(Icons.close))),
+        Container(decoration: hi == 9 && text.isNotEmpty ? BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: T.pri, width: 2.5)) : null,
+          child: FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(88, 48)), onPressed: text.isEmpty ? null : () => tap(9)(), child: const Text('Speak')))])), // never spoken until the person taps Speak
       if (ladder == Ladder.full && strip.length > 1) Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ComposeScreen(strip))).then((v) { if (v is String) setState(() { strip = v.split(' '); kb.text = v; }); }), icon: const Icon(Icons.auto_awesome, size: 18), label: const Text('Say it better')))),
-      Expanded(child: body),
+      body,
       if (recent.isNotEmpty) SizedBox(height: 40, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [const Center(child: Text('Recent: ', style: TextStyle(color: T.mute, fontSize: 12))), for (final r in recent.take(5)) Padding(padding: const EdgeInsets.all(3), child: ActionChip(visualDensity: VisualDensity.compact, label: Text(r, style: const TextStyle(fontSize: 13)), onPressed: () => setState(() { strip = r.split(' '); kb.text = r; })))])),
-      Container(margin: const EdgeInsets.fromLTRB(14, 4, 14, 4), decoration: BoxDecoration(color: T.coralSoft, borderRadius: BorderRadius.circular(16)), child: Row(children: [quick('Help', 'Help me please', help: true), quick('I need a break', 'I need a break'), quick('I’m hurt', 'I’m hurt', help: true)])),
+      Container(margin: const EdgeInsets.fromLTRB(14, 4, 14, 4), decoration: BoxDecoration(color: T.coralSoft, borderRadius: BorderRadius.circular(16)), child: Row(children: [quick('Help', 'Help me please', help: true), quick('I need a break', 'I need a break'), quick('I’m hurt', 'I’m hurt', help: true)])), // urgent row: always direct, never scanned
+      if (scan) const Padding(padding: EdgeInsets.only(bottom: 6), child: Text('Scanning is on: any tap picks the highlighted tile.', style: TextStyle(fontSize: 12, color: T.pri, fontWeight: FontWeight.w700))),
       const Padding(padding: EdgeInsets.only(bottom: 6), child: Text('Tiles never move unless you move them.', style: TextStyle(fontSize: 11, color: T.mute))),
-    ]));
+    ])));
   }
 }
 

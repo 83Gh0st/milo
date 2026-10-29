@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/providers.dart';
 import 'data/db.dart';
 import 'data/secure_store.dart';
+import 'sys/share_in.dart';
 import 'ui/chat_screen.dart';
 import 'ui/explore_screen.dart';
 import 'ui/home_screen.dart';
 import 'ui/more_screen.dart';
 import 'ui/onboarding.dart';
-import 'ui/scaffold.dart';
 import 'ui/progress_screen.dart';
 import 'ui/screen.dart';
 import 'ui/theme.dart';
@@ -65,6 +65,11 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
     _nudgeT = Timer.periodic(const Duration(minutes: 1), (_) => _breakNudge()); // gentle time limits: set by a grown-up, one suggestion, never forced
     _sync();
     Future.delayed(const Duration(seconds: 3), () { if (mounted && !d.ttsReady) openScreen('novoice'); });
+    armShareIn((t) { ref.read(sharedTextProvider.notifier).state = t; if (mounted) openScreen('understand'); }); // plan 7.13: late share while open
+    WidgetsBinding.instance.addPostFrameCallback((_) async { // cold start with shared text (no-op without the native side)
+      final t = await fetchInitialSharedText();
+      if (t.isNotEmpty && mounted) { ref.read(sharedTextProvider.notifier).state = t; openScreen('understand'); }
+    });
   }
   Future<void> _sync() async {
     try {
@@ -79,7 +84,14 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
     if (d.breakNudgeMin > 0 && DateTime.now().difference(_started).inMinutes >= d.breakNudgeMin && !d.quiet) { _started = DateTime.now(); d.speak('Would you like a little break?'); d.set(() => d.choices = ['Take a break', 'Keep going']); }
   }
   @override
-  void didChangeAppLifecycleState(AppLifecycleState s) { if (s == AppLifecycleState.resumed) { _sync(); ref.read(ladderProvider.notifier).refresh(); } }
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) {
+      _sync();
+      ref.read(ladderProvider.notifier).refresh();
+    } else if (s == AppLifecycleState.paused || s == AppLifecycleState.inactive || s == AppLifecycleState.detached) {
+      ref.read(directorProvider).cancelSpeech(); // backgrounding never leaves speech or the speaking state hanging
+    }
+  }
   @override
   void dispose() { WidgetsBinding.instance.removeObserver(this); _syncT?.cancel(); _nudgeT?.cancel(); _tk.dispose(); super.dispose(); }
 
@@ -103,7 +115,7 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
       onPointerDown: (e) { d.pointerAt(e.position); if (_first) { _first = false; d.greet(); } }, // eyes look where you touch
       onPointerMove: (e) => d.pointerAt(e.position),
       child: Scaffold(
-        bottomNavigationBar: railMode ? null : NavigationBar(selectedIndex: tab, hideUnselectedLabels: hideLabels, onDestinationSelected: setTab, destinations: [for (final x in dests) NavigationDestination(icon: Icon(x.$1), selectedIcon: Icon(x.$2), label: x.$3)]),
+        bottomNavigationBar: railMode ? null : NavigationBar(selectedIndex: tab, labelBehavior: hideLabels ? NavigationDestinationLabelBehavior.onlyShowSelected : NavigationDestinationLabelBehavior.alwaysShow, onDestinationSelected: setTab, destinations: [for (final x in dests) NavigationDestination(icon: Icon(x.$1), selectedIcon: Icon(x.$2), label: x.$3)]),
         body: SafeArea(
             child: railMode
                 ? Row(children: [

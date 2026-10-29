@@ -32,6 +32,7 @@ class _HomeState extends ConsumerState<HomeScreen> {
         if (stage) const MiloStage(),
         const Center(child: Text('What shall we do?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800))), const SizedBox(height: 8),
         big(Icons.menu_book_outlined, 'Learn', 0, () => openScreen('learn')), big(Icons.chat_bubble_outline, 'Say', 1, () => openScreen('express')), big(Icons.check_circle_outline, 'Do', 3, () => openScreen('do')),
+        big(Icons.settings_outlined, 'Settings', 2, () => ref.read(tabProvider.notifier).state = 4), // plan 7.9: Settings by pictogram in pre-reader mode
         Row(children: [Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: T.coral, minimumSize: const Size(0, 62)), onPressed: () => showHelpSheet(context, ref), child: const Text('Help me'))), const SizedBox(width: 10),
           Expanded(child: FilledButton.tonal(style: FilledButton.styleFrom(minimumSize: const Size(0, 62)), onPressed: () => openScreen('break'), child: const Text('Break')))]),
       ]);

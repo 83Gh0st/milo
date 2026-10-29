@@ -9,7 +9,7 @@ A living, multimodal AI companion for people with learning difficulties or who n
 | `contracts/` | `brain_contract.json`: the single source of truth for the brain-to-body contract (a test keeps the Dart copy in step) |
 | `deploy/` | Docker Compose (Caddy + gateway + PostgreSQL) |
 | `eval/` | AI evaluation harness (plan section 11.3) |
-| `docs/` | `SETUP.md`, `DEPLOYMENT.md`, `SYNC_DESIGN.md`, `LAUNCH_CHECKLIST.md`, `DESIGN_MAP.md` (wireframe to code) |
+| `docs/` | `SETUP.md`, `DEPLOYMENT.md`, `SYNC_DESIGN.md`, `LAUNCH_CHECKLIST.md`, `DESIGN_MAP.md` (wireframe to code), `RELEASE.md` (Android + iOS builds, signing, TestFlight), `VOICE_CHECKLIST.md` (speech lifecycle + device checks), `MODAL.md` (serverless hosting + costs) |
 | `assets/`, `tools/` | bundled fonts, generated app icon and splash, and the script that draws them |
 
 Start with **docs/SETUP.md**. Honest status and remaining gaps are in **docs/LAUNCH_CHECKLIST.md**.

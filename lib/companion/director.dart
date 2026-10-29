@@ -137,6 +137,8 @@ class Director extends ChangeNotifier {
   Future<void> Function(String)? onShowImage; // set by the app: fetches the explainer picture into visualProvider
   int breakSecs = 300; // break-screen countdown; a validated set_timer action may change it
   bool ignoreTaps = false, leftHanded = false;
+  bool scanMode = false; // switch/scanning access (plan P2): highlight auto-advances, any tap selects
+  int scanMs = 1200; // highlight dwell per step, 400..3000
   double _lastTap = -99;
   void Function(Map<String, dynamic>)? onMemoryProposal;
   void Function(String, Map<String, dynamic>)? onUnderstand;
@@ -168,6 +170,8 @@ class Director extends ChangeNotifier {
 
   // speech
   bool _speaking = false, _aac = false, _gotP = false;
+  bool _speechStarted = false; // set by the first real audio signal (platform started/word event or neural envelope); the mouth never moves before it
+  double _lastGreetTap = -99; // character-tap greeting debounce (clock time)
   int _gen = 0, _turn = 0;
   List<RegExpMatch> _words = [];
   void Function(int)? _onWord;
@@ -184,17 +188,19 @@ class Director extends ChangeNotifier {
   void _set(CState s) { if (state != s) { state = s; notifyListeners(); } }
   void _cap(String s) { caption = s; notifyListeners(); }
 
+  /// True when platform channels can work. The sensors/connectivity plugins
+  /// throw *asynchronous* binding errors without one, which try/catch cannot
+  /// see (plain unit tests, exotic platforms). Probe instead of catching.
+  static bool get messengerOk { try { ServicesBinding.instance; return true; } catch (_) { return false; } }
+
   Future<void> init() async {
     await voice.platform.init();
-    _voiceSub = voice.platform.events.listen((e) {
-      if (e.kind != VoiceEventKind.word) return;
-      _gotP = true;
-      final i = _words.indexWhere((m) => m.end > e.charOffset);
-      _pulseWord(i < 0 ? 0 : i);
-    });
+    // Voice progress events are subscribed per speak() call (_watchVoice), so
+    // a previous utterance's late callbacks can never move a newer request's
+    // mouth. There is no permanent subscription here on purpose.
     if (!voice.platform.ready) ttsReady = false; // no TTS engine: visual-only level of the offline ladder
     await refreshVoices();
-    try { _accel = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(_onAccel, onError: (_) {}); } catch (_) {}
+    if (messengerOk) { try { _accel = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(_onAccel, onError: (_) {}); } catch (_) {} }
     Timer(const Duration(milliseconds: 900), () { if (emo == 'sleepy') { emote('happy', i: .7, hold: 3); _sfx('wake'); } }); // wake up
     MiloReact.handler = _onReact;
   }
@@ -371,19 +377,18 @@ class Director extends ChangeNotifier {
       case 'celebrate':
         h.ar += 2.1 * e + math.sin(s * 12) * .25 * e; h.al += 2.1 * e + math.sin(s * 12 + 1) * .25 * e;
         if (c.hops < 3 && s > c.hops * .55) { c.hops++; if (!rm) hop.v = -330 * a; _burst('✦', 4); }
-      case 'giggle': h.jig += math.sin(s * 34) * .03 * e; h.tilt += math.sin(s * 20) * .05 * e; if (math.sin(s * 24) > 0) pulse = math.max(pulse, .7 * e);
+      case 'giggle': h.jig += math.sin(s * 34) * .03 * e; h.tilt += math.sin(s * 20) * .05 * e; // body shake only: the mouth never moves without speech audio
       case 'yawn': h.yawn = e;
       case 'stretch': h.ar += 2.3 * e; h.al += 2.3 * e; h.zoom += .05 * e;
       case 'hum':
-        if (math.sin(s * 10) > 0) pulse = math.max(pulse, .5);
-        h.tilt += math.sin(s * 3) * .06 * e;
+        h.tilt += math.sin(s * 3) * .06 * e; // sway only: humming has no voice audio, so the mouth stays shut
         if (c.hops == 0 && s > .3) { c.hops = 1; _burst('♪', 2); }
       case 'dizzy': h.tilt += math.sin(s * 14) * .18 * e * (1 - p);
       case 'pet': h.eyes = math.min(1.0, e * 2.5); h.zoom -= .02 * e;
       case 'tilt_head': h.tilt += .22 * e * c.side; h.dip += 1.5 * e;
       case 'clap': h.ar += 1.1 * e + math.sin(s * 22) * .3 * e; h.al += 1.1 * e + math.sin(s * 22) * .3 * e; h.dip += 1 * e;
       case 'lean_back': h.zoom -= .05 * e; h.dip -= 4 * e; h.tilt -= .05 * e;
-      case 'thinking_hmm': h.al += 1.6 * e; h.tilt += .1 * e; if (math.sin(s * 10) > 0) pulse = math.max(pulse, .45);
+      case 'thinking_hmm': h.al += 1.6 * e; h.tilt += .1 * e; // pose only: the mouth stays shut until speech audio starts
       case 'soft_sigh': h.yawn = e * .4; h.dip += 2 * e; h.zoom -= .02 * e;
       case 'peek': h.lean += .08 * e * c.side; h.dip += 2 * e; h.zoom += .03 * e;
     }
@@ -532,7 +537,10 @@ class Director extends ChangeNotifier {
   void pointerAt(Offset global) { markActive(); touch = _norm(global); touchUntil = clock + 2.5; }
   void lookAtGlobal(Offset global, {double secs = 1.2}) { content = _norm(global); contentUntil = clock + secs; }
 
-  // L6 reactions (local, no AI, <100 ms)
+  // L6 reactions (local, no AI, <100 ms). Tapping Milo has one predictable
+  // action, matching the "Tap to say hi" label: while Milo speaks it barges
+  // in to listen; otherwise Milo says hi (debounced: rapid taps only bounce
+  // and blink, never stack speech). The mouth moves only with real TTS audio.
   void tapMilo() {
     markActive();
     if (_speaking && !_aac) { // barge-in
@@ -545,10 +553,14 @@ class Director extends ChangeNotifier {
     if (ignoreTaps && clock - _lastTap < .6) return; // tremor: taps within half a second count once
     _lastTap = clock;
     if (haptics) HapticFeedback.lightImpact();
-    _sfx('tap_giggle');
     _nb = clock; // blink
     if (profile == Profile.discreet) return; // eyes only
-    gesture('giggle', force: true); sq.v -= 2.2;
+    sq.v -= 2.2; // small bounce; no mouth movement without speech
+    if (state == CState.listening || state == CState.endpointing || state == CState.thinking) return; // never hijack a live turn
+    if (clock - _lastGreetTap < 4) return; // debounced: motion only
+    _lastGreetTap = clock;
+    _cap(greetingFor(profile, lang, DateTime.now(), daysTogether, screenKind));
+    unawaited(speak(caption, tone: 'warm'));
   }
   void petMilo() {
     markActive();
@@ -592,8 +604,23 @@ class Director extends ChangeNotifier {
   // ───────────────────────── speech (L5) ─────────────────────────
   void _pulseWord(int i) { pulse = 1; vis = !vis; _onWord?.call(i); }
 
+  /// Per-speak voice-event subscription. The captured [gen] makes stale
+  /// platform callbacks (a previous utterance's late word event arriving
+  /// during a newer request) harmless: they are dropped.
+  Future<void> _watchVoice(int gen) async {
+    await _voiceSub?.cancel();
+    _voiceSub = voice.platform.events.listen((e) {
+      if (gen != _gen || !_speaking) return;
+      if (e.kind == VoiceEventKind.started || e.kind == VoiceEventKind.word) _speechStarted = true;
+      if (e.kind != VoiceEventKind.word) return;
+      _gotP = true;
+      final i = _words.indexWhere((m) => m.end > e.charOffset);
+      _pulseWord(i < 0 ? 0 : i);
+    });
+  }
+
   void _est(int gen, int i, double rate) { // fallback timing when the TTS engine gives no word callbacks
-    if (gen != _gen || _gotP || i >= _words.length) return;
+    if (gen != _gen || _gotP || !_speechStarted || i >= _words.length) return; // never pulse before real audio starts
     _pulseWord(i);
     Future.delayed(Duration(milliseconds: ((120 + _words[i].group(0)!.length * 55) / rate).round()), () => _est(gen, i + 1, rate));
   }
@@ -604,55 +631,125 @@ class Director extends ChangeNotifier {
 
   /// Neural lip-sync feed: amplitude 0..1 from the audio envelope. Sets the
   /// mouth directly and rides the speech pulse (no viseme flip, no word
-  /// callback — neural engines supply no word timings). Ignored for AAC.
+  /// callback — neural engines supply no word timings). Ignored for AAC and
+  /// whenever no speech is active. A non-silent level counts as proof that
+  /// real audio started.
   void feedMouth(double level) {
     if (!_speaking || _aac) return;
     _mouthLevel = level.clamp(0.0, 1.0).toDouble();
+    if (_mouthLevel > 0.02) _speechStarted = true;
     pulse = math.max(pulse, _mouthLevel * .9);
   }
 
+  /// Speech lifecycle. Invariants (see docs/VOICE_CHECKLIST.md):
+  /// - Empty text never enters the speaking state.
+  /// - Any previous speech is stopped first: requests never overlap.
+  /// - The mouth moves only after real audio started ([_speechStarted]);
+  ///   failure, cancellation or interruption shuts it and returns to the
+  ///   state the turn was in ([CState.listening] when listening, else idle).
+  /// - A superseded request never touches state owned by a newer one.
   Future<void> speak(String text, {void Function(int)? onWord, bool aac = false, double rate = 1, String? tone}) async {
     markActive();
-    final gen = ++_gen;
     // Read-aloud speaks the ORIGINAL text (highlight indices must match it
     // exactly); everything else gets normalised + sentence-split per profile.
     final norm = onWord == null ? normalizeForSpeech(text, lang) : text;
+    if (norm.trim().isEmpty) return; // nothing to say: never enter the speaking state
     final parts = onWord == null
         ? splitSentences(norm, const {Profile.playful: 10, Profile.friendly: 14, Profile.discreet: 20}[profile]!)
         : [(text: norm, wordOffset: 0)];
-    _words = RegExp(r'\S+').allMatches(norm).toList(); _onWord = onWord; _gotP = false; _speaking = true; _aac = aac;
+    if (parts.isEmpty) return;
+    final gen = ++_gen;
+    await voice.stopNow(); // no overlapping speech: the previous utterance ends before this one starts
+    if (gen != _gen) return; // superseded while stopping: the newer request owns everything
+    _words = RegExp(r'\S+').allMatches(norm).toList();
+    _onWord = onWord;
+    _gotP = false;
+    _speechStarted = false;
+    _speaking = true;
+    _aac = aac;
     if (aac) clips.clear(); // AAC speech stays neutral: clarity first, no performance
+    final fallback = (state == CState.listening || state == CState.endpointing) ? CState.listening : CState.idle;
     _set(CState.speaking);
+    await _watchVoice(gen); // stale platform callbacks for [gen] only; older utterances are dropped
+    if (gen != _gen) return;
     _antic = aac || quiet ? 0 : .15;
     final t0 = DateTime.now(), est = _words.length * 330;
     Future.delayed(const Duration(milliseconds: 450), () => _est(gen, 0, rate));
     final tp = (!aac && tone != null) ? (_tones[tone] ?? [1.0, 1.0]) : [1.0, 1.0];
     String? notice;
+    var heard = true;
     if (voiceOn) {
       final pace = (voiceSpeed * rate * (tp[1] as num) * _paceRate * (clearSpeech ? .9 : 1)).toDouble();
       try {
         notice = await voice.speakAll(parts,
             pitch: (_presetPitch * (tp[0] as num)).clamp(.5, 1.6).toDouble(),
             rate: _presetRate * pace, pace: pace,
-            lang: lang, tone: aac ? null : tone, readAloud: onWord != null, onMouth: feedMouth,
+            lang: lang, tone: aac ? null : tone, readAloud: onWord != null, aac: aac,
+            onMouth: (v) { if (gen == _gen) feedMouth(v); }, // stale envelope feeds are dropped
             onSentence: (s) async { if (s.trim().endsWith('!') && !aac && gen == _gen) gesture('nod'); });
-      } on VoiceCancelled {} // barge-in / turn change: fall through to cleanup
+      } on VoiceCancelled {
+        return; // barge-in / turn change: the newer request owns state and cleanup
+      } on VoicePlayFailed {
+        heard = false; // nothing was heard: shut the mouth, return to the turn state, speak no notice over silence
+      } catch (_) {
+        heard = false;
+      }
     }
+    if (gen != _gen) return; // superseded: the newer request owns state
+    if (!heard) { _cleanupSpeech(fallback); return; }
     final el = DateTime.now().difference(t0).inMilliseconds;
-    if (gen == _gen && el < est * .5) await Future.delayed(Duration(milliseconds: (est * .7 - el).round())); // visual-only: keep caption up
-    if (gen == _gen) {
-      if (notice != null && voiceOn) {
+    if (el < est * .5) await Future.delayed(Duration(milliseconds: (est * .7 - el).round())); // visual-only: keep caption up
+    if (gen != _gen) return;
+    if (notice != null && voiceOn) {
+      try {
         await voice.platform.speakSentence(
             notice == 'online_voice_unavailable' ? 'My online voice is not set up yet, so I’ll use my phone voice.' : 'My online voice cut out, so I’ll use my phone voice.',
             pitch: _presetPitch, rate: _presetRate * voiceSpeed);
-        if (gen != _gen) return;
-      }
-      _gen++; _speaking = false; _aac = false; _onWord = null; _mouthLevel = 0; _nb = clock; sq.v -= 1.5; if (state == CState.speaking) _set(CState.idle); // settle after speaking
+      } catch (_) {} // the notice is best-effort: the turn already succeeded
+      if (gen != _gen) return;
     }
+    _gen++;
+    _speaking = false;
+    _aac = false;
+    _onWord = null;
+    _mouthLevel = 0;
+    _speechStarted = false;
+    _nb = clock;
+    sq.v -= 1.5;
+    if (state == CState.speaking) _set(CState.idle); // settle after speaking
+  }
+
+  /// Shared failure cleanup: mouth shut, speech flags cleared, state back to
+  /// the turn's resting state. The generation is bumped so late timers and
+  /// callbacks from the failed request are dropped.
+  void _cleanupSpeech(CState fallback) {
+    _gen++;
+    _speaking = false;
+    _aac = false;
+    _onWord = null;
+    _mouthLevel = 0;
+    pulse = 0;
+    _speechStarted = false;
+    _nb = clock;
+    if (state == CState.speaking) _set(fallback);
   }
 
   Future<void> speakAac(String text) { _turn++; choices = []; return speak(text, aac: true); }
-  void cancelSpeech() { _gen++; _speaking = false; _aac = false; _mouthLevel = 0; unawaited(voice.stopNow()); }
+
+  /// Stops all speech output now. Safe to call when idle, disposed, or
+  /// mid-turn; also returns a stuck speaking state to idle (callers that own
+  /// the next state — barge-in, ask, breathing — set it right after).
+  void cancelSpeech() {
+    _gen++;
+    _speaking = false;
+    _aac = false;
+    _mouthLevel = 0;
+    pulse = 0;
+    _speechStarted = false;
+    _onWord = null;
+    if (state == CState.speaking) _set(CState.idle);
+    unawaited(voice.stopNow());
+  }
 
   /// Language-screen speaker preview: a short greeting in that language's
   /// voice, then the saved voice is restored. Only en/hi/ml have a reviewed
@@ -763,6 +860,7 @@ class Director extends ChangeNotifier {
     voiceEngine = VoiceEngineMode.values.where((m) => m.name == s['vengine']).firstOrNull ?? VoiceEngineMode.auto;
     voice.mode = voiceEngine;
     clearSpeech = s['clear'] == '1';
+    scanMode = s['scan'] == '1'; scanMs = (int.tryParse(s['scanms'] ?? '') ?? 1200).clamp(400, 3000).toInt();
     final installDay = int.tryParse(s['install.day'] ?? '');
     daysTogether = installDay == null ? 0 : (DateTime.now().difference(DateTime(2026, 1, 1)).inDays - installDay).clamp(0, 9999).toInt();
     peeked.clear(); peeked.addAll((s['local.peeked'] ?? '').split(',').where((k) => k.isNotEmpty));
@@ -772,7 +870,7 @@ class Director extends ChangeNotifier {
   Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voiceStyle, 'color': '${color.toARGB32()}',
     'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale, 'local.peeked': peeked.join(','),
     'look': look.name, 'mood': '$moodBase', 'install.day': '${DateTime.now().difference(DateTime(2026, 1, 1)).inDays - daysTogether}', 'sound': soundOn ? '1' : '0', 'svol': '$soundVol',
-    'vengine': voiceEngine.name, 'clear': clearSpeech ? '1' : '0'};
+    'vengine': voiceEngine.name, 'clear': clearSpeech ? '1' : '0', 'scan': scanMode ? '1' : '0', 'scanms': '$scanMs'};
 
   /// Body first (emotion + gesture), then words, sentence by sentence.
   Future<void> perform(BrainTurn t) async {

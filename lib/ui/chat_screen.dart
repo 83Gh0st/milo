@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
-import '../companion/director.dart';
 import '../companion/react.dart';
 import '../media/photo.dart';
 import 'screen.dart';
@@ -18,6 +17,8 @@ class ChatScreen extends ConsumerStatefulWidget { const ChatScreen({super.key});
 class _ChatState extends ConsumerState<ChatScreen> {
   final c = TextEditingController();
   final sc = ScrollController();
+  double _lastPx = 0;
+  int _lastMs = 0;
   void _send(String t) {
     if (t.trim().isEmpty) return;
     c.clear();
@@ -43,7 +44,14 @@ class _ChatState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    sc.addListener(() { final v = sc.hasClients ? (sc.position.activity?.velocity ?? 0) : 0; if (v.abs() > 50) MiloReact.scrolled(v); });
+    // Scroll velocity from public pixels + timestamps (ScrollPosition.activity is protected).
+    sc.addListener(() {
+      final now = DateTime.now().millisecondsSinceEpoch, px = sc.hasClients ? sc.position.pixels : 0.0, dt = now - _lastMs;
+      final v = dt > 0 ? (px - _lastPx) / dt * 1000 : 0.0;
+      _lastPx = px;
+      _lastMs = now;
+      if (v.abs() > 50) MiloReact.scrolled(v);
+    });
   }
   @override
   void dispose() { sc.dispose(); c.dispose(); super.dispose(); }
@@ -57,8 +65,8 @@ class _ChatState extends ConsumerState<ChatScreen> {
         IconButton(tooltip: 'Read the last answer', onPressed: () { final l = msgs.where((m) => m.milo).lastOrNull; if (l != null) d.speak(l.text); }, icon: const Icon(Icons.volume_up_outlined)),
       ]),
       Expanded(child: msgs.isEmpty
-          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const MiloStage(), const Text('Ask me anything, by voice or by typing.', textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
-              const SizedBox(height: 12), Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) ActionChip(label: Text(s), onPressed: () => _send(s))])])))
+          ? Center(child: SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const MiloStage(), const Text('Ask me anything, by voice or by typing.', textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
+              const SizedBox(height: 12), Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) ActionChip(label: Text(s), onPressed: () => _send(s))])]))))
           : ListView(controller: sc, padding: const EdgeInsets.all(14), children: [
               for (final m in msgs) Align(alignment: m.milo ? Alignment.centerLeft : Alignment.centerRight, child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 5), padding: const EdgeInsets.all(14), constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .8),
@@ -70,7 +78,7 @@ class _ChatState extends ConsumerState<ChatScreen> {
                   if (m.milo && m.text.isNotEmpty) Align(alignment: Alignment.centerRight, child: InkWell(onTap: () => d.speak(m.text), child: const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.volume_up, size: 18, color: T.pri))))]))),
               if (msgs.isNotEmpty && msgs.last.milo) Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: T.pri, side: const BorderSide(color: T.pri)), onPressed: () => _send(s), child: Text(s))]),
             ])),
-      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: MiloReact.watch(child: TextField(controller: c, onSubmitted: _send, onChanged: (_) => MiloReact.typed(context), decoration: InputDecoration(hintText: 'Ask me anything…', suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Show Milo', icon: const Icon(Icons.photo_camera_outlined, color: T.pri), onPressed: _showMilo), IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))]))))),
+      Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: MiloReact.watch(child: TextField(controller: c, onSubmitted: _send, onChanged: (_) => MiloReact.typed(context), decoration: InputDecoration(hintText: 'Ask me anything…', suffixIconConstraints: const BoxConstraints(minWidth: 144, maxWidth: 144, minHeight: 48), suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Show Milo', icon: const Icon(Icons.photo_camera_outlined, color: T.pri), onPressed: _showMilo), IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))]))))),
     ]);
   }
 }
@@ -124,19 +132,21 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
   String text = '';
   String? error;
   final c = TextEditingController();
+  VoidCallback? _onExit; // captured where ref is legal: ref.read in dispose() throws (widget defunct)
   @override
   void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => _start()); }
   Future<void> _start() async {
-    final v = ref.read(voiceProvider), d = ref.read(directorProvider);
+    final v = ref.read(voiceProvider), d = ref.read(directorProvider), chat = ref.read(chatProvider.notifier);
+    _onExit = () { try { v.stop(); d.setListening(false); } catch (_) {} }; // best-effort: the providers may already be gone on a fast pop
     d.setListening(true);
     await v.start(lang: kLangNames[d.lang] ?? 'English',
       onLevel: (l) => d.micLevel = l, // field only: the frame clock repaints, no rebuilds
       onPartial: (t) { d.notePartial(); if (mounted) setState(() { text = t; c.text = t; }); },
-      onFinal: (t) { d.setListening(false); if (mounted) { Navigator.pop(context); } if (t.trim().isNotEmpty) { ref.read(chatProvider.notifier).user(t); d.ask(t); } },
+      onFinal: (t) { d.setListening(false); if (mounted) { Navigator.pop(context); } if (t.trim().isNotEmpty) { chat.user(t); d.ask(t); } },
       onError: (e) { d.setListening(false); if (mounted) setState(() => error = switch (e) { 'mic_denied' => 'The microphone is off. You can type instead.', 'cloud_off' => 'Voice needs cloud AI. Turn it on in Privacy, or type.', _ => 'Voice is not available right now. You can type instead.' }); });
   }
   @override
-  void dispose() { ref.read(voiceProvider).stop(); ref.read(directorProvider).setListening(false); super.dispose(); }
+  void dispose() { _onExit?.call(); c.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) {
     final d = ref.watch(directorProvider);

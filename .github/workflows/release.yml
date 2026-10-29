@@ -1,0 +1,206 @@
+name: release
+# Tagged + manual releases. The per-push `ci.yml` is untouched: this workflow
+# only runs on version tags (v*) or manual dispatch, and every signing step is
+# conditional — without signing secrets it still verifies formatting, analysis,
+# tests, and unsigned builds, and says so in the summary.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      api_base:
+        description: 'Deployed gateway URL for API_BASE (leave empty to use the secret default)'
+        required: false
+        default: ''
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r gateway/requirements-dev.txt
+      - run: cd gateway && python -m pytest -q
+
+  flutter-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - run: flutter create --platforms=android,ios --project-name milo .
+      - run: rm -f test/widget_test.dart
+      - run: flutter pub get
+      # Formatting is informational for now: the tree predates dart format
+      # (long lines throughout), so a blocking gate would fail on
+      # pre-existing style. New files should still be written format-clean.
+      - run: dart format --output=none --set-exit-if-changed lib test
+        continue-on-error: true
+      - run: flutter analyze
+      - run: flutter test --reporter expanded 2>&1 | tee flutter_test.log; test ${PIPESTATUS[0]} -eq 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: flutter-test-log, path: flutter_test.log, if-no-files-found: warn}
+
+  android:
+    needs: [gateway, flutter-checks]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - run: flutter create --platforms=android --project-name milo .
+      - run: rm -f test/widget_test.dart
+      - run: |
+          printf '%s\n' '-dontwarn com.google.mlkit.vision.text.**' >> android/app/proguard-rules.pro
+          printf '%s\n' 'android.enableR8.fullMode=false' >> android/gradle.properties
+      - run: flutter pub get
+      # Launcher icons + splash are generated from assets/branding (the Milo
+      # mark), never from screenshots. Runs here so release art is always fresh.
+      - run: dart run flutter_launcher_icons
+      - run: dart run flutter_native_splash:create
+      # Optional Play signing: all secrets must exist, else the build is
+      # debug-signed (installable for testing, NOT for Play). Never commit keys.
+      # `flutter create` ships no release signing config, so this patches the
+      # generated build.gradle to add one (loud failure if the template drifts).
+      - name: Android signing setup (if secrets present)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/milo-release.jks
+            printf 'storeFile=milo-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/key.properties
+            python3 tools/wire_android_signing.py
+            echo 'RELEASE_SIGNED=true' >> "$GITHUB_ENV"
+          else
+            echo 'RELEASE_SIGNED=false' >> "$GITHUB_ENV"
+          fi
+      - name: Set Android application id (if secret present)
+        env:
+          APP_ID: ${{ secrets.ANDROID_APPLICATION_ID }}
+        run: |
+          if [ -n "$APP_ID" ]; then
+            sed -i "s/com\.example\.milo/$APP_ID/g" android/app/build.gradle* android/app/src/main/AndroidManifest.xml 2>/dev/null || true
+            echo "applicationId set to $APP_ID"
+          else
+            echo 'No ANDROID_APPLICATION_ID secret: building as com.example.milo (fine for testing, not for Play)'
+          fi
+      - name: Build APK + App Bundle
+        env:
+          API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
+        run: |
+          DEFINE_ARGS=""
+          if [ -n "$API_BASE" ]; then DEFINE_ARGS="--dart-define=API_BASE=$API_BASE"; fi
+          flutter build apk --release $DEFINE_ARGS
+          flutter build appbundle --release $DEFINE_ARGS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: milo-android-release
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+      - run: |
+          if [ "$RELEASE_SIGNED" = 'true' ]; then echo '### Android: Play-signed AAB + APK built' >> "$GITHUB_STEP_SUMMARY";
+          else echo '### Android: DEBUG-signed APK/AAB (no signing secrets — fine for testing, not for Play)' >> "$GITHUB_STEP_SUMMARY"; fi
+
+  ios-verify:
+    # Simulator verification on every release tag: proves the iOS build
+    # compiles and links without any signing material.
+    needs: [gateway, flutter-checks]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - run: flutter create --platforms=ios --project-name milo .
+      - run: flutter pub get
+      - run: dart run flutter_launcher_icons
+      - run: dart run flutter_native_splash:create
+      - run: cd ios && pod install
+      - name: Build for simulator (unsigned)
+        env:
+          API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
+        run: |
+          DEFINE_ARGS=""
+          if [ -n "$API_BASE" ]; then DEFINE_ARGS="--dart-define=API_BASE=$API_BASE"; fi
+          flutter build ios --simulator --no-codesign $DEFINE_ARGS
+      - run: |
+          echo '### iOS: simulator build verified (unsigned - device IPA needs signing, see docs/RELEASE.md)' >> "$GITHUB_STEP_SUMMARY"
+
+  ios-ipa:
+    # Device-installable IPA: runs ONLY when signing secrets exist, otherwise
+    # skipped honestly (a simulator build is not a distributable IPA).
+    needs: [gateway, flutter-checks]
+    runs-on: macos-latest
+    if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' && secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, cache: true}
+      - run: flutter create --platforms=ios --project-name milo .
+      - run: flutter pub get
+      - run: dart run flutter_launcher_icons
+      - run: cd ios && pod install
+      - name: Import signing certificate
+        env:
+          CERT_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/milo.p12"
+          echo "$CERT_BASE64" | base64 -d > "$CERT_PATH"
+          KEYCHAIN="$RUNNER_TEMP/milo.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT_PATH" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE_BASE64" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/milo.mobileprovision
+      - name: Write ExportOptions.plist (bundle id + team from secrets)
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+          PROFILE_UUID: ${{ secrets.IOS_PROFILE_UUID }}
+        run: |
+          BUNDLE="${BUNDLE_ID:-com.example.milo}"
+          # flutter create stamps com.example.milo into the Xcode project; the
+          # real bundle id comes from the IOS_BUNDLE_ID secret (documented in
+          # docs/RELEASE.md — set it before the first TestFlight upload).
+          sed -i '' "s/com\.example\.milo/$BUNDLE/g" ios/Runner.xcodeproj/project.pbxproj
+          cat > ios/Runner/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict>
+              <key>$BUNDLE</key><string>$PROFILE_UUID</string>
+            </dict>
+            <key>uploadSymbols</key><true/>
+            <key>compileBitcode</key><false/>
+          </dict></plist>
+          EOF
+          # The heredoc above carries YAML indentation; the XML declaration
+          # must be the first bytes of the file (flat plist: no significant
+          # inner indentation to preserve).
+          sed -i '' 's/^ *//' ios/Runner/ExportOptions.plist
+      - name: Build signed IPA
+        env:
+          API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
+        run: |
+          DEFINE_ARGS=""
+          if [ -n "$API_BASE" ]; then DEFINE_ARGS="--dart-define=API_BASE=$API_BASE"; fi
+          flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist $DEFINE_ARGS
+      - uses: actions/upload-artifact@v4
+        with: {name: milo-ios-ipa, path: build/ios/ipa/*.ipa, if-no-files-found: error}
+      - run: |
+          echo '### iOS: signed IPA built (see docs/RELEASE.md for TestFlight upload)' >> "$GITHUB_STEP_SUMMARY"

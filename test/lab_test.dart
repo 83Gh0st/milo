@@ -23,23 +23,26 @@ void main() {
 
   testWidgets('lab poses expressions, fires clips and flips toggles', (t) async {
     final d = Director();
-    await t.pumpWidget(ProviderScope(overrides: [directorProvider.overrideWith((_) => d)], child: const MaterialApp(home: MiloLab())));
+    await t.pumpWidget(ProviderScope(overrides: [directorProvider.overrideWith((_) => d)], child: const MaterialApp(home: Scaffold(body: MiloLab()))));
     await t.pumpAndSettle();
     expect(find.text('sleepy'), findsOneWidget); // all 12 expression chips render
+    await t.scrollUntilVisible(find.text('sleepy'), 300); // 800x600 viewport: below-fold taps find nothing
     await t.tap(find.text('sleepy'));
     await t.pump();
     expect(d.emo, 'sleepy');
+    await t.scrollUntilVisible(find.text('wave'), 300);
     await t.tap(find.text('wave'));
     await t.pump();
     expect(d.clips.map((c) => c.n), contains('wave'));
+    await t.scrollUntilVisible(find.text('Quiet'), 300);
     await t.tap(find.text('Quiet'));
     await t.pump();
     expect(d.quiet, isTrue);
   });
 
   testWidgets('connection row shows canned health and server address', (t) async {
-    const st = ConnStatus(apiBase: 'http://127.0.0.1:8000', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected. Milo can think in the cloud.');
-    await t.pumpWidget(ProviderScope(overrides: [connectionCheckProvider.overrideWithValue(const AsyncValue.data(st))],
+    const st = ConnStatus(apiBase: 'http://127.0.0.1:8000', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected to Milo\u2019s server. AI providers are verified when Milo answers, or via AI connections \u2192 Test connection.');
+    await t.pumpWidget(ProviderScope(overrides: [connectionCheckProvider.overrideWith((_) => Future.value(st))],
         child: const MaterialApp(home: Scaffold(body: ConnectionCheckRow()))));
     await t.pumpAndSettle();
     expect(find.textContaining('127.0.0.1'), findsOneWidget);

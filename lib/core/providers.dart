@@ -12,6 +12,7 @@ import '../data/secure_store.dart';
 import '../net/api.dart';
 import '../net/voice.dart';
 import '../sync/sync_service.dart';
+import 'ai_provider.dart';
 import 'memory.dart';
 import 'payload.dart';
 import 'pocket_brain.dart';
@@ -23,8 +24,8 @@ final dbProvider = Provider<MiloDb>((_) => throw UnimplementedError('override in
 final Provider<MiloApi> apiProvider = Provider((ref) {
   final api = MiloApi(ref.read(dbProvider), ref.read(storeProvider));
   api.vaultAuth = () async {
-    // Family-keyed inference only when the trusted adult switched it on AND sync (the family identity) is on.
-    if ((await ref.read(dbProvider).get('ai.family_key'))?.isNotEmpty != true) return {};
+    // Family-keyed inference only when the trusted adult chose family AI AND sync (the family identity) is on.
+    if (await aiChoice(ref.read(dbProvider)) != AiChoice.family) return {};
     return await ref.read(syncProvider).vaultHeaders() ?? {};
   };
   return api;
@@ -49,6 +50,8 @@ class ChatNotifier extends StateNotifier<List<ChatMsg>> {
 }
 /// A word the brain asked to look up: UnderstandScreen picks it up once, then clears it.
 final lookupWordProvider = StateProvider<String>((_) => '');
+/// Text shared from another app (plan 7.13): UnderstandScreen picks it up once, then clears it.
+final sharedTextProvider = StateProvider<String>((_) => '');
 final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMsg>>((_) => ChatNotifier());
 final expressTextProvider = StateProvider<String>((_) => '');
 final syncProvider = Provider((ref) => SyncService(ref.read(dbProvider), ref.read(apiProvider), ref.read(storeProvider)));
@@ -69,22 +72,25 @@ class LadderNotifier extends StateNotifier<Ladder> {
   StreamSubscription<List<ConnectivityResult>>? _sub;
   LadderNotifier(this.db, this.api) : super(Ladder.full) {
     refresh();
-    _sub = Connectivity().onConnectivityChanged.listen((_) => refresh());
+    if (Director.messengerOk) { try { _sub = Connectivity().onConnectivityChanged.listen((_) => refresh()); } catch (_) {} }
     _t = Timer.periodic(const Duration(seconds: 90), (_) { if (state != Ladder.full) refresh(); });
   }
   @override
   void dispose() { _t?.cancel(); _sub?.cancel(); super.dispose(); }
   final MiloDb db;
   final MiloApi api;
+  int _gen = 0; // a refresh that started before a failed()/ok() must not clobber it
   Future<void> refresh() async {
-    if (await db.flag('offline.forced')) { state = Ladder.offline; return; }
-    if (!await db.flag('cloud.enabled')) { state = Ladder.cloudOff; return; }
-    final r = await Connectivity().checkConnectivity();
-    if (r.contains(ConnectivityResult.none)) { state = Ladder.offline; return; }
-    state = await api.healthy() ? Ladder.full : Ladder.resting;
+    final g = _gen;
+    Ladder next;
+    if (await db.flag('offline.forced')) { next = Ladder.offline; } else if (!await db.flag('cloud.enabled')) { next = Ladder.cloudOff; } else {
+      final r = await Connectivity().checkConnectivity();
+      if (r.contains(ConnectivityResult.none)) { next = Ladder.offline; } else { next = await api.healthy() ? Ladder.full : Ladder.resting; }
+    }
+    if (g == _gen) state = next;
   }
-  void failed(String code) => state = (code == 'budget_exhausted' || code == 'rate_limited' || code == 'timeout') ? Ladder.resting : Ladder.offline;
-  void ok() => state = Ladder.full;
+  void failed(String code) { _gen++; state = (code == 'budget_exhausted' || code == 'rate_limited' || code == 'timeout') ? Ladder.resting : Ladder.offline; }
+  void ok() { _gen++; state = Ladder.full; }
 }
 final ladderProvider = StateNotifierProvider<LadderNotifier, Ladder>((ref) => LadderNotifier(ref.read(dbProvider), ref.read(apiProvider)));
 

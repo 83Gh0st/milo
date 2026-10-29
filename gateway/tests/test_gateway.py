@@ -1,11 +1,11 @@
 import base64, json, logging, re
+from pathlib import Path
 import httpx, pytest
 from starlette.testclient import TestClient
 from conftest import events, mk, token
 from app.config import Settings, validate_runtime
-from app.safety import Assembler, is_crisis
+from app.safety import Assembler, is_crisis, no_new_content
 from app.streaming import JsonStream, LineStream
-from app.routes import no_new_content
 
 BR = {"presentation": "playful", "text": "I don't get it, this is tricky", "activity": "understand"}
 
@@ -86,7 +86,7 @@ async def test_budget_guard_protects_credits(tmp_path):
             h = await token(c)
             assert (await c.post("/v1/brain/turn", json=BR, headers=h)).status_code == 200  # spends past the tiny limit
             r = await c.post("/v1/brain/turn", json=BR, headers=h)
-            assert r.status_code == 503 and r.json()["detail"]["error"] == "budget_exhausted"
+            assert r.status_code == 503 and r.json()["error"] == "budget_exhausted"
             assert (await c.post("/v1/brain/turn", json=BR)).status_code == 401  # unauthenticated callers learn nothing about the budget
 
 
@@ -145,7 +145,7 @@ def test_crisis_and_no_new_content():
 
 
 def test_dart_and_python_contracts_agree():
-    dart = open(__file__.replace("gateway/tests/test_gateway.py", "lib/contracts/brain_contract.dart")).read()
+    dart = (Path(__file__).resolve().parents[2] / "lib" / "contracts" / "brain_contract.dart").read_text(encoding="utf-8")
     from app.contract import C
     for name, key in (("kEmotions", "emotions"), ("kGestures", "gestures"), ("kScreens", "screens"), ("kRisks", "risks"), ("kActions", "ui_actions")):
         m = re.search(name + r" = \[(.*?)\];", dart, re.S)

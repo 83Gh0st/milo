@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     rate_per_day: int = 1500
     session_per_min_ip: int = 20
     daily_budget_usd: float = 20.0
+    monthly_budget_usd: float = 100.0  # UTC-month cap on deployer-path vendor spend; family keys spend the family's quota, never this
     price_in: float = 1.25                 # USD per 1M tokens (list prices, confirm on your dashboard)
     price_cached_in: float = 0.15
     price_out: float = 4.25
