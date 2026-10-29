@@ -29,6 +29,29 @@ void main() {
       expect(aiChoiceWords(AiChoice.family), contains('Family AI'));
     });
 
+    test('switching providers never migrates, deletes, or exposes memory',
+        () async {
+      final db = FakeDb();
+      await db.addMemory('fact', 'call_name', 'Milo',
+          'user_confirmed');
+      await db.addTile('🌊', 'water');
+      await db.put('local.trusted_phone', '123');
+      final mems = await db.memories();
+      final tiles = await db.tiles();
+      final before = await db.allSettings();
+      await setAiChoice(db, AiChoice.family);
+      await setAiChoice(db, AiChoice.miloHosted);
+      expect(await db.memories(), mems);
+      expect(await db.tiles(), tiles);
+      expect(await db.get('local.trusted_phone'), '123');
+      // The flip-flop touches exactly one setting and exposes nothing new.
+      final after = await db.allSettings();
+      before.remove('ai.family_key');
+      after.remove('ai.family_key');
+      expect(after, before);
+      expect(await aiChoice(db), AiChoice.miloHosted);
+    });
+
     test('routing: family attaches vault auth, hosted sends none',
         () async {
       final db = FakeDb();

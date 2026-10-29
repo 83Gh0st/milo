@@ -108,8 +108,24 @@ def test_contributor_models_refused(tmp_path):
     with pytest.raises(RuntimeError):
         validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="short", database_url="postgresql+asyncpg://x"))
     with pytest.raises(RuntimeError):
-        validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40))  # sqlite in prod
+        validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40))  # missing key_enc
     validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40, key_enc_secret="z" * 40, database_url="postgresql+asyncpg://x"))
+
+
+def test_db_optional_and_modal_runtime_contract():
+    full = dict(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40, key_enc_secret="z" * 40)
+    validate_runtime(Settings(**full, database_url=""))  # database-optional prod: chat runs, vault/sync honestly unavailable
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="", spend_backend="postgres"))  # persistent ledger needs a database
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="", modal_models_url="https://m.example"))  # url without key
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", reasoning_provider="modal"))  # modal reasoning without endpoint
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", reasoning_provider="llama"))
+    validate_runtime(Settings(**full, database_url="x", modal_models_url="https://m.example", modal_models_key="k" * 8, reasoning_provider="modal"))
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", modal_model="x-contributor"))
 
 
 def test_streaming_parsers_survive_any_chunking():
@@ -249,11 +265,11 @@ async def test_connections_crud_and_validation(client):
     assert (await client.get("/v1/connections", headers=V)).json() == {"connections": [], "routes": {}}
     assert (await client.get("/v1/connections")).status_code == 401
     KEY = "sk-conn-test-key-12345678"
-    r = await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x"})
+    r = await client.post("/v1/connections/meta", headers=V, json={"api_key": KEY, "default_model": "muse-spark-1.3"})
     assert r.status_code == 409 and r.json()["error"] == "policy_ack_required"  # unknown policy needs ack
-    r = await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x", "ack_data_policy": True})
-    assert r.status_code == 200 and r.json()["hint"] == "…5678" and KEY not in r.text
-    assert r.json()["caps"]["text_stream"] and r.json()["policy"]["needs_ack"]
+    r = await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x"})
+    assert r.status_code == 200 and r.json()["hint"] == "…5678" and KEY not in r.text  # verified no-train policy: no ack
+    assert r.json()["caps"]["text_stream"] and not r.json()["policy"]["needs_ack"]
     assert (await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "base_url": "http://x.test", "ack_data_policy": True})).status_code == 422
     assert (await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x-contributor", "ack_data_policy": True})).status_code == 422
     assert (await client.post("/v1/connections/nope", headers=V, json={"api_key": KEY})).status_code == 422

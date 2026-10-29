@@ -2,8 +2,9 @@
 
 Families can pay for their own AI use with their own provider API keys
 (Meta, OpenAI, Anthropic, or a custom/local endpoint) instead of the
-deployer's. Verified against code; live-billing behaviour still needs a
-keyed staging check (Stage B).
+deployer's. Key handling is verified against code and the vendor endpoint
+shapes were probed live on 2026-10-29; full keyed inference still needs
+the in-app Test connection or a keyed staging check.
 
 ## How it works
 
@@ -30,8 +31,15 @@ keyed staging check (Stage B).
 6. Providers whose data terms are unreviewed require an explicit
    trusted-adult acknowledgement at connect time (409 `policy_ack_required`
    until then); the policy note is shown in the app
-   (`gateway/app/datapolicy.py`). All live providers are currently
-   `unknown` — a human must re-check the official terms before release.
+   (`gateway/app/datapolicy.py`). OpenAI/Anthropic terms were verified from
+   the vendors' own pages on 2026-10-29 (no training on API data); Meta's
+   standard-model retention is still unverified, so Meta still needs the
+   acknowledgement. Re-check terms before every release.
+7. A saved key is never shown as working: only a passed Test connection
+   stamps `tested_at`, and the app shows `Tested <date>` vs `Saved — not
+   tested yet`. A family that saved keys but never saved routes still gets
+   working turns: the server synthesises defaults from the family's own
+   providers (never the deployer's) — see `sync.py` `vault_ctx_for`.
 
 ## Explicit-failure rules (tested in `test_gateway.py`)
 
@@ -49,13 +57,39 @@ keyed staging check (Stage B).
   vault all stop family billing; the app falls back to the shared key or to
   the on-device pocket brain and says so.
 
-## What this is not
+## Trust boundary (deliberate design decision)
+
+Family turns are routed **through the gateway**, not direct
+client-to-provider — evaluated against direct calls and chosen because:
+
+- Safety validation, the brain contract, crisis handling, streaming,
+  cancellations, and error mapping are implemented once, server-side, and
+  apply identically to every provider. Direct calls would duplicate all of
+  that in the app and drift.
+- Keys never touch the phone at all (not even platform secure storage):
+  pasted once in the app, sent over TLS, sealed server-side, never
+  returned, logged, or placed in analytics/crash reports. The key field
+  disables suggestions/autocorrect so keyboards never learn it.
+- One network path (app → gateway) works behind any family network; direct
+  calls would need per-vendor firewall/proxy behaviour per device.
+
+What this means honestly:
 
 - Not E2EE: the gateway must hold the key in clear to call the provider.
   Keys are encrypted at rest and isolated per vault, but a gateway compromise
   exposes them. Sync payloads stay E2EE; these are different properties.
 - No OAuth/delegated inference exists for Meta or OpenAI third-party apps;
   pasted keys via the gateway are the only supported path.
+- Save-time validation is opt-in (Test connection) so it never spends the
+  family's money unasked; the first real turn reports a bad key honestly.
+- Hard invariant, tested: family requests can ONLY use family credentials
+  (`test_hosted_async.py`). Deployer keys (vendor suite or hosted GPU) are
+  unreachable from family requests, and family turns are never metered to
+  the deployer budget. There is no silent deployer fallback anywhere.
+
+## What this is not
+
+- Not E2EE (see above).
 - Save-time validation is opt-in (Test connection) so it never spends the
   family's money unasked; the first real turn reports a bad key honestly.
 

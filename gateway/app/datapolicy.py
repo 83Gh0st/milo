@@ -1,11 +1,11 @@
 """Per-provider data policy disclosure. Stdlib only.
 
 Honesty rule (Phase 3A): every field is filled ONLY from the provider's
-official terms, with the source URL and check date. This environment has no
-network access, so every live provider below is `unknown` with the reason
-recorded — the app requires an explicit trusted-adult acknowledgement for
-anything `unknown` or `yes`, and the CLI prints the policy before saving.
-A human with network access re-checks the terms and updates this table.
+official terms, with the source URL and check date. Terms below were
+verified from the vendors' own pages on 2026-10-29 (see source URLs); the
+app requires an explicit trusted-adult acknowledgement for anything
+`unknown` or `yes`, and the CLI prints the policy before saving.
+Re-check the terms before every release — vendors change them.
 """
 from dataclasses import dataclass
 
@@ -21,15 +21,28 @@ class DataPolicy:
 
 
 POLICIES = {
-    "meta": DataPolicy("meta", "unknown", "unknown — terms not yet reviewed",
-                       "https://developers.facebook.com/terms/ — NOT YET CHECKED", "unverified",
-                       "No network in this environment (28 Oct 2026); re-check Meta's Model API data terms before release."),
-    "openai": DataPolicy("openai", "unknown", "unknown — terms not yet reviewed",
-                         "https://openai.com/policies/api-data-usage-policies — NOT YET CHECKED", "unverified",
-                         "No network in this environment (28 Oct 2026); re-check OpenAI's API data-usage policy before release."),
-    "anthropic": DataPolicy("anthropic", "unknown", "unknown — terms not yet reviewed",
-                            "https://www.anthropic.com/legal/commercial-terms — NOT YET CHECKED", "unverified",
-                            "No network in this environment (28 Oct 2026); re-check Anthropic's commercial terms before release."),
+    "meta": DataPolicy("meta", "unknown", "standard-model retention unverified",
+                       "https://dev.meta.ai/docs (login required) — NOT YET CHECKED", "unverified",
+                       "Endpoint confirmed live 2026-10-29 (OpenAI-compatible 401 shape); "
+                       "-contributor model ids train on data (refused by the gateway); "
+                       "standard-model retention still unverified, so acknowledgement is required."),
+    "openai": DataPolicy("openai", "no",
+                         "API data not used for training (since 2023-03-01, unless explicit opt-in); "
+                         "abuse-monitoring logs (may include prompts/responses) kept up to 30 days by default; "
+                         "zero-retention option exists for eligible customers",
+                         "https://developers.openai.com/api/docs/guides/your-data", "2026-10-29",
+                         "Verified from OpenAI's own API data-controls page."),
+    "anthropic": DataPolicy("anthropic", "no",
+                            "Commercial Terms forbid training on Customer Content; conversation content "
+                            "not retained by default (Covered Models: 30 days); zero-retention and HIPAA options exist",
+                            "https://www.anthropic.com/legal/commercial-terms + "
+                            "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention", "2026-10-29",
+                            "Verified from Anthropic's commercial terms and API retention docs."),
+    "modal": DataPolicy("modal", "no",
+                        "none: prompts are processed in memory on Milo's own GPU container and never "
+                        "written to disk or logs (container provider sees request metadata per its terms)",
+                        "gateway/modal_models.py (this repo); platform terms at modal.com", "2026-10-29",
+                        "Milo-hosted open-weight model: same trust boundary as the gateway itself."),
     "custom": DataPolicy("custom", "configurable", "depends on the endpoint you point Milo at; a model on your own machine keeps data local",
                          "", "unverified", "Self-hosted endpoints (Ollama, LM Studio, vLLM) never leave your network by construction."),
     "mock": DataPolicy("mock", "no", "nothing leaves the gateway", "", "2026-10-28", "Deterministic offline demo provider."),

@@ -195,6 +195,25 @@ void main() {
     c.dispose();
   });
 
+  testWidgets('tested date shows only after a passed probe; saved alone never reads connected', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model',
+      'policy': {}, 'caps': {'fake-model': {'strategy': 'json_schema', 'tested_at': '2026-10-29T00:00:00Z'}}});
+    api.savedConns.add({'provider': 'anthropic', 'base_url': '', 'hint': '…9999', 'default_model': 'x', 'policy': {}});
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c);
+    await t.ensureVisible(find.textContaining('Tested 2026-10-29', skipOffstage: false));
+    await t.pump();
+    expect(find.textContaining('Tested 2026-10-29'), findsOneWidget);
+    await t.ensureVisible(find.textContaining('not tested yet', skipOffstage: false));
+    await t.pump();
+    expect(find.textContaining('not tested yet'), findsOneWidget);
+    expect(find.textContaining('Connected'), findsNothing); // saved keys never read as working
+    expect(t.takeException(), isNull);
+    c.dispose();
+  });
+
   testWidgets('routes save through to the fake vault; remove disconnects', (t) async {
     final db = FakeDb();
     final api = FakeApi(db, SecureStore());

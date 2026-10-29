@@ -109,8 +109,26 @@ String connWords(Object e) {
     'bad_base_url': 'That address is not allowed.', 'base_url_required': 'Custom needs an address.', 'model_not_allowed': 'That model is not allowed.',
     'model_required': 'Pick a model first.', 'no_connection': 'Connect this provider first.', 'no_connections': 'Connect a provider first.',
     'auth_failed': 'That key was refused. Check it and try again.', 'unreachable': 'That address did not answer.', 'model_not_found': 'That model was not found there.',
-    'quota': 'That account is out of credit.', 'content_filtered': 'The provider refused that test.'};
+    'quota': 'That account is out of credit.', 'content_filtered': 'The provider refused that test.',
+    'vault_unavailable': 'This server keeps no vault: sync and family AI are unavailable here. Milo hosted still works.',
+    'http_503': 'The server is resting or unavailable. Try again in a bit.',
+    'no_family_key': 'No usable family key. Re-enter the key for this provider.',
+    'family_key_unreadable': 'The saved key cannot be read. Remove it and enter it again.',
+    'bad_vault_credentials': 'Sync sign-in failed. Turn sync off and on again in Data and privacy.',
+    'unsupported_capability': 'This provider cannot do that job. Pick another route or provider.'};
   return m[e.code] ?? m[e.detail?['error']] ?? 'Could not reach the server.';
+}
+
+/// Latest successful probe date (YYYY-MM-DD) across the saved models, or
+/// null when this provider was saved but never tested. A saved key alone
+/// is never shown as working.
+String? testedOn(Object? caps) {
+  String? best;
+  for (final e in (caps is Map ? caps.values : const [])) {
+    final t = e is Map ? e['tested_at'] : null;
+    if (t is String && t.length >= 10 && (best == null || t.compareTo(best) > 0)) best = t;
+  }
+  return best == null ? null : best.substring(0, 10);
 }
 
 class ProviderKeyScreen extends ConsumerStatefulWidget { const ProviderKeyScreen({super.key}); @override ConsumerState<ProviderKeyScreen> createState() => _PKState(); }
@@ -195,12 +213,15 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
         Card(child: SwitchListTile(title: const Text('Our family AI', style: TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(useFamily! ? 'On: Milo bills your accounts' : 'Off: Milo hosted does the thinking (recommended, no sync needed)'),
             value: useFamily!, onChanged: _list.isEmpty && useFamily == false ? null : (v) async { await setAiChoice(db, v ? AiChoice.family : AiChoice.miloHosted); setState(() => useFamily = v); })),
+        Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(
+            useFamily! ? 'Milo is thinking with: ${primary['brain'] ?? 'your saved providers (pick routes below)'}.' : 'Milo is thinking with: Milo hosted.',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))),
         const _HostedStatus(),
         const Section('Providers'),
         for (final (id, name) in kConnProviders)
           Card(child: ListTile(leading: Icon(_conn(id) == null ? Icons.key_off : Icons.key, color: T.pri),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(_conn(id) == null ? 'Not connected' : 'Key ${_conn(id)!['hint']} · ${_conn(id)!['default_model']}'),
+              subtitle: Text(_conn(id) == null ? 'Not connected' : 'Key ${_conn(id)!['hint']} · ${_conn(id)!['default_model']}\n${(() { final t = testedOn(_conn(id)!['caps']); return t == null ? 'Saved — not tested yet' : 'Tested $t'; })()}'),
               trailing: const Icon(Icons.chevron_right), onTap: () => _open(id))),
         const Section('Use for'),
         for (final (cap, capLabel) in kRouteCaps) Card(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -328,9 +349,10 @@ class _ConnSheetState extends State<_ConnSheet> {
     final label = dictLabel(widget.provider);
     return SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-      if (widget.existing != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Connected · key ${widget.existing!['hint']}', style: const TextStyle(color: T.mute))),
+      if (widget.existing != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Saved · key ${widget.existing!['hint']}${(() { final t = testedOn(widget.existing!['caps']); return t == null ? ' · not tested yet' : ' · tested $t'; })()}', style: const TextStyle(color: T.mute))),
+      if (widget.existing == null) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Paste the key, Save it, then Test connection.', style: TextStyle(fontSize: 13, color: T.mute))),
       const SizedBox(height: 12),
-      TextField(controller: key, obscureText: true, decoration: InputDecoration(hintText: widget.existing == null ? 'Paste the API key here' : 'Paste a new key to replace it (leave empty to keep)')),
+      TextField(controller: key, obscureText: true, keyboardType: TextInputType.visiblePassword, enableSuggestions: false, autocorrect: false, decoration: InputDecoration(hintText: widget.existing == null ? 'Paste the API key here' : 'Paste a new key to replace it (leave empty to keep)')),
       if (widget.provider == 'custom' || widget.provider == 'openai') ...[const SizedBox(height: 10),
         TextField(controller: base, decoration: InputDecoration(hintText: widget.provider == 'custom' ? 'Address, e.g. http://100.64.0.5:11434/v1' : 'Address (leave empty for OpenAI)'))],
       const SizedBox(height: 10),

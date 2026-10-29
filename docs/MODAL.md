@@ -179,13 +179,15 @@ by `gateway/scripts/smoke_providers.py` with `MILO_SMOKE_META_KEY` set.
 
 ### 4.3 Logs, rollback, teardown, cost
 
-**Cost estimate (verify before relying on it).** Third-party summaries of
-`modal.com/pricing` (June 2026) quote Modal Functions CPU at about
-$0.0000131/physical-core/second (minimum 0.125 cores per container) plus
-~$0.00000222/GiB/second of memory. One minimum-size warm container
-(`min_containers=1`, the shipped setting) is therefore on the order of **$5
-per month** of Modal credit — the $100 grant covers many months of hosting.
-The variable cost is vendor inference (your Meta key), bounded by
+**Cost estimate (live rates from modal.com/pricing, fetched 2026-10-29;
+re-confirm before relying on it).** CPU $0.0000131/core/s (min 0.125
+cores), memory $0.00000222/GiB/s: one minimum-size warm container
+(`min_containers=1`, the shipped setting) is on the order of **$5 per
+month** of Modal credit — the $100 grant covers many months of hosting.
+GPU (hosted model, §8): T4 $0.000164/s (~$0.59/hr) while running,
+scale-to-zero with a 5-minute tail, so you pay per minute of actual use;
+~169 T4-hours per $100. Volumes $0.09/GiB/mo (~$0.55/mo for the cached
+weights). The variable cost is vendor inference (your Meta key), bounded by
 `DAILY_BUDGET_USD` (default 20) + `MONTHLY_BUDGET_USD` (default 100), and by
 `max_containers=1` (the gateway can never scale out). This agent cannot see
 your Modal balance: check it at modal.com → your workspace → Usage, and
@@ -242,9 +244,20 @@ imports cleanly, endpoint audit against the code above, Flutter wording
 change (CI runs `flutter analyze`/`flutter test` — no Flutter SDK on this
 machine, so those two are **UNVERIFIED** until CI runs).
 
+29 Oct round (hosted model + providers + DB-optional): vendor endpoint
+shapes probed live (OpenAI/Anthropic/Meta 401 envelopes match the
+adapters); OpenAI/Anthropic data terms verified from official pages;
+all three Modal specs import cleanly; gateway sync gate green (56
+passed); family-creds isolation, route synthesis, tested_at, and
+database-optional paths covered by new tests (async ones run in CI —
+this sandbox cannot create an event loop). Nothing was deployed from
+here: the Modal CLI needs asyncio, which this sandbox blocks, so every
+`modal` command below is **[YOU]** (or the `modal-deploy` workflow).
+
 **[YOU]**: `modal setup` (browser sign-in), Neon/Supabase signup + connection
 string, Meta key, the two `modal deploy` runs, the curl checks, and the APK
-install. Nothing is deployed until you run those commands.
+install — plus §8 (hosted model secrets + staging ladder) for real online
+AI. Nothing is deployed until you run those commands.
 
 ## 7. Verification appendix (agent-run, 28 Oct 2026)
 
@@ -292,3 +305,123 @@ Results (measured, not claimed):
   `pathlib` + explicit UTF-8 (identical behaviour on Linux CI).
 - **No deployment exists yet**: nothing was pushed, no secret created, no
   `modal deploy` run. The first deploy is yours (§4.1).
+
+## 8. Hosted open-weight model + staging (added 29 Oct 2026)
+
+Milo's own model runs as a **separate** Modal app so the working gateway is
+never at risk during verification. Three apps, three secrets, in deploy
+order:
+
+| # | Modal app | Source | Secrets it reads | Serves |
+|---|-----------|--------|------------------|--------|
+| 1 | `milo-models` | `gateway/modal_models.py` | `milo-models` (`VLLM_API_KEY`) | Qwen3-4B-Instruct-2507 (Apache 2.0, pinned rev) on one T4, OpenAI-compatible `/v1/*`, key-gated |
+| 2 | `milo-gateway-staging` | `gateway/modal_staging.py` | `milo-gateway-staging` + `milo-models-client` | full gateway, `REASONING_PROVIDER=modal`, `MODAL_FALLBACK=false`, scale-to-zero |
+| 3 | `milo-gateway` (prod) | `gateway/modal_app.py` | `milo-gateway` (UNCHANGED) + `milo-models-client` + `milo-gateway-switches` | same, after staging verifies |
+
+Model choice (researched 2026-10-29, verified against huggingface.co):
+Qwen3-4B-Instruct-2507 — Apache 2.0, ungated (no HF token), 4B params
+(~8 GB bf16, fits the T4's 16 GB with KV headroom), instruction-tuned,
+vLLM-supported. Qwen2.5-VL was rejected (research-only license);
+Gemma-3-4B-it is the documented multimodal upgrade (gated: accept terms +
+`HF_TOKEN` in `milo-models`). Qwen3 thinking mode is switched off per
+request (short structured turns; halves GPU burn). Live GPU rates §4.3.
+
+### 8.1 [YOU] Secrets (Modal dashboard or CLI, one time)
+
+Dashboard path (no CLI needed): modal.com → your workspace → Secrets →
+**New secret**, name + key/values exactly:
+
+- `milo-models`: `VLLM_API_KEY` = 64+ random chars you generate
+  (PowerShell: `[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }))`).
+  Optional later: `HF_TOKEN` (only for gated models like Gemma).
+- `milo-models-client`: `MODAL_MODELS_URL` = the `milo-models` endpoint URL
+  from step 8.2 (looks like
+  `https://<workspace>--milo-models-serve.us-east.modal.run`),
+  `MODAL_MODELS_KEY` = the SAME `VLLM_API_KEY` value.
+- `milo-gateway-staging`: `ENV=dev`, `PROVIDER=mock`,
+  `REASONING_PROVIDER=modal`, `MODAL_FALLBACK=false`, `JWT_SECRET` (48+
+  random), `KEY_ENC_SECRET` (48+ random),
+  `SPEND_BACKEND=modal_dict`, `SPEND_DICT_NAME=milo-spend-staging`,
+  `DATABASE_URL=` (leave empty to exercise database-optional chat, or a
+  throwaway Postgres URL to also test vault/sync).
+- `milo-gateway-switches` (prod only): `REASONING_PROVIDER=modal`,
+  `MODAL_FALLBACK=true`. Keeps the `milo-gateway` secret byte-identical —
+  create this before the first production deploy that uses hosted
+  reasoning.
+
+CLI equivalents (from the repo root, after `modal setup`):
+
+```cmd
+modal secret create milo-models VLLM_API_KEY=<64+ random chars>
+modal secret create milo-models-client MODAL_MODELS_URL=<models URL> MODAL_MODELS_KEY=<same key>
+modal secret create milo-gateway-staging ENV=dev PROVIDER=mock REASONING_PROVIDER=modal MODAL_FALLBACK=false JWT_SECRET=<48+ random> KEY_ENC_SECRET=<48+ random> SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
+```
+
+Or deploy via GitHub instead of local CLI: add repository secrets
+`MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET` (from `modal token new` on your
+machine), then Actions → `modal-deploy` → Run workflow → target
+`models`, then `staging`. Production additionally requires typing
+`DEPLOY-PROD` and only passes with green gateway tests.
+
+### 8.2 [YOU] Deploy in order, verify each step (staging first)
+
+```cmd
+modal deploy gateway/modal_models.py
+for /f "tokens=*" %u in ('modal app list') do @echo %u   :: find the milo-models-serve URL
+modal run gateway/modal_models.py url=<models URL> key=<VLLM_API_KEY>
+```
+
+`modal run` polls `/health` through the cold start, then asserts a
+genuine keyed chat completion AND streamed chunks — this is the line
+between "health 200" and "real model". Unauthenticated `/health` 200
+alone proves nothing about inference.
+
+```cmd
+modal deploy gateway/modal_staging.py
+```
+
+### 8.3 [YOU] Staging verification ladder (PowerShell)
+
+Run against the **staging** URL (from `modal app list`). Each step must
+pass before the next; anything failing here must never reach prod.
+
+```powershell
+$B = 'https://<workspace>--milo-gateway-staging-web.us-east.modal.run'
+# 1. Health reports the hosted model honestly (not mock-as-hosted)
+(Invoke-RestMethod "$B/v1/health") | ConvertTo-Json
+# expect: reasoning_provider=modal, reasoning_model=Qwen/Qwen3-4B-Instruct-2507,
+#         vault_available=false (empty DATABASE_URL), spend_backend=modal_dict
+# 2. Session + genuine streaming turn (mock suite would answer instantly with scripted text)
+$tok = (Invoke-RestMethod -Method Post "$B/v1/session" -Body '{"install_id":"aaaaaaaaaaaaaaaaaaaa","app_version":"1.0.0","platform":"android"}' -ContentType 'application/json').token
+$body = '{"presentation":"playful","text":"Why is the sky blue? Answer in one short sentence.","activity":"chat"}'
+Invoke-RestMethod -Method Post "$B/v1/brain/turn" -Headers @{Authorization="Bearer $tok"} -Body $body -ContentType 'application/json' -TimeoutSec 240
+# expect: SSE risk/body/say events with a FRESH one-sentence answer and
+#         done.provider=modal — first turn takes minutes (GPU cold start), later turns seconds
+# 3. Hosted outage fails loudly (staging has no suite fallback)
+#    Stop the models app (dashboard or: modal app stop milo-models), repeat step 2,
+#    expect an SSE error event (provider_error/unreachable) — NOT scripted mock text.
+#    Then redeploy it: modal deploy gateway/modal_models.py
+# 4. Budget guard still bites (memory/modal_dict ledger, same code path)
+#    covered by CI (test_budget_units.py); spot-check /v1/health budget_ok flips after heavy use
+```
+
+Telling the three apart: `done.provider` says which engine answered
+(`mock` = scripted demo, `modal` = the hosted GPU, `meta`/`openai`/… =
+that vendor). Health 200 with `reasoning_provider=mock` is NOT hosted
+inference; a `modal` turn with a fresh, prompt-specific answer is.
+
+### 8.4 [YOU] Promote to production (only after 8.3 is green)
+
+1. Confirm staging shows real `modal` turns, loud hosted-outage errors,
+   and honest `vault_available=false`.
+2. Create the `milo-gateway-switches` secret (§8.1). The `milo-gateway`
+   secret itself stays byte-identical.
+3. Deploy prod (code only): `modal deploy gateway/modal_app.py`, or the
+   `modal-deploy` workflow with target `gateway-prod` + typed
+   confirmation.
+4. Re-run the §8.3 ladder against the production URL and confirm
+   `reasoning_provider=modal`, `vault_available=true` (prod keeps its
+   Postgres), `spend_backend=postgres`.
+5. Rollback (hosted model misbehaving): remove `REASONING_PROVIDER` from
+   `milo-models-client` and redeploy — text falls back to the suite with
+   zero code changes. Full rollback: redeploy the previous git SHA (§4.3).

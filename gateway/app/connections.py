@@ -5,6 +5,7 @@ existing Fernet scheme, never returned, and redacted from logs.
 """
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -27,7 +28,9 @@ DEFAULT_BASE_URLS = {"openai": "https://api.openai.com/v1", "anthropic": "https:
 
 
 def _adapter(provider: str):
-    if provider not in adapter_ids() or provider == "mock":
+    # modal is deployer-only (hosted GPU spend is always the deployer's);
+    # mock is not a real vendor. Neither accepts family connections.
+    if provider not in adapter_ids() or provider in ("mock", "modal"):
         raise HTTPException(422, {"error": "unknown_provider"})
     return get_adapter(provider)
 
@@ -130,7 +133,8 @@ async def test_connection(provider: str, body: ProbeReq, request: Request, vid: 
         log.info("probe failed", extra={"kind": "connections", "prov": provider, "err": e.code})
         raise HTTPException(e.status, {"error": e.code})
     if probe.ok:
-        caps = {model: {"strategy": probe.strategy, "ttfb_ms": probe.ttfb_ms, "checks": probe.checks}}
+        caps = {model: {"strategy": probe.strategy, "ttfb_ms": probe.ttfb_ms, "checks": probe.checks,
+                         "tested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}}
         await vaultstore.save_caps(request.app.state.engine, vid, provider, caps)
     out = probe.as_dict()
     out["echo_safe"] = redact(str(out), [key] if key else []) == str(out)

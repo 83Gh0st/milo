@@ -31,6 +31,7 @@ _LOADERS = {"meta": ("app.providers.meta_adapter", "MetaAdapter"),
             "openai": ("app.providers.openai_compat", "OpenAICompatAdapter"),
             "anthropic": ("app.providers.anthropic", "AnthropicAdapter"),
             "custom": ("app.providers.openai_compat", "OpenAICompatAdapter"),
+            "modal": ("app.providers.modal_hosted", "ModalAdapter"),
             "mock": ("app.providers.mock_adapter", "MockAdapter")}
 _CACHE = {}
 

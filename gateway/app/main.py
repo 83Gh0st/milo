@@ -30,12 +30,18 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
 
     @asynccontextmanager
     async def lifespan(app):
-        eng = make_engine(s.database_url)
-        async with eng.begin() as c:
-            await c.run_sync(md.create_all)
-        app.state.engine, app.state.budget = eng, Budget(eng, s.daily_budget_usd, s.monthly_budget_usd)
+        # Database-optional: without DATABASE_URL the engine stays None and
+        # the vault/sync/visual-cache endpoints answer honestly unavailable,
+        # while chat, plans, auth, and rate limits work (spend ledger falls
+        # back per SPEND_BACKEND, with ephemeral ceilings when in-memory).
+        eng = make_engine(s.database_url) if (s.database_url or "").strip() else None
+        if eng is not None:
+            async with eng.begin() as c:
+                await c.run_sync(md.create_all)
+        app.state.engine, app.state.budget = eng, Budget.for_settings(s, eng)
         yield
-        await eng.dispose()
+        if eng is not None:
+            await eng.dispose()
 
     prod = s.env == "prod"
     app = FastAPI(title="Milo Gateway", version="1.0.0", lifespan=lifespan, docs_url=None if prod else "/docs", redoc_url=None, openapi_url=None if prod else "/openapi.json")
@@ -63,6 +69,9 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
         adapters[pid] = get_adapter(pid)
     if s.provider != "mock":
         adapters["mock"] = get_adapter("mock")
+    modal_ready = bool(s.modal_models_url.strip() and s.modal_models_key.strip())
+    if modal_ready:
+        adapters["modal"] = get_adapter("modal")
     app.state.adapters = adapters
     if s.provider == "mock":
         one = [RouteEntry("mock", "mock")]
@@ -71,8 +80,19 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
         app.state.default_routes = {"brain": [RouteEntry("meta", s.spark_model)], "understand": [RouteEntry("meta", s.spark_model)],
                                     "plan": [RouteEntry("meta", s.spark_model)], "compose": [RouteEntry("meta", s.spark_model)],
                                     "visual": [RouteEntry("meta", s.image_model)], "stt": [RouteEntry("meta", s.voice_model)], "tts": []}
+    if s.reasoning_provider == "modal" and modal_ready:
+        # Hosted vLLM serves the text capabilities; image/voice stay on the
+        # suite. Fallback to the suite entry is configurable: staging sets
+        # MODAL_FALLBACK=false so hosted outages fail loudly instead of
+        # silently testing the suite.
+        first = [RouteEntry("modal", s.modal_model)]
+        for cap in ("brain", "understand", "plan", "compose"):
+            suite = app.state.default_routes.get(cap) or []
+            app.state.default_routes[cap] = first + (suite if s.modal_fallback else [])
     app.state.router = Router(adapters, app.state.default_routes)
     app.state.deployer_creds = {"meta": Creds(base_url=s.meta_base_url, api_key=s.model_api_key)} if s.provider == "meta" else {}
+    if modal_ready:
+        app.state.deployer_creds["modal"] = Creds(base_url=s.modal_models_url.rstrip("/"), api_key=s.modal_models_key)
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
