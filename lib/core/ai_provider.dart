@@ -21,10 +21,8 @@ Future<void> setAiChoice(MiloDb db, AiChoice c) =>
 
 /// One honest line per choice for settings surfaces.
 String aiChoiceWords(AiChoice c) => switch (c) {
-      AiChoice.miloHosted:
-        'Milo hosted — Milo’s server does the thinking. '
-            'Works without sync.',
-      AiChoice.family:
-        'Family AI — your own provider accounts, billed by '
-            'your providers. Needs sync.',
+      AiChoice.miloHosted => 'Milo hosted — Milo’s server does the thinking. '
+          'Works without sync.',
+      AiChoice.family => 'Family AI — your own provider accounts, billed by '
+          'your providers. Needs sync.',
     };
