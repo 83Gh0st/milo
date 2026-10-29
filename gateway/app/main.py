@@ -33,7 +33,7 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
         eng = make_engine(s.database_url)
         async with eng.begin() as c:
             await c.run_sync(md.create_all)
-        app.state.engine, app.state.budget = eng, Budget(eng, s.daily_budget_usd)
+        app.state.engine, app.state.budget = eng, Budget(eng, s.daily_budget_usd, s.monthly_budget_usd)
         yield
         await eng.dispose()
 

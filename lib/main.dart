@@ -84,7 +84,14 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
     if (d.breakNudgeMin > 0 && DateTime.now().difference(_started).inMinutes >= d.breakNudgeMin && !d.quiet) { _started = DateTime.now(); d.speak('Would you like a little break?'); d.set(() => d.choices = ['Take a break', 'Keep going']); }
   }
   @override
-  void didChangeAppLifecycleState(AppLifecycleState s) { if (s == AppLifecycleState.resumed) { _sync(); ref.read(ladderProvider.notifier).refresh(); } }
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) {
+      _sync();
+      ref.read(ladderProvider.notifier).refresh();
+    } else if (s == AppLifecycleState.paused || s == AppLifecycleState.inactive || s == AppLifecycleState.detached) {
+      ref.read(directorProvider).cancelSpeech(); // backgrounding never leaves speech or the speaking state hanging
+    }
+  }
   @override
   void dispose() { WidgetsBinding.instance.removeObserver(this); _syncT?.cancel(); _nudgeT?.cancel(); _tk.dispose(); super.dispose(); }
 

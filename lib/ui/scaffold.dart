@@ -25,12 +25,18 @@ String ladderWords(Ladder l) => switch (l) {
     };
 
 // ---- presence widgets: size from available space ----
-/// Stage Milo: 38–45% of content height (min 220, max 440 dp on phones).
+/// Stage Milo: ~40% of content height on roomy screens, less on short ones so
+/// the first action card stays visible without scrolling (min 200, max 400).
 class MiloStage extends StatelessWidget {
   const MiloStage({super.key});
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (c, bc) {
-        final h = bc.hasBoundedHeight ? (bc.maxHeight * .42).clamp(220.0, 440.0).toDouble() : (MediaQuery.sizeOf(c).height * .35).clamp(220.0, 440.0).toDouble();
+        if (bc.hasBoundedHeight) {
+          final h = (bc.maxHeight * .42).clamp(200.0, 400.0).toDouble();
+          return SizedBox(height: h, child: const MiloView(lod: MiloLod.full));
+        }
+        final mh = MediaQuery.sizeOf(c).height;
+        final h = (mh * (mh < 700 ? .30 : .35)).clamp(200.0, 400.0).toDouble();
         return SizedBox(height: h, child: const MiloView(lod: MiloLod.full));
       });
 }

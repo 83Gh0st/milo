@@ -15,8 +15,14 @@ Milo is two deployable pieces plus an optional sync channel:
    character, board, memory, TTS
 ```
 * **Frontend** (`/lib`, Flutter): works offline for the board, routines, memory, read-aloud and all animation.
-* **Backend** (`/gateway`, FastAPI): the only place the Meta key lives. Stateless for user content. Stores only opaque encrypted sync blobs.
+* **Backend** (`/gateway`, FastAPI): the only place the deployer key lives. Stateless for user content. Stores only opaque encrypted sync blobs.
 * **Cloud sync** is optional, end-to-end encrypted, and a separate permission from cloud AI (see `SYNC_DESIGN.md`).
+* **AI choice:** Milo hosted (the gateway's model, no sync needed) or the
+  family's own providers (Trusted adult → AI connections; needs sync as the
+  family identity). See `BYOK.md` and `lib/core/ai_provider.dart`.
+* **Releases:** `RELEASE.md` (Android + iOS builds, signing, TestFlight),
+  `VOICE_CHECKLIST.md` (speech lifecycle + device checks), `MODAL.md`
+  (serverless hosting + cost controls).
 
 ## 0. Prerequisites
 | Need | For | Notes |

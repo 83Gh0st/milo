@@ -95,16 +95,24 @@ class PlatformVoice extends VoiceOutput {
     }
   }
 
+  /// Speaks one sentence on the phone's TTS engine. Throws [VoicePlayFailed]
+  /// when there is no engine or the platform call fails, so the Director can
+  /// shut the mouth and return to idle instead of mouthing silence. Empty
+  /// text is a no-op success (nothing to say is not a failure).
   @override
   Future<void> speakSentence(String text,
       {double pitch = 1, double rate = 1, String lang = 'en', String profile = '', Map<String, String> style = const {}, void Function(double)? onMouth}) async {
+    if (text.trim().isEmpty) return;
     _events.add(const VoiceEvent(VoiceEventKind.started));
     try {
-      await _tts?.setPitch(pitch);
-      await _tts?.setSpeechRate(rate);
-      await _tts?.speak(text);
-    } catch (_) {
+      final tts = _tts;
+      if (tts == null) throw StateError('no tts engine');
+      await tts.setPitch(pitch);
+      await tts.setSpeechRate(rate);
+      await tts.speak(text);
+    } catch (e) {
       _events.add(const VoiceEvent(VoiceEventKind.failed, error: 'platform_tts_failed'));
+      throw VoicePlayFailed(e);
     }
     _events.add(const VoiceEvent(VoiceEventKind.ended));
   }
@@ -353,6 +361,7 @@ class VoiceRouter {
   VoiceEngineMode mode = VoiceEngineMode.auto;
   bool Function() onlineAllowed = () => true; // wired to ladder==full && cloud on
   String engineInUse = 'platform'; // Lab readout
+  int _rgen = 0; // stopNow invalidates in-flight speakAll loops: platform TTS has no per-utterance id, so a stopped loop must not speak its remaining sentences over the new turn
 
   static String voiceIdFor(String lang) => 'milo_warm_${const ['en', 'hi', 'ml'].contains(lang) ? lang : 'en'}';
 
@@ -361,7 +370,10 @@ class VoiceRouter {
   /// Speaks every sentence in order. Returns a notice code when neural
   /// failed and platform covered (`online_voice_failed`,
   /// `online_voice_unavailable`), else null. At most one notice per call;
-  /// platform-covered sentences are never repeated.
+  /// platform-covered sentences are never repeated. Throws [VoiceCancelled]
+  /// when [stopNow] interrupted the loop, and [VoicePlayFailed] when the
+  /// platform engine itself failed (no engine, platform error): the caller
+  /// must treat that as "nothing was heard" and shut the mouth.
   Future<String?> speakAll(List<({String text, int wordOffset})> sentences,
       {required double pitch, required double rate, double pace = 1, String lang = 'en', String? tone, bool readAloud = false, bool aac = false, void Function(double)? onMouth, Future<void> Function(String sentence)? onSentence}) async {
     var useNeural = switch (mode) {
@@ -370,9 +382,11 @@ class VoiceRouter {
       VoiceEngineMode.auto => neuralReady,
     } && !readAloud && !aac;
     engineInUse = useNeural ? 'neural' : 'platform';
+    final rg = _rgen;
     String? notice;
     if (sentences.isNotEmpty && mode == VoiceEngineMode.online && !neuralReady && !readAloud && !aac) notice = 'online_voice_unavailable';
     for (var i = 0; i < sentences.length; i++) {
+      if (rg != _rgen) throw const VoiceCancelled(); // stopped mid-loop: never speak the rest over the new turn
       final s = sentences[i];
       if (useNeural) {
         try {
@@ -393,13 +407,20 @@ class VoiceRouter {
           await neural.stopNow(); // drain prefetches: nothing neural may play over platform
         } // fetch failed: platform speaks this one + the rest
       }
-      await platform.speakSentence(s.text, pitch: pitch, rate: rate);
+      try {
+        await platform.speakSentence(s.text, pitch: pitch, rate: rate);
+      } on VoiceCancelled {
+        rethrow;
+      } catch (e) {
+        throw VoicePlayFailed(e); // platform is the last fallback: nothing left to try
+      }
       await onSentence?.call(s.text);
     }
     return notice;
   }
 
   Future<void> stopNow() async {
+    _rgen++;
     await neural.stopNow();
     await platform.stopNow();
   }

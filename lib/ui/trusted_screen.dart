@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/ai_provider.dart';
 import '../core/providers.dart';
 import '../net/api.dart';
 import 'privacy_screens.dart';
@@ -136,7 +137,7 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
     if (vh == null || !mounted) return;
     try {
       final st = await api.listConnections(vh['X-Vault-Id']!, vh['X-Vault-Key']!);
-      final flag = await db.get('ai.family_key');
+      final flag = await aiChoice(db) == AiChoice.family ? 'family' : '';
       if (!mounted) return;
       final routes = Map<String, dynamic>.from(st['routes'] as Map? ?? {});
       for (final (cap, _) in kRouteCaps) {
@@ -144,7 +145,7 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
         primary[cap] = es.isEmpty ? null : '${es[0]['provider']}/${es[0]['model']}';
         fallback[cap] = es.length < 2 ? null : '${es[1]['provider']}/${es[1]['model']}';
       }
-      setState(() { conns = st; useFamily = (flag ?? '').isNotEmpty; error = null; });
+      setState(() { conns = st; useFamily = flag.isNotEmpty; error = null; });
     } catch (e) { if (mounted) setState(() => error = connWords(e)); }
   }
 
@@ -190,9 +191,11 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
         BigButton('Back', () => Navigator.pop(context), kind: BK.soft)]
       else if (syncOn == null || useFamily == null || conns == null) ...[const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))]
       else ...[
-        Card(child: SwitchListTile(title: const Text('Use our family AI', style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(useFamily! ? 'Milo bills your accounts' : 'When off, Milo uses the shared key'),
-            value: useFamily!, onChanged: _list.isEmpty && useFamily == false ? null : (v) async { await db.put('ai.family_key', v ? 'family' : ''); setState(() => useFamily = v); })),
+        const Section('Who does Milo think with?'),
+        Card(child: SwitchListTile(title: const Text('Our family AI', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(useFamily! ? 'On: Milo bills your accounts' : 'Off: Milo hosted does the thinking (recommended, no sync needed)'),
+            value: useFamily!, onChanged: _list.isEmpty && useFamily == false ? null : (v) async { await setAiChoice(db, v ? AiChoice.family : AiChoice.miloHosted); setState(() => useFamily = v); })),
+        const _HostedStatus(),
         const Section('Providers'),
         for (final (id, name) in kConnProviders)
           Card(child: ListTile(leading: Icon(_conn(id) == null ? Icons.key_off : Icons.key, color: T.pri),
@@ -214,6 +217,27 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
         if (error != null) Padding(padding: const EdgeInsets.all(12), child: Text(error!, style: const TextStyle(color: T.coral))),
       ],
     ]));
+  }
+}
+
+/// Read-only status of the Milo-hosted path: which gateway provider build is
+/// answering and whether its budget is spent. Display only — it never claims
+/// AI works; a real turn or Test connection proves that.
+class _HostedStatus extends ConsumerWidget {
+  const _HostedStatus();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final check = ref.watch(connectionCheckProvider);
+    Widget line(String s) => Text(s, style: const TextStyle(fontSize: 13, color: T.mute));
+    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Milo hosted', style: TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 4),
+      ...check.when(
+        data: (s) => [line(s.provider == null ? 'Unreachable right now.' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used — resting.'}')],
+        loading: () => [line('Checking…')],
+        error: (_, __) => [line('Unreachable right now.')],
+      ),
+    ])));
   }
 }
 

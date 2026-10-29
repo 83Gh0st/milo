@@ -33,7 +33,8 @@ def cost_chat(s, u: Usage) -> float:
 async def budget_guard(request: Request):
     if request.headers.get("x-vault-id"):
         return  # family-keyed calls spend the family's quota, not the deployer's (per-request auth still applies)
-    if not await request.app.state.budget.ok():
+    b = request.app.state.budget
+    if not await b.ok() or not await b.month_ok():
         raise HTTPException(503, {"error": "budget_exhausted"})
 
 
@@ -48,7 +49,7 @@ async def session(req: SessionReq, request: Request):
 async def health(request: Request):
     st = request.app.state
     return {"status": "ok", "provider": st.settings.provider, "models": {"reasoning": st.settings.spark_model, "voice": st.settings.voice_model, "image": st.settings.image_model},
-            "budget_ok": await st.budget.ok(), "brain_mode": st.settings.brain_mode}
+            "budget_ok": await st.budget.ok(), "budget_month_ok": await st.budget.month_ok(), "brain_mode": st.settings.brain_mode}
 
 
 def _peek_lines(st, ctx, cap, need=None) -> bool:
@@ -292,7 +293,7 @@ async def voice(ws: WebSocket):
             await ws.send_json({"type": "error", "code": e.detail.get("error", "bad_vault") if isinstance(e.detail, dict) else "bad_vault"})
             await ws.close()
             return
-    if ctx is None and not await st.budget.ok():
+    if ctx is None and (not await st.budget.ok() or not await st.budget.month_ok()):
         await ws.send_json({"type": "error", "code": "budget_exhausted"})
         await ws.close()
         return

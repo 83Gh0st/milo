@@ -12,6 +12,7 @@ import '../data/secure_store.dart';
 import '../net/api.dart';
 import '../net/voice.dart';
 import '../sync/sync_service.dart';
+import 'ai_provider.dart';
 import 'memory.dart';
 import 'payload.dart';
 import 'pocket_brain.dart';
@@ -23,8 +24,8 @@ final dbProvider = Provider<MiloDb>((_) => throw UnimplementedError('override in
 final Provider<MiloApi> apiProvider = Provider((ref) {
   final api = MiloApi(ref.read(dbProvider), ref.read(storeProvider));
   api.vaultAuth = () async {
-    // Family-keyed inference only when the trusted adult switched it on AND sync (the family identity) is on.
-    if ((await ref.read(dbProvider).get('ai.family_key'))?.isNotEmpty != true) return {};
+    // Family-keyed inference only when the trusted adult chose family AI AND sync (the family identity) is on.
+    if (await aiChoice(ref.read(dbProvider)) != AiChoice.family) return {};
     return await ref.read(syncProvider).vaultHeaders() ?? {};
   };
   return api;

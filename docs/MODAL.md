@@ -179,6 +179,20 @@ by `gateway/scripts/smoke_providers.py` with `MILO_SMOKE_META_KEY` set.
 
 ### 4.3 Logs, rollback, teardown, cost
 
+**Cost estimate (verify before relying on it).** Third-party summaries of
+`modal.com/pricing` (June 2026) quote Modal Functions CPU at about
+$0.0000131/physical-core/second (minimum 0.125 cores per container) plus
+~$0.00000222/GiB/second of memory. One minimum-size warm container
+(`min_containers=1`, the shipped setting) is therefore on the order of **$5
+per month** of Modal credit — the $100 grant covers many months of hosting.
+The variable cost is vendor inference (your Meta key), bounded by
+`DAILY_BUDGET_USD` (default 20) + `MONTHLY_BUDGET_USD` (default 100), and by
+`max_containers=1` (the gateway can never scale out). This agent cannot see
+your Modal balance: check it at modal.com → your workspace → Usage, and
+confirm the live rates on modal.com/pricing. To stretch credit to the
+maximum, set `min_containers=0` (cold starts on first use) and lower the two
+budget envs in the `milo-gateway` secret.
+
 ```cmd
 modal app logs milo-gateway              :: tail structured JSON logs (no prompt/response text by design)
 modal app logs milo-gateway --help       :: time-range / follow options
@@ -197,9 +211,13 @@ modal secret list                        :: confirm the secret exists (values ne
 - **Cost knobs:** `min_containers=1` in `modal_app.py` keeps one warm
   container (instant answers, spends credit 24/7); set it to `0` to pay only
   per request at the cost of cold starts. `DAILY_BUDGET_USD` (secret env,
-  default 20) caps deployer-path vendor spend per UTC day; family keys spend
+  default 20) caps deployer-path vendor spend per UTC day and
+  `MONTHLY_BUDGET_USD` (default 100) caps it per UTC month; both return
+  `budget_exhausted` (the app rests honestly) when spent. Family keys spend
   the family's quota, never yours. Check current Modal CPU pricing on
-  modal.com/pricing before leaving `min_containers=1` for weeks.
+  modal.com/pricing before leaving `min_containers=1` for weeks, and watch
+  spend at modal.com → your workspace → Usage (the $100 grant balance shows
+  there; this agent cannot see your account).
 
 ## 5. Flutter wiring (no code change, no hardcoded URL)
 
