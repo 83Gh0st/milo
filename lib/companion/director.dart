@@ -659,8 +659,11 @@ class Director extends ChangeNotifier {
         : [(text: norm, wordOffset: 0)];
     if (parts.isEmpty) return;
     final gen = ++_gen;
-    await voice.stopNow(); // no overlapping speech: the previous utterance ends before this one starts
-    if (gen != _gen) return; // superseded while stopping: the newer request owns everything
+    // Claim the speaking state synchronously (before the first await) so
+    // envelope feeds for this generation are accepted the moment speak()
+    // is called. The stop + gen check below still serialize overlaps, and
+    // the mouth itself only moves on genuine audio signals (started/word
+    // events or non-silent envelope feeds), never on the claim alone.
     _words = RegExp(r'\S+').allMatches(norm).toList();
     _onWord = onWord;
     _gotP = false;
@@ -670,6 +673,14 @@ class Director extends ChangeNotifier {
     if (aac) clips.clear(); // AAC speech stays neutral: clarity first, no performance
     final fallback = (state == CState.listening || state == CState.endpointing) ? CState.listening : CState.idle;
     _set(CState.speaking);
+    var stopped = true;
+    try {
+      await voice.stopNow(); // no overlapping speech: the previous utterance ends before this one starts
+    } catch (_) {
+      stopped = false;
+    }
+    if (gen != _gen) return; // superseded while stopping: the newer request owns everything
+    if (!stopped) { _cleanupSpeech(fallback); return; } // stop failed: fail closed, never stuck speaking
     await _watchVoice(gen); // stale platform callbacks for [gen] only; older utterances are dropped
     if (gen != _gen) return;
     _antic = aac || quiet ? 0 : .15;

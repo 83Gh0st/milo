@@ -10,3 +10,6 @@ smoke_report.json
 analysis_options.zip
 .venv*/
 pip-*/
+# Local Flutter SDK for verification runs (large, machine-specific).
+.sdk-probe/
+

@@ -87,8 +87,10 @@ void tickN(Director d, int n) {
 const genGoldens = bool.fromEnvironment('MILO_GEN_GOLDENS');
 
 Future<void> maybeGolden(WidgetTester t, String name) async {
-  final f = File('test/goldens/$name');
-  if (await f.exists() || genGoldens) {
+  // Real dart:io never completes inside the fake-async test zone: without
+  // runAsync this await hangs the test until its timeout.
+  final exists = await t.runAsync(() => File('test/goldens/$name').exists()) ?? false;
+  if (exists || genGoldens) {
     await expectLater(
         find.byType(MiloView), matchesGoldenFile('goldens/$name'));
   } else {
