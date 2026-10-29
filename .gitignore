@@ -8,3 +8,5 @@ __pycache__/
 .env
 smoke_report.json
 analysis_options.zip
+.venv*/
+pip-*/

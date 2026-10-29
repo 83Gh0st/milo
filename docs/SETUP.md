@@ -87,6 +87,14 @@ docker run --rm -p 8000:8000 -e PROVIDER=mock -e JWT_SECRET=PASTE_48_RANDOM_CHAR
 then (a) or (b) above. (Compose file verified by reading 28 Oct 2026;
 containers not run here — no Docker in this environment.)
 
+## 1c. Gateway on Modal (serverless, no PC needed)
+
+To run the gateway without Docker or a PC that stays on, deploy the same
+code to Modal: see **`docs/MODAL.md`** (security audit, Windows `cmd`
+runbook, secrets, health checks, rollback, teardown). The Flutter side needs
+no code change — build the APK with
+`--dart-define=API_BASE=https://<your-modal-url>` per `MODAL.md` §5.
+
 ## 2. Gateway, real Meta models (26 Oct onward)
 ```bash
 cd gateway && cp .env.example .env

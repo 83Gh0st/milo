@@ -247,7 +247,9 @@ class ConnStatus {
 /// Maps a health payload or an ApiError code to one honest sentence. Pure: unit-tested.
 String connectionWords({required Map<String, dynamic>? health, required String? error}) {
   if (health != null) {
-    if (health['status'] == 'ok' && health['budget_ok'] == true) return 'Connected. Milo can think in the cloud.';
+    // Gateway health only: the provider itself is verified by a real turn
+    // (which demotes the ladder on failure) or AI connections → Test connection.
+    if (health['status'] == 'ok' && health['budget_ok'] == true) return 'Connected to Milo\u2019s server. AI providers are verified when Milo answers, or via AI connections \u2192 Test connection.';
     if (health['status'] == 'ok') return 'Connected, but the thinking cloud is resting (daily budget used). Everything on this phone still works.';
     return 'The server answered but looks unwell (status ${health['status']}). Try again in a bit.';
   }

@@ -1,4 +1,5 @@
 import base64, json, logging, re
+from pathlib import Path
 import httpx, pytest
 from starlette.testclient import TestClient
 from conftest import events, mk, token
@@ -144,7 +145,7 @@ def test_crisis_and_no_new_content():
 
 
 def test_dart_and_python_contracts_agree():
-    dart = open(__file__.replace("gateway/tests/test_gateway.py", "lib/contracts/brain_contract.dart")).read()
+    dart = (Path(__file__).resolve().parents[2] / "lib" / "contracts" / "brain_contract.dart").read_text(encoding="utf-8")
     from app.contract import C
     for name, key in (("kEmotions", "emotions"), ("kGestures", "gestures"), ("kScreens", "screens"), ("kRisks", "risks"), ("kActions", "ui_actions")):
         m = re.search(name + r" = \[(.*?)\];", dart, re.S)

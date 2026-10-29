@@ -41,7 +41,7 @@ void main() {
   });
 
   testWidgets('connection row shows canned health and server address', (t) async {
-    const st = ConnStatus(apiBase: 'http://127.0.0.1:8000', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected. Milo can think in the cloud.');
+    const st = ConnStatus(apiBase: 'http://127.0.0.1:8000', ok: true, provider: 'mock', brainMode: 'json', budgetOk: true, words: 'Connected to Milo\u2019s server. AI providers are verified when Milo answers, or via AI connections \u2192 Test connection.');
     await t.pumpWidget(ProviderScope(overrides: [connectionCheckProvider.overrideWith((_) => Future.value(st))],
         child: const MaterialApp(home: Scaffold(body: ConnectionCheckRow()))));
     await t.pumpAndSettle();

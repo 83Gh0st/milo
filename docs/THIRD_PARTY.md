@@ -41,6 +41,12 @@ No new Flutter dependencies in Phases 0–2. The audio-playback package for
 FastAPI/uvicorn/pydantic/httpx/pytest stack plus `openai` SDK (all
 MIT/Apache-2.0/BSD, pre-existing). No new gateway dependencies in Phases 0–2.
 
+## Deployment tooling (not shipped in the app)
+
+| Package | Version | Licence | Notes |
+|---|---|---|---|
+| modal (PyPI client + CLI) | 1.6.3 (PyPI, 28 Oct 2026) | Apache-2.0 (modal-labs/modal-client) | dev/deploy tooling only: builds the serverless image and runs `modal deploy` for `gateway/modal_app.py`. Not a runtime dependency of the gateway or the app. Modal compute itself is a paid service — the workspace's $100 grant covers it; see `docs/MODAL.md` §4.3 for cost knobs. |
+
 ## Fonts (assets/fonts, OFL licence texts shipped alongside)
 
 Lexend, Atkinson Hyperlegible, OpenDyslexic — all SIL Open Font License 1.1
