@@ -5,3 +5,4 @@ analyzer:
   exclude:
     - build/**
     - android/**
+    - web/**

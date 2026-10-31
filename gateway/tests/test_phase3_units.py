@@ -116,7 +116,9 @@ def test_egress_dev_lan_opt_in():
 def test_policies_require_ack_until_reviewed():
     meta = datapolicy.POLICIES["meta"]
     assert datapolicy.needs_ack(meta) and meta.checked_on == "unverified"  # standard-model retention still unverified
-    for pid in ("openai", "anthropic", "modal"):
+    modal = datapolicy.POLICIES["modal"]
+    assert datapolicy.needs_ack(modal) and modal.checked_on == "unverified"  # Shared Endpoint terms not yet reviewed
+    for pid in ("openai", "anthropic"):
         p = datapolicy.POLICIES[pid]
         assert not datapolicy.needs_ack(p) and p.checked_on != "unverified" and p.source_url
     assert not datapolicy.needs_ack(datapolicy.POLICIES["mock"])

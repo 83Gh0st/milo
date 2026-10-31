@@ -81,7 +81,7 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
                                     "plan": [RouteEntry("meta", s.spark_model)], "compose": [RouteEntry("meta", s.spark_model)],
                                     "visual": [RouteEntry("meta", s.image_model)], "stt": [RouteEntry("meta", s.voice_model)], "tts": []}
     if s.reasoning_provider == "modal" and modal_ready:
-        # Hosted vLLM serves the text capabilities; image/voice stay on the
+        # Hosted Muse Spark serves the text capabilities; image/voice stay on the
         # suite. Fallback to the suite entry is configurable: staging sets
         # MODAL_FALLBACK=false so hosted outages fail loudly instead of
         # silently testing the suite.

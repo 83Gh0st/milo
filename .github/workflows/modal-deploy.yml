@@ -3,8 +3,10 @@ name: modal-deploy
 # explicit typed confirmation AND passing gateway tests in the same run.
 # Needs GitHub secrets MODAL_TOKEN_ID + MODAL_TOKEN_SECRET (from `modal
 # token new` on your machine — paste the values, never commit them).
-# This workflow never touches the milo-gateway Modal secret: models and
-# staging use their own secrets, created once (see docs/MODAL.md).
+# This workflow never touches the milo-gateway Modal secret: staging uses
+# its own secrets, created once (see docs/MODAL.md). The hosted model is a
+# Modal-managed Shared Endpoint (Muse Spark), created in the dashboard —
+# nothing here deploys model weights.
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +15,7 @@ on:
         required: true
         default: 'staging'
         type: choice
-        options: [models, staging, gateway-prod]
+        options: [staging, gateway-prod]
       confirm_prod:
         description: 'For gateway-prod only: type DEPLOY-PROD to confirm'
         required: false
@@ -43,14 +45,6 @@ jobs:
         run: |
           echo 'gateway-prod needs confirm_prod=DEPLOY-PROD. Refusing.' >&2
           exit 1
-      - name: Deploy models app
-        if: ${{ inputs.target == 'models' }}
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: |
-          test -n "$MODAL_TOKEN_ID" || { echo 'MODAL_TOKEN_ID secret missing' >&2; exit 1; }
-          modal deploy gateway/modal_models.py
       - name: Deploy staging gateway
         if: ${{ inputs.target == 'staging' }}
         env:

@@ -37,11 +37,31 @@ class BrainReq(BaseModel):
     memories: list[Mem] = Field(default_factory=list, max_length=5)
     recent: list[Turn] = Field(default_factory=list, max_length=6)
     text: str = Field(default="", max_length=800)
+    ui_context: dict = Field(default_factory=dict)
 
     @field_validator("support")
     @classmethod
     def _short(cls, v):
         return {k[:20]: x[:40] for k, x in v.items()}
+
+    @field_validator("ui_context")
+    @classmethod
+    def _ui_context(cls, v):
+        # Flat snapshot of the client's activity panel (activity id, last
+        # action, component values). Bounded and scalar-only: never a tree.
+        import re as _re
+
+        out = {}
+        for k, x in list(v.items())[:12]:
+            if not isinstance(k, str) or _re.fullmatch(r"[A-Za-z0-9_-]{1,32}", k) is None:
+                continue
+            if isinstance(x, bool):
+                out[k] = x
+            elif isinstance(x, str):
+                out[k] = x[:500]
+            elif isinstance(x, (int, float)):
+                out[k] = x
+        return out
 
 
 class UnderstandReq(BrainReq):

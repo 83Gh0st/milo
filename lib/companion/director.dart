@@ -142,6 +142,7 @@ class Director extends ChangeNotifier {
   double _lastTap = -99;
   void Function(Map<String, dynamic>)? onMemoryProposal;
   void Function(String, Map<String, dynamic>)? onUnderstand;
+  void Function(Map<String, dynamic>)? onUiSpec; // generative panel: set by the app, validated again client-side
   bool preReader = false, supportActive = false, highContrast = false, haptics = true, captions = true, largeText = false;
   double textScale = 1.0, lineSpacing = 1.5;
   String font = 'Lexend';
@@ -836,6 +837,7 @@ class Director extends ChangeNotifier {
           if (d['action'] == 'lookup_word') onLookupWord?.call('${d['word']}');
         case 'memory': onMemoryProposal?.call(d);
         case 'key_point' || 'simple' || 'vocab' || 'check': onUnderstand?.call(e.type, d);
+        case 'ui_spec': onUiSpec?.call(d);
         case 'error': throw StreamError('${d['code']}');
         case 'done': wait = d['followup'] == 'wait';
       }

@@ -59,7 +59,7 @@ class Assembler:
         self.ceil = {"playful": 1.0, "friendly": 0.8, "discreet": 0.5}.get(presentation, 0.8)
         self.body: dict = {}
         self.sent_body = False
-        self.n = {"say": 0, "mem": 0, "kp": 0, "vocab": 0}
+        self.n = {"say": 0, "mem": 0, "kp": 0, "vocab": 0, "ui_spec": 0}
         self.followup, self.halted, self.blocked, self.capped = "none", False, 0, 0
 
     def _flush(self):
@@ -99,6 +99,12 @@ class Assembler:
                 self.body["pace"] = val
             elif key == "followup":
                 self.followup = val if val in FOLLOWUPS else "none"
+            elif key == "ui_spec" and isinstance(val, dict) and self.n["ui_spec"] < 1:
+                from .ui_spec import validate_ui_spec  # lazy: ui_spec imports clean() from here
+                spec = validate_ui_spec(val)
+                if spec is not None:
+                    out.append(("ui_spec", spec))
+                    self.n["ui_spec"] += 1
             elif key == "simple_version":
                 out.append(("simple", {"text": clean(val, 1500)}))
             elif key == "check_question" and isinstance(val, dict) and isinstance(val.get("options"), list) and val["options"]:

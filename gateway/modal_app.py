@@ -48,10 +48,11 @@ app = modal.App(APP_NAME)
 @app.function(
     image=image,
     # Hosted-model wiring WITHOUT touching the milo-gateway secret (it stays
-    # byte-identical): milo-models-client holds the endpoint URL + key,
-    # milo-gateway-switches holds REASONING_PROVIDER + MODAL_FALLBACK. Both
-    # must exist before deploy (see docs/MODAL.md §8.1). Takes effect on the
-    # next production deploy, which happens only after staging verification.
+    # byte-identical): milo-models-client holds the Shared Endpoint URL +
+    # proxy token + model id, milo-gateway-switches holds
+    # REASONING_PROVIDER + MODAL_FALLBACK. Both must exist before deploy
+    # (see docs/MODAL.md §8.1). Takes effect on the next production deploy,
+    # which happens only after staging verification.
     secrets=[modal.Secret.from_name(SECRET_NAME), modal.Secret.from_name("milo-models-client"),
              modal.Secret.from_name("milo-gateway-switches")],
     max_containers=1,  # in-memory rate limiter + circuit breakers: never scale out

@@ -18,7 +18,8 @@ Required Modal secrets (create once; values stay in Modal)::
                                   or a throwaway postgres URL to test vault/sync)
         SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
     milo-models-client     MODAL_MODELS_URL=<models endpoint URL>
-                           MODAL_MODELS_KEY=<same VLLM_API_KEY as milo-models>
+                           MODAL_MODELS_KEY=<proxy token for the Shared Endpoint>
+                           MODAL_MODEL=<endpoint hostname from the dashboard request example>
 
 With MODAL_FALLBACK=false, text turns use ONLY the hosted model: a hosted
 outage fails loudly instead of silently testing mock. Verify with the

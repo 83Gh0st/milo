@@ -123,7 +123,11 @@ def test_db_optional_and_modal_runtime_contract():
         validate_runtime(Settings(**full, database_url="x", reasoning_provider="modal"))  # modal reasoning without endpoint
     with pytest.raises(RuntimeError):
         validate_runtime(Settings(**full, database_url="x", reasoning_provider="llama"))
-    validate_runtime(Settings(**full, database_url="x", modal_models_url="https://m.example", modal_models_key="k" * 8, reasoning_provider="modal"))
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", modal_models_url="https://m.example", modal_models_key="k" * 8,
+                                   reasoning_provider="modal"))  # endpoint configured but model id missing
+    validate_runtime(Settings(**full, database_url="x", modal_models_url="https://m.example", modal_models_key="k" * 8,
+                               reasoning_provider="modal", modal_model="m.example"))
     with pytest.raises(RuntimeError):
         validate_runtime(Settings(**full, database_url="x", modal_model="x-contributor"))
 
@@ -170,6 +174,22 @@ def test_dart_and_python_contracts_agree():
             tabs = re.findall(r"'([a-z_]+)'", re.search(r"kTabs = \[(.*?)\];", dart, re.S).group(1))
             items = tabs + items
         assert items == C[key], name
+
+
+def test_dart_and_python_ui_contracts_agree():
+    dart = (Path(__file__).resolve().parents[2] / "lib" / "genui" / "spec.dart").read_text(encoding="utf-8")
+    from app.contract import U
+    for name, key in (("uiComponents", "components"), ("uiSpecActions", "actions"), ("uiOps", "ops"),
+                      ("uiLayouts", "layouts"), ("uiIntents", "intents"), ("uiModes", "modes"), ("uiCompanions", "companion")):
+        m = re.search(name + r" = \{(.*?)\};", dart, re.S)
+        assert re.findall(r"'([a-z_0-9]+)'", m.group(1)) == U[key], name
+    assert int(re.search(r"uiVersion = (\d+);", dart).group(1)) == U["version"]
+    for name, key in (("uiMaxComponents", "max_components"), ("uiMaxDepth", "max_depth"), ("uiMaxText", "max_text"),
+                      ("uiMaxTitle", "max_title"), ("uiMaxItems", "max_items"), ("uiMaxActionsPerNode", "max_actions_per_node"),
+                      ("uiMaxOps", "max_ops"), ("uiMaxStateKeys", "max_state_keys"), ("uiMaxStateValue", "max_state_value"),
+                      ("uiMaxId", "max_id")):
+        assert int(re.search(name + r" = (\d+)", dart).group(1)) == U["limits"][key], name
+    assert int(re.search(r"uiMaxContext = (\d+);", dart).group(1)) == 12  # must match the [:12] slice in models._ui_context
 
 
 def test_voice_websocket_end_to_end(tmp_path):

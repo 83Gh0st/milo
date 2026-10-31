@@ -38,11 +38,13 @@ POLICIES = {
                             "https://www.anthropic.com/legal/commercial-terms + "
                             "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention", "2026-10-29",
                             "Verified from Anthropic's commercial terms and API retention docs."),
-    "modal": DataPolicy("modal", "no",
-                        "none: prompts are processed in memory on Milo's own GPU container and never "
-                        "written to disk or logs (container provider sees request metadata per its terms)",
-                        "gateway/modal_models.py (this repo); platform terms at modal.com", "2026-10-29",
-                        "Milo-hosted open-weight model: same trust boundary as the gateway itself."),
+    "modal": DataPolicy("modal", "unknown",
+                        "Milo's Modal Shared Endpoint (Muse Spark Open) over TLS; prompts are not stored "
+                        "by Milo. Whether Modal trains on or retains endpoint content is NOT YET CHECKED "
+                        "in their terms — verify on modal.com before real users",
+                        "https://modal.com/terms (NOT YET CHECKED)", "unverified",
+                        "Milo-hosted model, billed to the deployer. Families cannot save a modal "
+                        "connection, so this disclosure never gates anyone; it is honest by policy."),
     "custom": DataPolicy("custom", "configurable", "depends on the endpoint you point Milo at; a model on your own machine keeps data local",
                          "", "unverified", "Self-hosted endpoints (Ollama, LM Studio, vLLM) never leave your network by construction."),
     "mock": DataPolicy("mock", "no", "nothing leaves the gateway", "", "2026-10-28", "Deterministic offline demo provider."),

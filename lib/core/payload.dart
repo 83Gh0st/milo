@@ -12,7 +12,7 @@ const kLangNames = {'en': 'English', 'hi': 'Hindi', 'ml': 'Malayalam', 'ta': 'Ta
 Map<String, dynamic> buildBrainBody({
   required String text, required String activity, required String presentation, required String lang,
   required Map<String, String> support, required List<ChipItem> chips, required List<Map<String, String>> memories,
-  String? name, List<Map<String, String>> recent = const [],
+  String? name, List<Map<String, String>> recent = const [], Map<String, dynamic> uiContext = const {},
 }) =>
     {
       'presentation': presentation,
@@ -24,6 +24,7 @@ Map<String, dynamic> buildBrainBody({
       'memories': memories,
       'recent': recent.length > 6 ? recent.sublist(recent.length - 6) : recent,
       'text': text.length > 800 ? text.substring(0, 800) : text,
+      if (uiContext.isNotEmpty) 'ui_context': uiContext, // flat panel snapshot (ids + scalars), never the tree
     };
 
 String summarizeBody(Map<String, dynamic> b) {
@@ -35,6 +36,7 @@ String summarizeBody(Map<String, dynamic> b) {
   if (b['image_b64'] != null) p.add('one photo (resized, location data removed)');
   final mem = (b['memories'] as List?) ?? [];
   if (mem.isNotEmpty) p.add('${mem.length} approved memories');
+  if (b['ui_context'] is Map && (b['ui_context'] as Map).isNotEmpty) p.add('activity panel state (${(b['ui_context'] as Map).length} items)');
   if (b['goal'] != null) p.add('your task goal');
   if (b['strip'] != null) p.add('the words you picked');
   if (b['concept'] != null) p.add('one picture word');

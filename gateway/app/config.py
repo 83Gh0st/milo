@@ -22,10 +22,10 @@ class Settings(BaseSettings):
     session_per_min_ip: int = 20
     daily_budget_usd: float = 20.0
     monthly_budget_usd: float = 100.0  # UTC-month cap on deployer-path vendor spend; family keys spend the family's quota, never this
-    modal_models_url: str = ""       # Modal-hosted vLLM endpoint, e.g. https://<ws>--milo-models-serve.us-east.modal.run
-    modal_models_key: str = ""       # vLLM --api-key for that endpoint (server-side only, never to the app)
-    modal_model: str = "Qwen/Qwen3-4B-Instruct-2507"  # served model id (must match --served-model-name)
-    reasoning_provider: str = ""     # "" = follow PROVIDER suite; "modal" = hosted vLLM for text caps
+    modal_models_url: str = ""       # Modal Shared Endpoint base, MUST end with /v1 (the adapter appends /chat/completions and /models)
+    modal_models_key: str = ""       # proxy token (id.secret) for that endpoint (server-side only, never to the app)
+    modal_model: str = ""            # endpoint hostname from the dashboard's request examples (no default: a wrong id must fail loudly, never guess)
+    reasoning_provider: str = ""     # "" = follow PROVIDER suite; "modal" = hosted Muse Spark for text caps
     modal_fallback: bool = True      # text turns fall back to the suite entries when the hosted model errors pre-byte
     spend_backend: str = "auto"      # auto | postgres | modal_dict | memory (see app/spend.py)
     spend_dict_name: str = ""        # Modal Dict for spend totals; empty disables the dict backend (see app/spend.py)
@@ -66,8 +66,10 @@ def validate_runtime(s: Settings) -> None:
         assert_model_allowed(s, m)
         if not (m.startswith("muse-") or m.startswith("sam-")):
             raise RuntimeError(f"unexpected model id: {m}")
-    if not s.modal_model.strip() or s.modal_model.strip().endswith("-contributor"):
-        raise RuntimeError("MODAL_MODEL must be a non-empty, non-contributor id")
+    if s.reasoning_provider == "modal" and s.modal_models_url.strip() and not s.modal_model.strip():
+        raise RuntimeError("MODAL_MODEL must name the Shared Endpoint model (endpoint hostname from the dashboard) when the modal path is enabled")
+    if s.modal_model.strip().endswith("-contributor"):
+        raise RuntimeError("MODAL_MODEL must be a non-contributor id")
     if bool(s.modal_models_url.strip()) != bool(s.modal_models_key.strip()):
         raise RuntimeError("MODAL_MODELS_URL and MODAL_MODELS_KEY must be set together or not at all")
     if s.reasoning_provider not in ("", "modal"):
