@@ -206,8 +206,11 @@ class Director extends ChangeNotifier {
     MiloReact.handler = _onReact;
   }
 
+  bool _disposed = false;
   @override
   void dispose() {
+    if (_disposed) return; // Riverpod auto-disposes the notifier AND runs ref.onDispose: both land here
+    _disposed = true;
     if (identical(MiloReact.handler, _onReact)) MiloReact.handler = null;
     _accel?.cancel();
     _nudge?.cancel();

@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/genui/panel.dart';
 import 'package:milo/genui/spec.dart';
 
-Map<String, dynamic> validSpec() => {
+// JSON round-trip: every map is Map<String, dynamic> (like real wire data),
+// so the tests can graft actions/children onto any node. Bare literals would
+// reify all-String maps that reject List values at runtime.
+Map<String, dynamic> validSpec() => jsonDecode(jsonEncode({
       'v': 1,
       'activity': 'school-prep',
       'intent': 'guide',
@@ -26,7 +31,7 @@ Map<String, dynamic> validSpec() => {
         ]
       },
       'state': {'step': 1},
-    };
+    })) as Map<String, dynamic>;
 
 void main() {
   group('spec validator', () {

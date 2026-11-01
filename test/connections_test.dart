@@ -89,7 +89,7 @@ void main() {
       await dragToBuild(t, find.text(label, skipOffstage: false), list); // lower tiles start below the fold
       final title = find.text(label, skipOffstage: false);
       expect(title, findsOneWidget);
-      final tile = find.ancestor(of: title, matching: find.byType(ListTile)); // this tile's own row
+      final tile = find.ancestor(of: title, matching: find.byType(ListTile, skipOffstage: false)); // this tile's own row (built but maybe below the fold)
       expect(t.widget<ListTile>(tile).subtitle, isA<Text>().having((w) => w.data, 'data', 'Not connected'));
     }
     expect(t.takeException(), isNull);
@@ -149,6 +149,7 @@ void main() {
     await t.pump();
     expect(find.textContaining('Key …5678'), findsOneWidget);
     // The family switch is usable now and persists the flag.
+    await dragToBuild(t, find.byType(SwitchListTile, skipOffstage: false), find.byType(ListView).first, dy: 400); // back up: the list is still scrolled down to the tiles
     await t.ensureVisible(find.byType(SwitchListTile, skipOffstage: false));
     await t.pump();
     await t.tap(find.byType(SwitchListTile));
