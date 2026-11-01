@@ -221,9 +221,18 @@ def test_openai_stream_and_usage():
     t = FakeTransport([(200, [oai_chunk("Hel"), oai_chunk("lo"), oai_chunk(None, {"prompt_tokens": 10, "completion_tokens": 3, "prompt_tokens_details": {"cached_tokens": 4}}), b"data: [DONE]\n\n"])])
     a = OpenAICompatAdapter(transport=t)
     out = run(_collect(a.stream([{"role": "user", "content": "hi"}], creds=Creds("https://x.test/v1", "k"), model="gpt-x")))
-    assert out == ["Hel", "lo", Usage(10, 4, 3)]
+    u = out[2]
+    assert out[:2] == ["Hel", "lo"] and (u.prompt, u.cached, u.completion) == (10, 4, 3)
+    assert u.ttft_ms >= 0 and u.connect_ms >= 0  # stage timing rides along, never negative
     assert "reasoning_effort" not in t.posts[0]["payload"]  # only reasoning models get it
     assert t.posts[0]["payload"]["max_completion_tokens"] == 900
+
+
+def test_http_client_splits_connect_timeout():
+    import httpx
+    from app.providers.http import HttpxTransport
+    t = HttpxTransport()._client(20).timeout
+    assert isinstance(t, httpx.Timeout) and (t.connect, t.read, t.write, t.pool) == (10.0, 20.0, 20.0, 20.0)
 
 
 def test_openai_legacy_token_retry_and_reasoning_flag():

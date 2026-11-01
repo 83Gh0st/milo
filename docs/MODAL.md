@@ -354,6 +354,7 @@ Dashboard path (no CLI needed for the endpoint itself):
      `meta-models/Muse-Spark-Open-816B-A42B`.
    - `milo-gateway-staging`: `ENV=dev`, `PROVIDER=mock`,
      `REASONING_PROVIDER=modal`, `MODAL_FALLBACK=false`,
+     `INFERENCE_TIMEOUT_S=20` (Spark needs room; prod keeps the 8 s default),
      `JWT_SECRET` (48+ random), `KEY_ENC_SECRET` (48+ random),
      `SPEND_BACKEND=modal_dict`, `SPEND_DICT_NAME=milo-spend-staging`,
      `DATABASE_URL=` (leave empty to exercise database-optional chat,
@@ -368,7 +369,7 @@ setup` — the endpoint itself is dashboard-created):
 
 ```cmd
 modal secret create milo-models-client MODAL_MODELS_URL=<endpoint base /v1> MODAL_MODELS_KEY=<proxy token id.secret> MODAL_MODEL=meta-models/Muse-Spark-Open-816B-A42B
-modal secret create milo-gateway-staging ENV=dev PROVIDER=mock REASONING_PROVIDER=modal MODAL_FALLBACK=false JWT_SECRET=<48+ random> KEY_ENC_SECRET=<48+ random> SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
+modal secret create milo-gateway-staging ENV=dev PROVIDER=mock REASONING_PROVIDER=modal MODAL_FALLBACK=false INFERENCE_TIMEOUT_S=20 JWT_SECRET=<48+ random> KEY_ENC_SECRET=<48+ random> SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
 ```
 
 Or deploy via GitHub instead of local CLI: add repository secrets

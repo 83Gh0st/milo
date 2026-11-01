@@ -95,7 +95,7 @@ async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float,
         return "lines" if lines_default else "json_schema"
 
     asm, usage, err, t0 = Assembler(presentation, user_text), Usage(), None, time.monotonic()
-    provider, model = "", ""
+    provider, model, parse_ms = "", "", 0
     try:
         provider, model, strategy, pieces = await st.router.select_and_stream(
             cap, ctx.routes if ctx else None, creds, msgs, schema=brain_schema(understand), effort=effort,
@@ -108,9 +108,11 @@ async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float,
                 if isinstance(piece, Usage):
                     usage = piece
                     continue
+                tp = time.monotonic()
                 for k, key, val in parser.feed(piece):
                     for e, d in asm.handle(k, key, val):
                         yield sse(e, d)
+                parse_ms += int((time.monotonic() - tp) * 1000)
                 if asm.halted:
                     break
             if strategy == "lines":
@@ -131,7 +133,7 @@ async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float,
     yield sse("done", {"followup": asm.followup, "blocked": asm.blocked, "capped": asm.capped, "provider": provider, "model": model})
     if metered:
         await st.budget.add(cost_chat(st.settings, usage))  # family-keyed turns spend the family's quota, not the deployer's
-    log.info("turn", extra={"kind": kind, "ms": int((time.monotonic() - t0) * 1000), "tok_in": usage.prompt, "tok_cached": usage.cached, "tok_out": usage.completion, "err": err or "", "prov": provider, "pmodel": model})
+    log.info("turn", extra={"kind": kind, "ms": int((time.monotonic() - t0) * 1000), "tok_in": usage.prompt, "tok_cached": usage.cached, "tok_out": usage.completion, "ttft": usage.ttft_ms, "conn": usage.connect_ms, "parse": parse_ms, "err": err or "", "prov": provider, "pmodel": model})
 
 
 def _crisis_stream():
@@ -148,7 +150,7 @@ async def brain_turn(req: BrainReq, request: Request, dev: str = Depends(auth), 
         return _crisis_stream()
     ctx = await vault_ctx(request)
     msgs = build_messages(req, lines=_peek_lines(st, ctx, "brain"))
-    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=8, understand=False, kind="chat", user_text=req.text, ctx=ctx, metered=ctx is None))
+    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=st.settings.inference_timeout_s, understand=False, kind="chat", user_text=req.text, ctx=ctx, metered=ctx is None))
 
 
 @router.post("/understand")
@@ -168,7 +170,7 @@ async def understand(req: UnderstandReq, request: Request, dev: str = Depends(au
     ctx = await vault_ctx(request)
     need = "vision" if req.image_b64 else None  # a blind entry must fail over, never claim the picture
     msgs = build_messages(req, lines=_peek_lines(st, ctx, "understand", need), strategy=req.strategy, content_text=req.content_text, image_b64=req.image_b64)
-    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=12 if req.image_b64 else 8, understand=True, kind="understand", user_text=req.text, ctx=ctx, metered=ctx is None, need=need))
+    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=12 if req.image_b64 else st.settings.inference_timeout_s, understand=True, kind="understand", user_text=req.text, ctx=ctx, metered=ctx is None, need=need))
 
 
 async def collect(st, msgs, schema, effort, timeout, cap: str, ctx=None, metered: bool = True) -> dict:

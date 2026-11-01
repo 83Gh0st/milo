@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     modal_model: str = ""            # Shared Endpoint model id per the Modal docs (meta-models/Muse-Spark-Open-816B-A42B); no default: a wrong id must fail loudly, never guess
     reasoning_provider: str = ""     # "" = follow PROVIDER suite; "modal" = hosted Muse Spark for text caps
     modal_fallback: bool = True      # text turns fall back to the suite entries when the hosted model errors pre-byte
+    inference_timeout_s: float = 8   # deadline for hosted text inference (first byte + full stream); staging raises this, prod keeps 8
     spend_backend: str = "auto"      # auto | postgres | modal_dict | memory (see app/spend.py)
     spend_dict_name: str = ""        # Modal Dict for spend totals; empty disables the dict backend (see app/spend.py)
     ephemeral_day_usd: float = 5.0   # ceilings that ALWAYS bind the memory ledger (see app/spend.py)
@@ -76,6 +77,8 @@ def validate_runtime(s: Settings) -> None:
         raise RuntimeError('REASONING_PROVIDER must be "" or "modal"')
     if s.reasoning_provider == "modal" and not s.modal_models_url.strip():
         raise RuntimeError('REASONING_PROVIDER=modal needs MODAL_MODELS_URL and MODAL_MODELS_KEY')
+    if not 1 <= s.inference_timeout_s <= 120:
+        raise RuntimeError("INFERENCE_TIMEOUT_S must be between 1 and 120 seconds")
     if s.spend_backend.strip().lower() not in ("auto", "postgres", "modal_dict", "memory"):
         raise RuntimeError("SPEND_BACKEND must be auto, postgres, modal_dict, or memory")
     if s.spend_backend.strip().lower() == "postgres" and not s.database_url.strip():

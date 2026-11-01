@@ -186,8 +186,8 @@ class CoreRouter {
   /// fallback always agree about what happened.
   Future<void> _cloudFailed(String code, String text, Director d) async {
     ref.read(ladderProvider.notifier).failed(code);
-    final cloud = code == 'budget_exhausted' || code == 'rate_limited' ? 'resting' : code == 'timeout' ? 'timeout' : code == 'auth_failed' || code == 'http_401' || code == 'quota' || code == 'model_not_found' ? 'key' : 'offline';
-    await d.perform(validateTurn(pocketBrain(text, d.profile.name, cloud: cloud)));
+    final hosted = await aiChoice(ref.read(dbProvider)) != AiChoice.family;
+    await d.perform(validateTurn(pocketBrain(text, d.profile.name, cloud: cloudForFailure(code, hosted))));
   }
 
   Future<void> _memory(MemCmd c, Director d) async {

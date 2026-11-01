@@ -187,11 +187,11 @@ void _face(Canvas c, Size s, DirectorFrame f, LookParams lp, double k, Color ink
   for (final i in [-1, 1]) {
     final cc = Offset(i * 44.0 * eg, cheekY);
     c.drawOval(Rect.fromCenter(center: cc, width: 36 * lp.cheek, height: 21 * lp.cheek),
-        Paint()..color = const Color(0xFFFF9AA8).withAlpha((cheekBase * .35).round()));
+        Paint()..color = const Color(0xFFFF9A86).withAlpha((cheekBase * .35).round())); // brand coral blush
     c.drawOval(Rect.fromCenter(center: cc, width: 27 * lp.cheek, height: 15 * lp.cheek),
-        Paint()..color = const Color(0xFFFF8FA3).withAlpha((cheekBase * .6).round()));
+        Paint()..color = const Color(0xFFFF8A70).withAlpha((cheekBase * .6).round()));
     c.drawOval(Rect.fromCenter(center: cc, width: 18 * lp.cheek, height: 10 * lp.cheek),
-        Paint()..color = const Color(0xFFFF8FA3).withAlpha(cheekBase));
+        Paint()..color = const Color(0xFFFF8A70).withAlpha(cheekBase));
   }
 
   // Gaze travel with a physical minimum (spec 2B: ≥3 dp bust, ≥5 dp full).
@@ -213,7 +213,7 @@ void _face(Canvas c, Size s, DirectorFrame f, LookParams lp, double k, Color ink
       c.save();
       c.clipPath(Path()..addOval(rect));
       final px = ex + gx, py = ey + gy;
-      c.drawCircle(Offset(px, py), 9.5 * es * pupilBoost, Paint()..color = const Color(0xFF3D4BC4)); // iris
+      c.drawCircle(Offset(px, py), 9.5 * es * pupilBoost, Paint()..color = const Color(0xFF0D5C66)); // iris: deep sea teal
       c.drawCircle(Offset(px, py), 4.8 * es * pupilBoost, Paint()..color = ink); // pupil
       c.drawCircle(Offset(px - 3 * es, py - 4 * es), 3 * es, Paint()..color = Colors.white); // catchlights
       c.drawCircle(Offset(px + 3.5 * es, py + 3 * es), 1.4 * es, Paint()..color = Colors.white.withAlpha(220));
@@ -261,14 +261,14 @@ void _mouth(Canvas c, DirectorFrame f, Color ink, double feat) {
   c.translate(0, 30 * feat);
   final shape = mouthShape(smile: sm, open: m, tongue: f.tongue);
   final stroke = Paint()..color = ink..style = PaintingStyle.stroke..strokeWidth = 3.5..strokeCap = StrokeCap.round;
-  final dark = Paint()..color = const Color(0xFF3B1E3F);
+  final dark = Paint()..color = const Color(0xFF0A3F38); // mouth interior: deep teal ink
   switch (shape) {
     case MouthShape.tongue:
       final p = Path()..moveTo(-w, 0)..quadraticBezierTo(0, 14, w, 0)..quadraticBezierTo(0, 14 + m * 30 + 8, -w, 0)..close();
       c.drawPath(p, dark);
       c.save();
       c.clipPath(p);
-      c.drawOval(Rect.fromCenter(center: Offset(0, 10 + m * 22), width: w * 1.1, height: 14), Paint()..color = const Color(0xFFFF8FA3));
+      c.drawOval(Rect.fromCenter(center: Offset(0, 10 + m * 22), width: w * 1.1, height: 14), Paint()..color = const Color(0xFFFF8A70));
       c.restore();
     case MouthShape.frown:
       c.drawPath(Path()..moveTo(-w, 6)..quadraticBezierTo(0, 6 + sm * 16, w, 6), stroke);
@@ -282,7 +282,7 @@ void _mouth(Canvas c, DirectorFrame f, Color ink, double feat) {
       if (m > .5 || f.tongue) {
         c.save();
         c.clipPath(p);
-        c.drawOval(Rect.fromCenter(center: Offset(0, sm * 8 + m * 26), width: w * 1.1, height: 12), Paint()..color = const Color(0xFFFF8FA3));
+        c.drawOval(Rect.fromCenter(center: Offset(0, sm * 8 + m * 26), width: w * 1.1, height: 12), Paint()..color = const Color(0xFFFF8A70));
         c.restore();
       }
     case MouthShape.smile || MouthShape.rest:
@@ -319,7 +319,7 @@ void _fx(Canvas c, DirectorFrame f) {
     final m = f.listening ? (.45 + .55 * f.micLevel.clamp(0.0, 1.0)) : 1.0;
     final al = (((math.sin(t * 5) + 1) / 2 * 150 + 60) * m).round();
     for (final r in [92.0, 106.0]) {
-      final p = Paint()..color = const Color(0xFF5B6CFF).withAlpha(al)..style = PaintingStyle.stroke..strokeWidth = 4..strokeCap = StrokeCap.round;
+      final p = Paint()..color = const Color(0xFF149E87).withAlpha(al)..style = PaintingStyle.stroke..strokeWidth = 4..strokeCap = StrokeCap.round; // listening arcs: brand teal
       final rect = Rect.fromCircle(center: const Offset(0, -78), radius: r);
       c.drawArc(rect, -.6, 1.2, false, p);
       c.drawArc(rect, math.pi - .6, 1.2, false, p);
@@ -333,7 +333,7 @@ void _fx(Canvas c, DirectorFrame f) {
   }
   for (final p in f.parts) {
     final al = (1 - p.age / p.life).clamp(0.0, 1.0);
-    final col = p.ch == '♥' ? const Color(0xFFFF7A7A) : p.ch == '♪' ? const Color(0xFF5B6CFF) : const Color(0xFFFFC857);
+    final col = p.ch == '♥' ? const Color(0xFFFF7A7A) : p.ch == '♪' ? const Color(0xFF149E87) : const Color(0xFFFFC857);
     _t(c, p.ch, Offset(p.x, p.y), 20, col.withAlpha((al * 255).round()));
   }
 }

@@ -36,7 +36,9 @@ class MiloApi {
   /// Vault headers for family-keyed (BYOK) inference, or empty for the
   /// deployer key. Wired by the app; the provider key itself is never here.
   Future<Map<String, String>> Function()? vaultAuth;
-  final Dio _dio = Dio(BaseOptions(baseUrl: Env.apiBase, connectTimeout: const Duration(seconds: 8), sendTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 15)));
+  // Receive (30 s) stays above the gateway's inference deadline (staging 20 s,
+  // prod 8 s) with room for error handling; connect/send stay tight.
+  final Dio _dio = Dio(BaseOptions(baseUrl: Env.apiBase, connectTimeout: const Duration(seconds: 8), sendTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 30)));
   String? _tok;
   DateTime _exp = DateTime(2000);
   Future<String>? _pending; // a refresh in flight: concurrent callers share it instead of stampeding /v1/session

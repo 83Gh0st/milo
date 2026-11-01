@@ -7,6 +7,7 @@ import '../core/payload.dart';
 import '../core/providers.dart';
 import '../net/api.dart';
 import '../voice/voice_output.dart';
+import 'brand.dart';
 import 'dev/milo_lab.dart';
 import 'pin.dart';
 import 'screen.dart';
@@ -67,7 +68,7 @@ class AccessibilityScreen extends ConsumerWidget {
 
 class MiloSettingsScreen extends ConsumerWidget {
   const MiloSettingsScreen({super.key});
-  static const colours = [0xFF8E9BFF, 0xFFFFA3C0, 0xFF6FD9B0, 0xFFFFD166, 0xFFC3A6FF];
+  static const colours = [0xFF149E87, 0xFF8E9BFF, 0xFFFFA3C0, 0xFF6FD9B0, 0xFFFFD166]; // brand teal first; periwinkle kept
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final d = ref.watch(directorProvider);
@@ -169,6 +170,7 @@ class AboutScreen extends StatelessWidget {
   static const _licenses = {'Lexend': 'assets/fonts/OFL-Lexend.txt', 'Atkinson Hyperlegible': 'assets/fonts/OFL-Atkinson.txt', 'OpenDyslexic': 'assets/fonts/OFL-OpenDyslexic.txt'};
   @override
   Widget build(BuildContext context) => MiloScreen(title: 'About Milo', body: ListView(padding: const EdgeInsets.all(16), children: [
+    const Center(child: Padding(padding: EdgeInsets.all(8), child: MiloBrand())),
     Center(child: Padding(padding: const EdgeInsets.all(8), child: GestureDetector(onLongPress: kDebugMode ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MiloLab())) : null, child: const Text('Milo Companion 1.0.0', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))))),
     const Padding(padding: EdgeInsets.all(8), child: Text('Milo is an AI companion for learning and communication. It is not a person, a therapist or a doctor.', textAlign: TextAlign.center, style: TextStyle(color: T.mute))),
     const Section('Connection'),

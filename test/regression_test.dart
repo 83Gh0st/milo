@@ -57,6 +57,17 @@ void main() {
     expect(t.say.join(' '), contains('AI connections'));
   });
 
+  test('cloud failure mapping names Spark timeouts, never the network', () {
+    expect(cloudForFailure('timeout', true), 'timeout_hosted');
+    expect(cloudForFailure('timeout', false), 'timeout');
+    expect(cloudForFailure('auth_failed', true), 'key');
+    expect(cloudForFailure('quota', false), 'key');
+    expect(cloudForFailure('budget_exhausted', true), 'resting');
+    expect(cloudForFailure('provider_error', true), 'offline');
+    final t = validateTurn(pocketBrain('xyzzy quarks fnord', 'friendly', cloud: 'timeout_hosted'));
+    expect(t.say.join(' '), contains('Muse Spark is taking longer than expected'));
+  });
+
   test('sync banner mapping never leaks content', () {
     expect(syncBannerFor(CloudDisabled()), isNull); // ladder banner already covers offline
     expect(syncBannerFor(ApiError('offline')), 'Couldn’t sync just now.');

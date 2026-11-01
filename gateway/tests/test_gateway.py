@@ -130,6 +130,10 @@ def test_db_optional_and_modal_runtime_contract():
                                reasoning_provider="modal", modal_model="m.example"))
     with pytest.raises(RuntimeError):
         validate_runtime(Settings(**full, database_url="x", modal_model="x-contributor"))
+    assert Settings().inference_timeout_s == 8  # prod default unchanged; staging raises it by secret
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(inference_timeout_s=0))
+    validate_runtime(Settings(inference_timeout_s=20))
 
 
 def test_streaming_parsers_survive_any_chunking():
