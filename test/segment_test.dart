@@ -22,7 +22,6 @@ void main() {
 
   testWidgets('overlay draws tappable labeled regions over the photo', (t) async {
     String? tapped;
-    final semantics = t.ensureSemantics(); // semantics finders need an explicit handle
     await t.pumpWidget(MaterialApp(
         home: Scaffold(
             body: SegmentOverlay(
@@ -37,11 +36,15 @@ void main() {
     await t.pump();
     expect(find.text('heart'), findsOneWidget);
     expect(find.text('lung'), findsOneWidget);
-    expect(find.bySemanticsLabel('Explain heart'), findsOneWidget);
+    // Accessibility contract, asserted on the widget configuration (not tree
+    // assembly internals): each region is an explicit button node with an
+    // "Explain <label>" announcement for screen readers.
+    final region = find.byType(Semantics).evaluate().map((e) => e.widget as Semantics).where((s) => s.properties.label == 'Explain heart').single;
+    expect(region.container, isTrue);
+    expect(region.properties.button, isTrue);
     await t.tap(find.text('lung'));
     await t.pump();
     expect(tapped, 'r2');
     expect(t.takeException(), isNull);
-    semantics.dispose();
   });
 }
