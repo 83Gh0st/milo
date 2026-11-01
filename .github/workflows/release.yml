@@ -114,16 +114,19 @@ jobs:
     # compiles and links without any signing material.
     needs: [gateway, flutter-checks]
     runs-on: macos-latest
+    env:
+      # Full CocoaPods mode (see ci.yml): 5 plugins lack SPM support and the
+      # hybrid SPM+Pods setup fails to link ("Pods_Runner not found").
+      FLUTTER_SWIFT_PACKAGE_MANAGER: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=ios --project-name milo .
       - run: flutter pub get
+      - run: cd ios && pod install
       - run: dart run flutter_launcher_icons
       - run: dart run flutter_native_splash:create
-      # No `pod install`: iOS plugins resolve via Swift Package Manager on
-      # this Flutter (no Podfile by design); `flutter build` drives it.
       - name: Build for simulator (unsigned)
         env:
           API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
@@ -141,6 +144,10 @@ jobs:
     needs: [gateway, flutter-checks]
     runs-on: macos-latest
     if: ${{ vars.IOS_SIGNING_ENABLED == 'true' }}
+    env:
+      # Full CocoaPods mode (see ci.yml): 5 plugins lack SPM support and the
+      # hybrid SPM+Pods setup fails to link ("Pods_Runner not found").
+      FLUTTER_SWIFT_PACKAGE_MANAGER: 'false'
     steps:
       - name: Verify signing secrets present
         env:
@@ -156,9 +163,8 @@ jobs:
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=ios --project-name milo .
       - run: flutter pub get
+      - run: cd ios && pod install
       - run: dart run flutter_launcher_icons
-      # No `pod install`: iOS plugins resolve via Swift Package Manager on
-      # this Flutter (no Podfile by design); `flutter build` drives it.
       - name: Import signing certificate
         env:
           CERT_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}

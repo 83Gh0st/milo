@@ -42,18 +42,27 @@ jobs:
         with: {name: milo-screenshots, path: screenshots/*.png, if-no-files-found: warn}
   ios-compile-check:
     runs-on: macos-latest
+    env:
+      # Full CocoaPods mode: 5 plugins (ML Kit x2, flutter_tts, sensors_plus,
+      # sqflite_sqlcipher) have no SPM support, and the default hybrid SPM+Pods
+      # setup fails to link ("Framework 'Pods_Runner' not found"). The flag
+      # (not Podfile presence) selects the mode in flutter_tools.
+      FLUTTER_SWIFT_PACKAGE_MANAGER: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=ios --project-name milo .
       - run: flutter pub get
-      # No `pod install`: this Flutter resolves iOS plugins via Swift Package
-      # Manager (no Podfile by design); `flutter build` drives the resolution.
-      # If a plugin ever lacks SPM support, regenerate with CocoaPods:
-      # FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create --platforms=ios .
+      - run: cd ios && pod install
       - run: |
           echo "=== versions ==="; xcodebuild -version | head -2
           echo "=== workspace ==="; cat ios/Runner.xcworkspace/contents.xcworkspacedata
-          test -f ios/Podfile && echo UNEXPECTED_PODFILE || echo no-podfile-spm-mode
-      - run: flutter build ios --simulator --no-codesign --dart-define=API_BASE=https://api.example.com
+          test -f ios/Podfile && echo podfile-present-cocoapods-mode || { echo 'Podfile missing' >&2; exit 1; }
+      - name: Build for simulator (unsigned)
+        env:
+          API_BASE: ${{ secrets.MILO_API_BASE }}
+        run: |
+          DEFINE_ARGS=""
+          if [ -n "$API_BASE" ]; then DEFINE_ARGS="--dart-define=API_BASE=$API_BASE"; fi
+          flutter build ios --simulator --no-codesign $DEFINE_ARGS

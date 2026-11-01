@@ -147,17 +147,20 @@ class _NodeView extends StatelessWidget {
       'image' => _PanelImage(concept: node['concept'] as String, showImage: view.cb.showImage),
       'genimage' => _PanelGenImage(prompt: node['prompt'] as String, alt: node['alt'] as String, generateImage: view.cb.generateImage),
       'checklist' => Column(children: [
+          // Own transparent Material per tile: the card is an opaque
+          // DecoratedBox, which would hide ink splashes (debug assertion)
+          // if the tiles painted on a farther Material ancestor.
           for (final i in (node['items'] as List).cast<Map<String, dynamic>>())
-            CheckboxListTile(value: not.isDone(i['id'] as String), activeColor: T.pri, controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, dense: true,
-                title: Text('${i['text']}', style: const TextStyle(fontSize: 16)), onChanged: (_) => not.toggle(i['id'] as String)),
+            Material(type: MaterialType.transparency, child: CheckboxListTile(value: not.isDone(i['id'] as String), activeColor: T.pri, controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, dense: true,
+                title: Text('${i['text']}', style: const TextStyle(fontSize: 16)), onChanged: (_) => not.toggle(i['id'] as String))),
         ]),
       'choices' => RadioGroup<String>(
           groupValue: not.answerOf(node['id'] as String),
           onChanged: (v) { if (v != null) not.answer(node['id'] as String, v); },
           child: Column(children: [
             for (final o in (node['options'] as List).cast<Map<String, dynamic>>())
-              RadioListTile<String>(value: o['id'] as String, activeColor: T.pri, contentPadding: EdgeInsets.zero, dense: true,
-                  title: Text('${o['label']}', style: const TextStyle(fontSize: 16))),
+              Material(type: MaterialType.transparency, child: RadioListTile<String>(value: o['id'] as String, activeColor: T.pri, contentPadding: EdgeInsets.zero, dense: true,
+                  title: Text('${o['label']}', style: const TextStyle(fontSize: 16)))),
           ]),
         ),
       'steps' => Column(children: [

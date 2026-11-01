@@ -31,6 +31,7 @@ import 'helpers/fake_db.dart';
 import 'helpers/harness.dart';
 
 Future<void> capture(WidgetTester t, ProviderContainer c, Widget screen, String name, {int settleMs = 200}) async {
+  final sw = Stopwatch()..start();
   mockConnectivity(t);
   t.view.physicalSize = const Size(393 * 3, 852 * 3);
   t.view.devicePixelRatio = 3.0;
@@ -46,10 +47,17 @@ Future<void> capture(WidgetTester t, ProviderContainer c, Widget screen, String 
   await t.pump();
   await t.pump(Duration(milliseconds: settleMs));
   final boundary = key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-  final im = await boundary.toImage(pixelRatio: 2.0);
-  final raw = (await im.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+  // pixelRatio 1.0: 393x852 PNGs are true device-size screenshots (2.0
+  // quadrupled raster + PNG-encode cost for no gallery benefit).
+  // runAsync: toImage/toByteData are REAL engine async; awaiting them inside
+  // fake async completes but wedges the NEXT pumpWidget (10-minute CI
+  // timeout after capture 1 — bisected locally, fixed by runAsync).
+  final im = await t.runAsync(() => boundary.toImage(pixelRatio: 1.0)) as ui.Image;
+  final raw = (await t.runAsync(() => im.toByteData(format: ui.ImageByteFormat.rawRgba)))!;
+  im.dispose(); // release the engine-side image: 11 captures must not pile up
   final png = img.encodePng(img.Image.fromBytes(width: im.width, height: im.height, bytes: raw.buffer, numChannels: 4));
   final f = File('screenshots/$name.png')..writeAsBytesSync(png);
+  print('capture $name: ${sw.elapsedMilliseconds} ms (${im.width}x${im.height})');
   expect(f.lengthSync(), greaterThan(1000));
   expect(t.takeException(), isNull);
   await t.pumpWidget(Container()); // unmount between captures: no state carries over visually

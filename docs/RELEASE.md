@@ -77,15 +77,15 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 > and upload step runs on the macOS GitHub Actions runners below (or a local
 > Mac). The simulator check (§4.3) needs no secrets and no paid membership.
 
-> Plugin integration: this Flutter prefers Swift Package Manager (no
-> committed `ios/Podfile`), but five plugins still lack SPM support
-> (`flutter_tts`, `google_mlkit_commons`, `google_mlkit_text_recognition`,
-> `sensors_plus`, `sqflite_sqlcipher`) — so the tool falls back to
-> CocoaPods for those automatically at build time (see the "Running pod
-> install" line in CI logs). The workflows intentionally run no explicit
-> `pod install`; if SPM ever breaks, regenerate a full CocoaPods shell with
-> `FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create --platforms=ios .`
-> (then re-apply the Info.plist + icon work from git).
+> Plugin integration: full CocoaPods mode. Five plugins still lack SPM
+> support (`flutter_tts`, `google_mlkit_commons`,
+> `google_mlkit_text_recognition`, `sensors_plus`, `sqflite_sqlcipher`),
+> and the default hybrid SPM+Pods setup fails to link ("Framework
+> 'Pods_Runner' not found") — so the repo commits `ios/Podfile` (platform
+> 15.5, ML Kit's floor), the workflows set
+> `FLUTTER_SWIFT_PACKAGE_MANAGER=false` (the flag, not Podfile presence,
+> selects the mode in flutter_tools), and every iOS job runs an explicit
+> `cd ios && pod install`. `IPHONEOS_DEPLOYMENT_TARGET` is 15.5 to match.
 
 ### Requirements (Apple)
 
