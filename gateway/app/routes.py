@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, WebSoc
 from fastapi.responses import StreamingResponse
 from .contract import CONCEPTS, brain_schema
 from .db import visual_cache
-from .models import BrainReq, ComposeReq, PlanReq, SessionReq, UnderstandReq, VisualReq
+from .models import BrainReq, ComposeReq, ImageReq, PlanReq, SessionReq, UnderstandReq, VisualReq
 from .prompts import PRESENTATION, build_messages
 from .providers.base import FAILOVER_CODES, ProviderError, Usage
 from .safety import Assembler, CAPS, cap_sentence, clean, is_crisis, no_new_content
@@ -278,6 +278,59 @@ async def visual(req: VisualReq, request: Request, dev: str = Depends(auth), _b:
                 except Exception:
                     pass
         return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    raise HTTPException((last_err.status if last_err else 502), {"error": last_err.code if last_err else "unsupported_capability"})
+
+
+# Free-form picture requests ("draw a dinosaur") arrive here; /visual keeps the
+# fixed concept allowlist. Prompts are screened + wrapped in a child-safe
+# style before any provider sees them. Generation is always explicit (the app
+# shows a Create button, never auto-generates); bytes are cached by content
+# hash for cost control with no user link, like /visual.
+_IMAGE_DENY = ("nude", "naked", "sex", "porn", "kill", "murder", "blood", "gore", "gun", "knife",
+               "bomb", "suicide", "self-harm", "selfharm", "horror", "zombie", "demon", "cigarette",
+               "alcohol", "beer", "wine", "drug", "weed", "cannabis")
+_IMAGE_STYLE = ("Cheerful child-friendly cartoon illustration for young children, soft rounded shapes, "
+                "bright kind colours, cartoon style (never photorealistic), no text, no words, no letters, "
+                "no scary or violent content, no real people: {p}")
+_IMAGE_PAT = re.compile(r"\b(?:" + "|".join(_IMAGE_DENY) + r")s?\b")
+
+
+@router.post("/image")
+async def image(req: ImageReq, request: Request, dev: str = Depends(auth), _b: None = Depends(budget_guard)):
+    st = request.app.state
+    p = clean(req.prompt, 140)
+    if len(p) < 2:
+        raise HTTPException(422, {"error": "no_content"})
+    if _IMAGE_PAT.search(p.lower()):
+        raise HTTPException(422, {"error": "prompt_not_allowed"})
+    ctx = await vault_ctx(request)
+    routes = ctx.routes if ctx else None
+    creds = dict(ctx.creds) if ctx else dict(st.deployer_creds)  # no deployer fallback on family requests (see run_brain)
+    caps = ctx.caps if ctx else None
+    last_err: ProviderError | None = None
+    for e in st.router.entries_for("visual", routes):
+        h = hashlib.sha256(f"{e.provider}|{e.model}|gen|{p}".encode()).hexdigest()
+        if st.engine is not None:  # cache is a pure optimisation: skipped without a database
+            async with st.engine.connect() as conn:
+                png = (await conn.execute(select(visual_cache.c.png).where(visual_cache.c.h == h))).scalar()
+            if png is not None:
+                return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Image": "ai-generated"})
+        try:
+            _, _, png = await st.router.generate_image({"visual": [e]}, creds, _IMAGE_STYLE.format(p=p), caps_map=caps)
+        except ProviderError as err:
+            last_err = err  # fail over to the next visual entry when eligible
+            if err.code not in FAILOVER_CODES:
+                raise HTTPException(err.status, {"error": err.code})
+            continue
+        if ctx is None:
+            await st.budget.add(st.settings.price_image)
+        if st.engine is not None:
+            async with st.engine.begin() as conn:
+                try:
+                    await conn.execute(insert(visual_cache).values(h=h, png=png, created=int(time.time())))
+                except Exception:
+                    pass
+        return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Image": "ai-generated"})
     raise HTTPException((last_err.status if last_err else 502), {"error": last_err.code if last_err else "unsupported_capability"})
 
 

@@ -81,6 +81,21 @@ void main() {
       final out = validateUiSpec(spec)!;
       expect(((out['root'] as Map)['children'] as List).map((c) => (c as Map)['id']), isNot(contains('im')));
     });
+    test('genimage keeps prompt and alt, drops short prompts, fills missing alt', () {
+      List kids(Map<String, dynamic> s) => ((validateUiSpec(s)!['root'] as Map)['children'] as List);
+      final spec = validSpec();
+      ((spec['root'] as Map)['children'] as List).add({'id': 'g1', 'type': 'genimage', 'prompt': 'a friendly dinosaur', 'alt': 'A green cartoon dinosaur smiling'});
+      var out = kids(spec).last as Map;
+      expect(out['prompt'], 'a friendly dinosaur');
+      expect(out['alt'], 'A green cartoon dinosaur smiling');
+      final noAlt = validSpec();
+      ((noAlt['root'] as Map)['children'] as List).add({'id': 'g1', 'type': 'genimage', 'prompt': 'a butterfly'});
+      out = kids(noAlt).last as Map;
+      expect(out['alt'], contains('AI-made picture'));
+      final short = validSpec();
+      ((short['root'] as Map)['children'] as List).add({'id': 'g1', 'type': 'genimage', 'prompt': 'x'});
+      expect(kids(short).map((c) => (c as Map)['id']), isNot(contains('g1')));
+    });
     test('strings sanitized and capped', () {
       final spec = validSpec();
       ((spec['root'] as Map)['children'] as List)[0]['text'] = 'see https://evil.example/x ${'y' * 900}';

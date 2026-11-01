@@ -18,3 +18,5 @@ pip-*/
 # Local-only: IDE state and the auto-resolved lockfile (CI resolves fresh).
 .idea/
 pubspec.lock
+# Generated submission captures (see screenshots/README.md); the README stays.
+screenshots/*.png

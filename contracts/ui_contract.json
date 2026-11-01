@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "components": ["text", "card", "button", "choices", "checklist", "progress", "steps", "list", "image", "divider"],
+  "components": ["text", "card", "button", "choices", "checklist", "progress", "steps", "list", "image", "genimage", "divider"],
   "actions": ["check", "answer", "next", "ask", "speak", "open_screen"],
   "ops": ["add", "update", "replace", "move", "remove", "state"],
   "layouts": ["column", "row", "card"],

@@ -10,6 +10,8 @@ import 'package:milo/core/pocket_brain.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/net/api.dart';
 import 'package:milo/net/voice.dart';
+import 'package:milo/ui/chat_screen.dart' show genImageErrorWords;
+import 'package:milo/ui/intro.dart' show introReducedHoldMs, introSkipGate, introVeilMs;
 import 'package:milo/ui/learn_screen.dart';
 
 import 'helpers/fake_db.dart';
@@ -55,6 +57,37 @@ void main() {
   test('pocket brain key message points a grown-up at AI connections', () {
     final t = validateTurn(pocketBrain('xyzzy quarks fnord', 'friendly', cloud: 'key'));
     expect(t.say.join(' '), contains('AI connections'));
+  });
+
+  test('pocket brain is honest about video and audio files', () {
+    var t = validateTurn(pocketBrain('what is happening in this video?', 'friendly'));
+    expect(t.say.join(' '), contains('can’t watch videos'));
+    t = validateTurn(pocketBrain('open my voice note from mum', 'friendly'));
+    expect(t.say.join(' '), contains('can’t play audio files'));
+    t = validateTurn(pocketBrain('sing a song', 'friendly'));
+    expect(t.say.join(' '), isNot(contains('can’t play audio files')));
+  });
+
+  test('picture failures speak their cause, never a silent spinner', () {
+    expect(genImageErrorWords(ApiError('http_422', {'error': 'prompt_not_allowed'})), contains('only draw kind pictures'));
+    expect(genImageErrorWords(ApiError('http_422', {'error': 'no_content'})), contains('Try different words'));
+    expect(genImageErrorWords(ApiError('http_401')), contains('grown-up'));
+    expect(genImageErrorWords(ApiError('auth_failed')), contains('grown-up'));
+    expect(genImageErrorWords(ApiError('offline')), contains('Your board still works'));
+    expect(genImageErrorWords(ApiError('timeout')), contains('try again later'));
+    expect(genImageErrorWords(ApiError('http_503')), contains('try again later'));
+  });
+
+  test('generated-picture keys dedupe identical prompts only', () {
+    expect(genImageKey('a friendly dinosaur'), genImageKey('  A Friendly Dinosaur '));
+    expect(genImageKey('a friendly dinosaur') == genImageKey('a butterfly'), isFalse);
+    expect(genImageKey('x').length, 64); // sha256 hex
+  });
+
+  test('intro veil timing stays inside the 1.5-2 s spec', () {
+    expect(introVeilMs, inInclusiveRange(1500, 2000));
+    expect(introReducedHoldMs, lessThan(introVeilMs));
+    expect(600 / introVeilMs, greaterThan(introSkipGate)); // the skip test's 600 ms pump clears the gate
   });
 
   test('cloud failure mapping names Spark timeouts, never the network', () {

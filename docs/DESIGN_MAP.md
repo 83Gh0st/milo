@@ -1,5 +1,11 @@
 # Wireframe to code map
 
+> Note (Nov 2026): written against the legacy painter. The shipped renderer
+> is the v2 code-drawn Milo (`lib/companion/v2/`), the default body colour
+> is now brand teal (`docs/BRAND.md`), and the UI contract grew a `genimage`
+> node (`docs/GENUI.md`, `docs/MULTIMODAL.md`). Tokens and layout below are
+> otherwise current.
+
 Design tokens (periwinkle `#5B6CFF`, pastel tiles, ink `#1F2340`), the LOCAL / CLOUD tags (shown as "Works offline"), pill tabs, row cards, speech bubbles and big buttons live in `lib/ui/theme.dart`. Milo's look (glossy body, round side nubs, mint sprout, blush, twelve expressions) is `lib/companion/painter.dart` and `emotion.dart`. Navigation is Home, Explore, Milo, Progress, More (`lib/main.dart`).
 
 | Wireframe | Screens | Code | Notes |

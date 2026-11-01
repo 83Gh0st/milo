@@ -71,6 +71,33 @@ async def test_plan_compose_visual(client):
     assert client.app.state.image.calls == 1  # second call served from cache
 
 
+def test_image_prompt_screen():
+    import pytest as _pt
+    from pydantic import ValidationError
+    from app.models import ImageReq
+    from app.routes import _IMAGE_PAT
+    hit = lambda s: _IMAGE_PAT.search(s.lower()) is not None  # the route lowercases first
+    assert not hit("a friendly dinosaur")
+    assert hit("a dinosaur with a gun")
+    assert hit("GUNS")  # plurals included
+    assert not hit("a butterfly garden")
+    with _pt.raises(ValidationError):
+        ImageReq(prompt="x")
+    assert ImageReq(prompt="a butterfly").prompt == "a butterfly"
+
+
+async def test_image_generate_flow(client):
+    h = await token(client)
+    assert (await client.post("/v1/image", json={"prompt": "x"}, headers=h)).status_code == 422
+    r = await client.post("/v1/image", json={"prompt": "a dinosaur with a gun"}, headers=h)
+    assert r.status_code == 422 and r.json() == {"detail": {"error": "prompt_not_allowed"}}
+    n = client.app.state.image.calls
+    for _ in range(2):
+        r = await client.post("/v1/image", json={"prompt": "a friendly dinosaur"}, headers=h)
+        assert r.status_code == 200 and r.content[:4] == b"\x89PNG" and r.headers["X-Milo-Image"] == "ai-generated"
+    assert client.app.state.image.calls == n + 1  # second call served from cache
+
+
 async def test_rate_limit(tmp_path):
     app = mk(tmp_path, rate_per_min=2)
     async with app.router.lifespan_context(app):

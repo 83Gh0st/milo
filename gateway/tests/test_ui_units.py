@@ -85,6 +85,19 @@ def test_image_concept_must_be_known():
     assert "im" not in [c["id"] for c in validate_ui_spec(spec)["root"]["children"]]
 
 
+def test_genimage_prompt_and_alt():
+    spec = _valid()
+    spec["root"]["children"].append({"id": "g1", "type": "genimage", "prompt": "a friendly dinosaur", "alt": "A green cartoon dinosaur smiling"})
+    kids = validate_ui_spec(spec)["root"]["children"]
+    assert kids[-1]["prompt"] == "a friendly dinosaur" and kids[-1]["alt"] == "A green cartoon dinosaur smiling"
+    spec["root"]["children"][-1] = {"id": "g1", "type": "genimage", "prompt": "a butterfly"}
+    assert validate_ui_spec(spec)["root"]["children"][-1]["alt"].startswith("AI-made picture")  # alt always present
+    spec["root"]["children"][-1] = {"id": "g1", "type": "genimage", "prompt": "x"}
+    assert "g1" not in [c["id"] for c in validate_ui_spec(spec)["root"]["children"]]  # short prompt dropped
+    assert "genimage" in PERSONA  # the model is taught the node
+    assert "cannot see video" in PERSONA  # and forbidden from inventing media content
+
+
 def test_strings_sanitized_and_capped():
     spec = _valid()
     spec["root"]["children"][0]["text"] = "see https://evil.example/x " + "y" * 900

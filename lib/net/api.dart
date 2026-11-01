@@ -141,6 +141,16 @@ class MiloApi {
     return Uint8List.fromList(r.data!);
   }
 
+  /// AI-drawn picture (Muse Image via the gateway): explicit tap only, never
+  /// auto-fetched. The gateway screens + wraps the prompt; 422s arrive as
+  /// ApiError('http_422', {error: prompt_not_allowed|no_content}).
+  Future<Uint8List> generateImage(String prompt) async {
+    final body = {'prompt': prompt};
+    await _ledger('/v1/image', 'picture', body);
+    final r = await _send<List<int>>('POST', '/v1/image', body: body, rt: ResponseType.bytes);
+    return Uint8List.fromList(r.data!);
+  }
+
   Future<bool> healthy() async { try { final r = await _dio.get('/v1/health'); return r.data['status'] == 'ok' && r.data['budget_ok'] == true; } catch (_) { return false; } }
 
   /// Voice: the ledger entry is written here, before any audio leaves the phone.

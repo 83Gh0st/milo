@@ -35,6 +35,11 @@ final voiceProvider = Provider((ref) => VoiceClient(ref.read(apiProvider)));
 final memoryProvider = ChangeNotifierProvider((ref) => MemoryManager(ref.read(dbProvider)));
 final tabProvider = StateProvider<int>((_) => 0);
 
+/// Opening veil: false while the branded intro covers first paint, true once
+/// it dismisses (timer or tap). Startup speech waits for it so the first
+/// frame is calm, never a burst of motion plus voice at once.
+final introDoneProvider = StateProvider<bool>((_) => false);
+
 /// Tab index scope for MiloView gaze registration (null outside tabs).
 /// Shell overrides this per tab so only the visible tab's Milo aims gaze.
 final miloScopeProvider = Provider<int?>((_) => null);
@@ -105,6 +110,12 @@ class VisualNotifier extends StateNotifier<Map<String, Uint8List>> {
   void clear() => state = const {};
 }
 final visualProvider = StateNotifierProvider<VisualNotifier, Map<String, Uint8List>>((_) => VisualNotifier());
+
+/// AI-drawn pictures, memory-only like visualProvider (nothing generated is
+/// ever written to disk): prompt-hash -> PNG bytes. A new prompt means a new
+/// generation; identical prompts reuse the bytes already on screen.
+String genImageKey(String prompt) => c.sha256.convert(utf8.encode(prompt.trim().toLowerCase())).toString();
+final genImageProvider = StateNotifierProvider<VisualNotifier, Map<String, Uint8List>>((_) => VisualNotifier());
 
 // ---- Sync status: null when fine, a short generic message otherwise (never content) ----
 final syncBannerProvider = StateProvider<String?>((_) => null);

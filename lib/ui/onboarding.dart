@@ -55,7 +55,7 @@ class _OState extends ConsumerState<Onboarding> {
   @override
   Widget build(BuildContext context) {
     final d = ref.watch(directorProvider);
-    return Scaffold(backgroundColor: i == 0 || i == 9 ? const Color(0xFFE9EDFF) : T.bg, body: SafeArea(child: PageView(controller: pc, physics: const NeverScrollableScrollPhysics(), onPageChanged: (v) => setState(() => i = v), children: [
+    return Scaffold(backgroundColor: i == 0 || i == 9 ? const Color(0xFFFEF4E5) : T.bg, body: SafeArea(child: PageView(controller: pc, physics: const NeverScrollableScrollPhysics(), onPageChanged: (v) => setState(() => i = v), children: [
       _page('', [const MiloStage(), const Center(child: Text('Hi! I’m Milo.', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800))), const Center(child: Text('Your AI companion.\nLet’s get to know each other.', textAlign: TextAlign.center, style: TextStyle(color: T.mute, fontSize: 16)))], say: 'Hi! I’m Milo. Your AI companion.', next: 'Get started'),
       _page('Choose your language', [for (final e in kLangNames.entries.take(5)) _row(e.value, 'Speech and text', lang == e.key, () => setState(() { lang = e.key; d.set(() => d.lang = e.key); }), icon: Icons.language)], say: 'Which language would you like?'),
       _page('Who is using Milo?', [const MiloStage(), Row(children: [Expanded(child: AspectRatio(aspectRatio: .95, child: PastelTile(icon: Icons.person_outline, label: 'Me', color: 0, selected: who == 'self', speaker: true, onTap: () => setState(() => who = 'self')))), const SizedBox(width: 12),

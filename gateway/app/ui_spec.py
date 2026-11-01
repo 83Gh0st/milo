@@ -176,6 +176,12 @@ def _node(n, seen: set, depth: int):
         if not isinstance(c, str) or c.strip().lower() not in CONCEPTS:
             return None
         out["concept"] = c.strip().lower()
+    elif t == "genimage":
+        p, a = _text(n.get("prompt", ""), 140), _text(n.get("alt", ""), 200)
+        if len(p) < 2:
+            return None
+        out["prompt"] = p
+        out["alt"] = a if len(a) >= 2 else f"AI-made picture: {p}"
     elif t == "divider":
         pass
     acts = _actions(n.get("actions"))

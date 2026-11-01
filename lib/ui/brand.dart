@@ -17,7 +17,9 @@ class MiloBrand extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         ClipRRect(
             borderRadius: BorderRadius.circular(size * .24),
-            child: Image.asset('assets/branding/mascot.png', width: size, height: size, fit: BoxFit.cover)),
+            child: Image.asset('assets/branding/mascot.png', width: size, height: size, fit: BoxFit.cover,
+                // A mis-packaged bundle must never red-screen brand surfaces.
+                errorBuilder: (_, __, ___) => Container(width: size, height: size, color: const Color(0xFFFEF4E5), child: Icon(Icons.smart_toy_outlined, size: size * .5, color: ink)))),
         if (wordmark) ...[
           SizedBox(height: size * .08),
           Text('milo',

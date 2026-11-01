@@ -71,6 +71,18 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 
 ## 4. iOS
 
+> Why not Windows: Apple licenses Xcode and the iOS SDK for macOS only, and
+> code signing + App Store upload require Apple tooling. Windows and Linux
+> can edit Dart code and review the `ios/` shell, but every compile, sign,
+> and upload step runs on the macOS GitHub Actions runners below (or a local
+> Mac). The simulator check (§4.3) needs no secrets and no paid membership.
+
+> Plugin integration: this Flutter resolves iOS plugins via Swift Package
+> Manager — there is intentionally no `ios/Podfile`, and the workflows do
+> not run `pod install`. If a plugin ever lacks SPM support, regenerate the
+> CocoaPods shell with `FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create
+> --platforms=ios .` (then re-apply the Info.plist + icon work from git).
+
 ### Requirements (Apple)
 
 - A paid **Apple Developer Program** membership ($99/yr) — required for

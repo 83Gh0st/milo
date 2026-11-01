@@ -37,6 +37,9 @@ jobs:
           echo "verified $(du -h "$APK" | cut -f1) staging APK: no placeholder, staging host present"
       - uses: actions/upload-artifact@v4
         with: {name: milo-android-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: error}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: milo-screenshots, path: screenshots/*.png, if-no-files-found: warn}
   ios-compile-check:
     runs-on: macos-latest
     steps:
@@ -45,10 +48,12 @@ jobs:
         with: {channel: stable, cache: true}
       - run: flutter create --platforms=ios --project-name milo .
       - run: flutter pub get
+      # No `pod install`: this Flutter resolves iOS plugins via Swift Package
+      # Manager (no Podfile by design); `flutter build` drives the resolution.
+      # If a plugin ever lacks SPM support, regenerate with CocoaPods:
+      # FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create --platforms=ios .
       - run: |
-          cd ios && pod install # explicit: makes the integration state inspectable; flutter build's own install becomes a no-op
-          echo "=== versions ==="; pod --version; xcodebuild -version | head -2
-          echo "=== workspace ==="; cat Runner.xcworkspace/contents.xcworkspacedata
-          echo "=== runner-pods-refs ==="; grep -c 'Pods_Runner' Runner.xcodeproj/project.pbxproj || echo NO_PODS_RUNNER_REF
-          echo "=== pods-support ==="; ls Pods/Target\ Support\ Files/ 2>&1 || echo NOPODSUPPORTFILES
+          echo "=== versions ==="; xcodebuild -version | head -2
+          echo "=== workspace ==="; cat ios/Runner.xcworkspace/contents.xcworkspacedata
+          test -f ios/Podfile && echo UNEXPECTED_PODFILE || echo no-podfile-spm-mode
       - run: flutter build ios --simulator --no-codesign --dart-define=API_BASE=https://api.example.com

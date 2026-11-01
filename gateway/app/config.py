@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     spark_model: str = "muse-spark-1.3"
     voice_model: str = "muse-voice-transcribe-1.0"
     image_model: str = "muse-image-1.0"
+    wonder_model: str = "muse-wonder-1.0"  # allowlisted, unrouted: set SPARK_MODEL to this id deliberately (see meta_catalog)
     brain_mode: str = "json"               # json | lines
     jwt_secret: str = ""
     key_enc_secret: str = ""             # encrypts family BYOK keys at rest; required (>=32 chars) in prod
@@ -51,7 +52,7 @@ class Settings(BaseSettings):
 
     @property
     def allowed_models(self) -> set[str]:
-        return {self.spark_model, self.voice_model, self.image_model}
+        return {self.spark_model, self.voice_model, self.image_model, self.wonder_model}
 
 
 def assert_model_allowed(s: Settings, model: str) -> None:

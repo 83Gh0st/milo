@@ -35,8 +35,11 @@ atomically — any failure keeps the previous tree.
 ## Components (10), actions (6), ops (6)
 
 Components: `text card button choices checklist progress steps list
-image divider`. Cards nest children (column/row/card layouts, depth
-≤ 4, ≤ 40 nodes). Images use the visual-concept allow-list only.
+image genimage divider`. Cards nest children (column/row/card layouts,
+depth ≤ 4, ≤ 40 nodes). Images use the visual-concept allow-list only;
+`genimage` carries a model-written `{prompt, alt}` and the app renders an
+explicit Create button — pictures are never auto-generated, always carry
+the AI-made disclosure, and always have alt text (see docs/MULTIMODAL.md).
 
 Actions: `check answer next ask speak open_screen`, each with a fixed
 shape (e.g. `open_screen` allows only known screens). Node-level

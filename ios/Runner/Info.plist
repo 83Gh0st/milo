@@ -24,8 +24,18 @@
 		<string>????</string>
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>tel</string>
+		</array>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+		<key>NSCameraUsageDescription</key>
+		<string>Milo reads a page when you take a photo of it.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Milo listens only when you tap the microphone.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Pick a photo of a page for Milo to read.</string>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>

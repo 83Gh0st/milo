@@ -1,4 +1,9 @@
-"""Draws Milo's app icon, adaptive-icon foreground and splash image (no external assets). Run: python tools/make_branding.py"""
+"""Draws Milo's app icon, adaptive-icon foreground and splash image (no external assets). Run: python tools/make_branding.py
+
+STALE: draws the pre-rebrand lavender identity. The shipped brand (teal
+mascot, docs/BRAND.md) comes from assets/branding/ masters + the
+flutter_launcher_icons / flutter_native_splash generators. Kept for history;
+do not run unless you intend to replace the current brand."""
 from PIL import Image, ImageDraw, ImageFilter
 import math, os
 S = 2048
