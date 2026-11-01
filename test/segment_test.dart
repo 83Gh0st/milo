@@ -22,6 +22,7 @@ void main() {
 
   testWidgets('overlay draws tappable labeled regions over the photo', (t) async {
     String? tapped;
+    final semantics = t.ensureSemantics(); // semantics finders need an explicit handle
     await t.pumpWidget(MaterialApp(
         home: Scaffold(
             body: SegmentOverlay(
@@ -41,5 +42,6 @@ void main() {
     await t.pump();
     expect(tapped, 'r2');
     expect(t.takeException(), isNull);
+    semantics.dispose();
   });
 }
