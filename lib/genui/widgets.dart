@@ -149,11 +149,15 @@ class _NodeView extends StatelessWidget {
             CheckboxListTile(value: not.isDone(i['id'] as String), activeColor: T.pri, controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, dense: true,
                 title: Text('${i['text']}', style: const TextStyle(fontSize: 16)), onChanged: (_) => not.toggle(i['id'] as String)),
         ]),
-      'choices' => Column(children: [
-          for (final o in (node['options'] as List).cast<Map<String, dynamic>>())
-            RadioListTile<String>(value: o['id'] as String, groupValue: not.answerOf(node['id'] as String), activeColor: T.pri, contentPadding: EdgeInsets.zero, dense: true,
-                title: Text('${o['label']}', style: const TextStyle(fontSize: 16)), onChanged: (v) { if (v != null) not.answer(node['id'] as String, v); }),
-        ]),
+      'choices' => RadioGroup<String>(
+          groupValue: not.answerOf(node['id'] as String),
+          onChanged: (v) { if (v != null) not.answer(node['id'] as String, v); },
+          child: Column(children: [
+            for (final o in (node['options'] as List).cast<Map<String, dynamic>>())
+              RadioListTile<String>(value: o['id'] as String, activeColor: T.pri, contentPadding: EdgeInsets.zero, dense: true,
+                  title: Text('${o['label']}', style: const TextStyle(fontSize: 16))),
+          ]),
+        ),
       'steps' => Column(children: [
           for (var i = 0; i < (node['steps'] as List).length; i++)
             Builder(builder: (_) {

@@ -105,6 +105,12 @@ Create at developer.apple.com / in Xcode, then add as repository secrets:
 Export the `.p12` from Keychain Access (right-click the Distribution
 certificate → Export). Never commit any of these files.
 
+Then add a repository **variable** (Settings → Secrets and variables →
+Actions → Variables tab): `IOS_SIGNING_ENABLED` = `true`. The workflow
+cannot test secrets in a job condition, so this variable is the on/off
+switch for the signed-IPA job; the job itself fails fast with a clear
+message if the variable is on but the secrets are missing.
+
 ### 4.3 CI simulator verification (no secrets needed)
 
 Every release tag runs `ios-verify` on `macos-latest`: `flutter create`,
@@ -113,8 +119,8 @@ iOS build compiles and links. **It is not installable on devices.**
 
 ### 4.4 Signed IPA (needs the §4.2 secrets)
 
-The `ios-ipa` job runs only when `IOS_CERTIFICATE_BASE64` and
-`IOS_PROVISIONING_PROFILE_BASE64` exist; otherwise it is skipped and the
+The `ios-ipa` job runs only when the `IOS_SIGNING_ENABLED` repo variable
+is `true` (and the §4.2 secrets verify present); otherwise it is skipped and the
 summary says no IPA was produced. It imports the identity into an ephemeral
 keychain, writes `ExportOptions.plist` (`app-store`, manual signing), runs
 `flutter build ipa --release`, and uploads `milo-ios-ipa`.
