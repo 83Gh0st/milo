@@ -225,8 +225,9 @@ class MiloApi {
   Future<ConnStatus> connectionCheck() async {
     try {
       final h = await healthDetails();
+      final reasoning = h['reasoning_provider'] is String && (h['reasoning_provider'] as String).isNotEmpty ? h['reasoning_provider'] as String : null;
       return ConnStatus(apiBase: Env.apiBase, ok: h['status'] == 'ok' && h['budget_ok'] == true,
-          provider: h['provider'] is String ? h['provider'] as String : null,
+          provider: reasoning ?? (h['provider'] is String ? h['provider'] as String : null),
           brainMode: h['brain_mode'] is String ? h['brain_mode'] as String : null, budgetOk: h['budget_ok'] == true,
           words: connectionWords(health: h, error: null));
     } on ApiError catch (e) { return ConnStatus(apiBase: Env.apiBase, ok: false, words: connectionWords(health: null, error: e.code)); } catch (_) {

@@ -32,5 +32,7 @@ Map<String, dynamic> pocketBrain(String raw, String profile, {String cloud = 'of
           ? ['My thinking cloud needs a rest.', 'I can still help with what is on your phone.']
           : cloud == 'timeout'
               ? ['That took too long.', 'Let’s try again in a moment.']
-              : ['Tell me more.', 'Cloud AI is turned off in your privacy settings, so I use simple rules for now.'], ch: ['Read to me', 'Help me say something', 'Do steps']);
+              : cloud == 'key'
+                  ? ['My thinking cloud did not accept that key.', 'A grown-up can check it in AI connections.']
+                  : ['Tell me more.', 'Cloud AI is turned off in your privacy settings, so I use simple rules for now.'], ch: ['Read to me', 'Help me say something', 'Do steps']);
 }

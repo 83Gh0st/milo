@@ -246,6 +246,7 @@ void main() {
     await settle(t);
     expect(api.savedRoutes['brain']!.first, {'provider': 'openai', 'model': 'fake-model'});
     expect(find.text('Saved. Milo now uses your choices.'), findsOneWidget);
+    await db.put('ai.family_key', 'x'); // family mode with one key
 
     await dragToBuild(t, find.text('OpenAI', skipOffstage: false), list, dy: 400);
     await t.ensureVisible(find.text('OpenAI', skipOffstage: false));
@@ -258,6 +259,26 @@ void main() {
     await settle(t);
     expect(api.savedConns, isEmpty);
     expect(find.text('Not connected', skipOffstage: false), findsNWidgets(4));
+    expect(await db.get('ai.family_key'), isEmpty); // last key gone: reverted to hosted
+    expect(t.takeException(), isNull);
+    c.dispose();
+  });
+
+  testWidgets('hosted status names Milo hosted Muse Spark', (t) async {
+    final db = FakeDb(), api = FakeApi(db, SecureStore());
+    final c = ProviderContainer(overrides: [
+      dbProvider.overrideWithValue(db),
+      storeProvider.overrideWithValue(SecureStore()),
+      directorProvider.overrideWith((_) => Director()),
+      apiProvider.overrideWithValue(api),
+      syncProvider.overrideWithValue(FakeSync(db, api, SecureStore())),
+      connectionCheckProvider.overrideWith((_) => Future.value(const ConnStatus(apiBase: 'http://test', ok: true, provider: 'modal', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+    ]);
+    await pumpConn(t, c);
+    await settle(t);
+    expect(find.text('Hosted by Milo — Muse Spark', skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('Milo hosted (Muse Spark)', skipOffstage: false), findsOneWidget);
+    expect(find.text('My API keys (BYOK)', skipOffstage: false), findsOneWidget);
     expect(t.takeException(), isNull);
     c.dispose();
   });

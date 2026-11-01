@@ -27,7 +27,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: flutter-test-log, path: flutter_test.log, if-no-files-found: warn}
-      - run: flutter build apk --release --dart-define=API_BASE=https://api.example.com
+      - run: flutter build apk --release --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run
+      - name: Verify staging API base baked in
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -f "$APK" || { echo 'APK missing' >&2; exit 1; }
+          if grep -a -q 'api\.example\.com' "$APK"; then echo 'STAGING APK STILL CONTAINS api.example.com' >&2; exit 1; fi
+          grep -a -q 'milo-gateway-staging-web\.us-east\.modal\.run' "$APK" || { echo 'STAGING API BASE MISSING FROM APK' >&2; exit 1; }
+          echo "verified $(du -h "$APK" | cut -f1) staging APK: no placeholder, staging host present"
       - uses: actions/upload-artifact@v4
         with: {name: milo-android-apk, path: build/app/outputs/flutter-apk/app-release.apk, if-no-files-found: error}
   ios-compile-check:

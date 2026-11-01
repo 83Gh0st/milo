@@ -52,6 +52,11 @@ void main() {
     expect(m.say.join(' '), isNot(contains('coming next')));
   });
 
+  test('pocket brain key message points a grown-up at AI connections', () {
+    final t = validateTurn(pocketBrain('xyzzy quarks fnord', 'friendly', cloud: 'key'));
+    expect(t.say.join(' '), contains('AI connections'));
+  });
+
   test('sync banner mapping never leaks content', () {
     expect(syncBannerFor(CloudDisabled()), isNull); // ladder banner already covers offline
     expect(syncBannerFor(ApiError('offline')), 'Couldn’t sync just now.');

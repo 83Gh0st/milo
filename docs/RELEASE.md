@@ -25,8 +25,11 @@ The gateway URL is **never** hardcoded. `lib/config.dart` reads `API_BASE`
 from `--dart-define` (default `http://10.0.2.2:8000`, the Android emulator's
 loopback to the developer's machine).
 
-- CI simulator/APK check builds pass `--dart-define=API_BASE=https://api.example.com`
-  (a placeholder — those builds only prove compilation).
+- CI's APK check build bakes the staging gateway URL and a verification step
+  fails the job if `api.example.com` is present or the staging host is absent —
+  the `milo-android-apk` artifact is a usable staging client.
+- The iOS simulator check still uses `--dart-define=API_BASE=https://api.example.com`
+  (a placeholder — that build only proves compilation, never distributed).
 - `release.yml` uses the `MILO_API_BASE` repository secret when set, else the
   `api_base` manual-dispatch input, else the compiled-in default. Set
   `MILO_API_BASE` to your `https://…modal.run` URL (see `docs/MODAL.md` §4).
