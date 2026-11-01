@@ -90,7 +90,7 @@ async def test_image_generate_flow(client):
     h = await token(client)
     assert (await client.post("/v1/image", json={"prompt": "x"}, headers=h)).status_code == 422
     r = await client.post("/v1/image", json={"prompt": "a dinosaur with a gun"}, headers=h)
-    assert r.status_code == 422 and r.json() == {"detail": {"error": "prompt_not_allowed"}}
+    assert r.status_code == 422 and r.json() == {"error": "prompt_not_allowed"}  # unwrapped: the app reads body["error"] (main.http_err)
     n = client.app.state.image.calls
     for _ in range(2):
         r = await client.post("/v1/image", json={"prompt": "a friendly dinosaur"}, headers=h)
