@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "components": ["text", "card", "button", "choices", "checklist", "progress", "steps", "list", "image", "divider"],
+  "actions": ["check", "answer", "next", "ask", "speak", "open_screen"],
+  "ops": ["add", "update", "replace", "move", "remove", "state"],
+  "layouts": ["column", "row", "card"],
+  "intents": ["guide", "explain", "quiz", "celebrate", "choice", "none"],
+  "modes": ["chat", "activity", "celebration"],
+  "companion": ["featured", "docked", "hidden"],
+  "limits": {
+    "max_components": 40,
+    "max_depth": 4,
+    "max_text": 600,
+    "max_title": 120,
+    "max_items": 12,
+    "max_actions_per_node": 4,
+    "max_ops": 12,
+    "max_state_keys": 12,
+    "max_state_value": 120,
+    "max_id": 32
+  }
+}

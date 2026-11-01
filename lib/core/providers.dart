@@ -9,6 +9,7 @@ import '../contracts/brain_contract.dart';
 import '../contracts/events.dart';
 import '../data/db.dart';
 import '../data/secure_store.dart';
+import '../genui/panel.dart';
 import '../net/api.dart';
 import '../net/voice.dart';
 import '../sync/sync_service.dart';
@@ -154,7 +155,8 @@ class CoreRouter {
     final db = ref.read(dbProvider);
     final chips = [for (final c in ref.read(chipsProvider)) if (!(dropDocument && c.kind == 'document')) c];
     return buildBrainBody(text: text, activity: activity, presentation: d.profile.name, lang: d.lang, support: await db.support(), chips: chips,
-        memories: await ref.read(memoryProvider).forRequest(activity), name: await db.flag('cloud.name') ? await db.get('name') : null, recent: _recent);
+        memories: await ref.read(memoryProvider).forRequest(activity), name: await db.flag('cloud.name') ? await db.get('name') : null, recent: _recent,
+        uiContext: ref.read(panelProvider).snapshot());
   }
 
   Future<void> handle(String text, Director d) async {
@@ -251,6 +253,7 @@ final directorProvider = ChangeNotifierProvider<Director>((ref) {
   d.onMemoryProposal = ref.read(memoryProvider).propose;
   d.onSaid = (t) => ref.read(chatProvider.notifier).said(t);
   d.onSteps = (s) => ref.read(chatProvider.notifier).addSteps(s);
+  d.onUiSpec = (s) => ref.read(panelProvider.notifier).applySpec(s);
   d.onLookupWord = (w) { ref.read(lookupWordProvider.notifier).state = w; openScreen('understand'); };
   d.onShowImage = (c) async {
     if (ref.read(visualProvider).containsKey(c)) return;

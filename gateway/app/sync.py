@@ -27,7 +27,16 @@ def _hdr(request: Request):
     return vid, key
 
 
+def need_vault_store(request: Request) -> None:
+    """Database-optional chat means the vault (sync identity + sealed family
+    keys) may not exist on this server. Every vault path answers 503
+    vault_unavailable then — never a crash, never a silent bypass."""
+    if request.app.state.engine is None:
+        raise HTTPException(503, {"error": "vault_unavailable"})
+
+
 async def vault_auth(request: Request, dev: str = Depends(auth)) -> str:
+    need_vault_store(request)
     vid, key = _hdr(request)
     async with request.app.state.engine.connect() as c:
         row = (await c.execute(select(vaults.c.auth_hash).where(vaults.c.vault_id == vid))).first()
@@ -38,6 +47,7 @@ async def vault_auth(request: Request, dev: str = Depends(auth)) -> str:
 
 @router.post("/vault", status_code=201)
 async def create_vault(request: Request, dev: str = Depends(auth)):
+    need_vault_store(request)
     vid, key = _hdr(request)
     async with request.app.state.engine.begin() as c:
         if (await c.execute(select(vaults.c.vault_id).where(vaults.c.vault_id == vid))).first():
@@ -164,8 +174,10 @@ def _caps_for(conn: dict) -> dict:
 async def vault_ctx_for(vid: str, key: str, engine, s) -> VaultCtx:
     """Validates vault headers (401), loads decrypted credentials, routes and
     probed caps (409 when the vault holds no usable key). Never falls back
-    to the deployer key silently."""
+    to the deployer key silently. 503 when this server has no vault store."""
     from .providers.registry import RouteEntry
+    if engine is None:
+        raise HTTPException(503, {"error": "vault_unavailable"})
     if not re.fullmatch(r"[0-9a-f]{32}", vid or "") or not re.fullmatch(r"[0-9a-f]{64}", key or ""):
         raise HTTPException(401, {"error": "bad_vault_credentials"})
     async with engine.connect() as c:
@@ -187,6 +199,18 @@ async def vault_ctx_for(vid: str, key: str, engine, s) -> VaultCtx:
         # Offline-demo plumbing: the single family key funds mock turns too
         # (mock never sends it anywhere; tests observe last_api_key).
         creds["mock"] = next(iter(creds.values()))
+    elif s.provider != "mock":
+        # A family that saved keys but never saved per-capability routes
+        # still gets working turns: each configured provider+model becomes
+        # the default entry for every capability, and the router + probed
+        # caps skip what a provider cannot serve (honest errors, never
+        # deployer fallback — family requests only ever see family creds).
+        own = [RouteEntry(c["provider"], c["default_model"], "auto")
+               for c in conns if c.get("default_model") and c["provider"] in creds]
+        if own:
+            from .providers.registry import CAPABILITIES_NEEDED
+            for cap in CAPABILITIES_NEEDED:
+                routes.setdefault(cap, list(own))
     return VaultCtx(vid=vid, creds=creds, routes=routes, caps=caps, unreadable=bad)
 
 

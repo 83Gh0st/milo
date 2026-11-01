@@ -1,6 +1,4 @@
-import time
-from sqlalchemy import BigInteger, Boolean, Column, Float, Index, LargeBinary, MetaData, String, Table, select, update, insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import BigInteger, Boolean, Column, Float, Index, LargeBinary, MetaData, String, Table
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 md = MetaData()
@@ -28,29 +26,37 @@ def make_engine(url: str) -> AsyncEngine:
 
 
 class Budget:
-    """Daily + monthly spend estimates in USD, persisted so restarts do not
-    reset the guards. Only deployer-path (shared-key) spend is metered here;
-    family-keyed turns spend the family's quota, never this budget."""
-    def __init__(self, engine: AsyncEngine, limit: float, monthly_limit: float = 100.0):
-        self.engine, self.limit, self.monthly_limit = engine, limit, monthly_limit
+    """Daily + monthly deployer spend estimates in USD. Only deployer-path
+    turns are metered here; family-keyed turns spend the family's quota.
+    Totals live on a SpendLedger (postgres | Modal Dict | memory — see
+    app/spend.py); the memory ledger is always clamped to the low
+    ephemeral ceilings, and ``persistent`` reports which case this is."""
+    def __init__(self, ledger, limit: float, monthly_limit: float = 100.0, backend: str = "postgres"):
+        self.ledger, self.limit, self.monthly_limit = ledger, limit, monthly_limit
+        self.backend = backend
+        self.persistent = bool(getattr(ledger, "persistent", False))
 
-    @staticmethod
-    def _day() -> str:
-        return time.strftime("%Y-%m-%d", time.gmtime())
+    @classmethod
+    def for_settings(cls, settings, engine: AsyncEngine | None) -> "Budget":
+        from .spend import DictSpend, MemorySpend, PostgresSpend, effective_limits, open_modal_dict, resolve_backend_name
+        backend = resolve_backend_name(settings)
+        if backend == "postgres":
+            ledger: object = PostgresSpend(engine)
+        elif backend == "modal_dict":
+            ledger = DictSpend(open_modal_dict(settings.spend_dict_name))
+        else:
+            ledger = MemorySpend()
+        day, month = effective_limits(settings, backend)
+        return cls(ledger, day, month, backend)
 
     async def spent(self) -> float:
-        async with self.engine.connect() as c:
-            r = (await c.execute(select(spend.c.usd).where(spend.c.day == self._day()))).scalar()
-            return float(r or 0)
+        return await self.ledger.spent_day()
 
     async def ok(self) -> bool:
         return await self.spent() < self.limit
 
     async def spent_month(self) -> float:
-        prefix = time.strftime("%Y-%m", time.gmtime())
-        async with self.engine.connect() as c:
-            rows = (await c.execute(select(spend.c.usd).where(spend.c.day.like(prefix + "%")))).scalars().all()
-            return float(sum(rows or []))
+        return await self.ledger.spent_month()
 
     async def month_ok(self) -> bool:
         return await self.spent_month() < self.monthly_limit
@@ -58,10 +64,4 @@ class Budget:
     async def add(self, usd: float) -> None:
         if usd <= 0:
             return
-        async with self.engine.begin() as c:
-            r = await c.execute(update(spend).where(spend.c.day == self._day()).values(usd=spend.c.usd + usd))
-            if r.rowcount == 0:
-                try:
-                    await c.execute(insert(spend).values(day=self._day(), usd=usd))
-                except IntegrityError:
-                    await c.execute(update(spend).where(spend.c.day == self._day()).values(usd=spend.c.usd + usd))
+        await self.ledger.add(usd)

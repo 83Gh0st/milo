@@ -79,7 +79,8 @@ def test_redact():
 
 def test_capabilities_shape():
     assert set(Capabilities().as_dict()) == {"text_stream", "json_schema", "tool_calls", "vision", "audio_in", "tts", "image_gen", "realtime", "visual_ground"}
-    assert set(DECLARED) == {"meta", "openai", "anthropic", "custom", "mock"}
+    assert set(DECLARED) == {"meta", "openai", "anthropic", "custom", "mock", "modal"}
+    assert DECLARED["modal"].text_stream and DECLARED["modal"].json_schema and not DECLARED["modal"].vision
     assert DECLARED["mock"].text_stream and DECLARED["anthropic"].tool_calls and not DECLARED["anthropic"].tts
     assert DECLARED["mock"].visual_ground and not DECLARED["meta"].visual_ground  # SAM unverified: mock only
 
@@ -113,16 +114,20 @@ def test_egress_dev_lan_opt_in():
 # ---------- data policy ----------
 
 def test_policies_require_ack_until_reviewed():
-    for pid in ("meta", "openai", "anthropic"):
+    meta = datapolicy.POLICIES["meta"]
+    assert datapolicy.needs_ack(meta) and meta.checked_on == "unverified"  # standard-model retention still unverified
+    modal = datapolicy.POLICIES["modal"]
+    assert datapolicy.needs_ack(modal) and modal.checked_on == "unverified"  # Shared Endpoint terms not yet reviewed
+    for pid in ("openai", "anthropic"):
         p = datapolicy.POLICIES[pid]
-        assert datapolicy.needs_ack(p) and p.checked_on == "unverified" and "NOT YET CHECKED" in p.source_url
+        assert not datapolicy.needs_ack(p) and p.checked_on != "unverified" and p.source_url
     assert not datapolicy.needs_ack(datapolicy.POLICIES["mock"])
 
 
 # ---------- registry ----------
 
 def test_registry_ids_and_model_rules():
-    assert registry.adapter_ids() == ["anthropic", "custom", "meta", "mock", "openai"]
+    assert registry.adapter_ids() == ["anthropic", "custom", "meta", "mock", "modal", "openai"]
     with pytest.raises(ValueError):
         registry.get_adapter("nope")
     assert registry.deny_model("x-contributor") is not None

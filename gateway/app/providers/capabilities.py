@@ -41,7 +41,9 @@ DECLARED = {
     "openai": Capabilities(text_stream=True, json_schema=True, tool_calls=True, vision=True, audio_in=True, tts=True, image_gen=True),
     "anthropic": Capabilities(text_stream=True, tool_calls=True, vision=True),
     "custom": Capabilities(text_stream=True, json_schema=True, tool_calls=True, vision=True, audio_in=True, tts=True, image_gen=True),
+    "modal": Capabilities(text_stream=True, json_schema=True),
     "mock": Capabilities(text_stream=True, json_schema=True, vision=True, audio_in=True, image_gen=True, visual_ground=True),
 }
 
-DISPLAY_NAMES = {"meta": "Meta", "openai": "OpenAI", "anthropic": "Anthropic", "custom": "Custom / local", "mock": "Mock (offline demo)"}
+DISPLAY_NAMES = {"meta": "Meta", "openai": "OpenAI", "anthropic": "Anthropic", "custom": "Custom / local",
+                 "modal": "Milo hosted", "mock": "Mock (offline demo)"}

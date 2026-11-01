@@ -142,6 +142,7 @@ class Director extends ChangeNotifier {
   double _lastTap = -99;
   void Function(Map<String, dynamic>)? onMemoryProposal;
   void Function(String, Map<String, dynamic>)? onUnderstand;
+  void Function(Map<String, dynamic>)? onUiSpec; // generative panel: set by the app, validated again client-side
   bool preReader = false, supportActive = false, highContrast = false, haptics = true, captions = true, largeText = false;
   double textScale = 1.0, lineSpacing = 1.5;
   String font = 'Lexend';
@@ -659,8 +660,11 @@ class Director extends ChangeNotifier {
         : [(text: norm, wordOffset: 0)];
     if (parts.isEmpty) return;
     final gen = ++_gen;
-    await voice.stopNow(); // no overlapping speech: the previous utterance ends before this one starts
-    if (gen != _gen) return; // superseded while stopping: the newer request owns everything
+    // Claim the speaking state synchronously (before the first await) so
+    // envelope feeds for this generation are accepted the moment speak()
+    // is called. The stop + gen check below still serialize overlaps, and
+    // the mouth itself only moves on genuine audio signals (started/word
+    // events or non-silent envelope feeds), never on the claim alone.
     _words = RegExp(r'\S+').allMatches(norm).toList();
     _onWord = onWord;
     _gotP = false;
@@ -670,6 +674,14 @@ class Director extends ChangeNotifier {
     if (aac) clips.clear(); // AAC speech stays neutral: clarity first, no performance
     final fallback = (state == CState.listening || state == CState.endpointing) ? CState.listening : CState.idle;
     _set(CState.speaking);
+    var stopped = true;
+    try {
+      await voice.stopNow(); // no overlapping speech: the previous utterance ends before this one starts
+    } catch (_) {
+      stopped = false;
+    }
+    if (gen != _gen) return; // superseded while stopping: the newer request owns everything
+    if (!stopped) { _cleanupSpeech(fallback); return; } // stop failed: fail closed, never stuck speaking
     await _watchVoice(gen); // stale platform callbacks for [gen] only; older utterances are dropped
     if (gen != _gen) return;
     _antic = aac || quiet ? 0 : .15;
@@ -825,6 +837,7 @@ class Director extends ChangeNotifier {
           if (d['action'] == 'lookup_word') onLookupWord?.call('${d['word']}');
         case 'memory': onMemoryProposal?.call(d);
         case 'key_point' || 'simple' || 'vocab' || 'check': onUnderstand?.call(e.type, d);
+        case 'ui_spec': onUiSpec?.call(d);
         case 'error': throw StreamError('${d['code']}');
         case 'done': wait = d['followup'] == 'wait';
       }

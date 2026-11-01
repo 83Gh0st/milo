@@ -1,0 +1,66 @@
+name: modal-deploy
+# Deploys Milo's Modal apps. Manual dispatch only; production requires an
+# explicit typed confirmation AND passing gateway tests in the same run.
+# Needs GitHub secrets MODAL_TOKEN_ID + MODAL_TOKEN_SECRET (from `modal
+# token new` on your machine — paste the values, never commit them).
+# This workflow never touches the milo-gateway Modal secret: staging uses
+# its own secrets, created once (see docs/MODAL.md). The hosted model is a
+# Modal-managed Shared Endpoint (Muse Spark), created in the dashboard —
+# nothing here deploys model weights.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'What to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, gateway-prod]
+      confirm_prod:
+        description: 'For gateway-prod only: type DEPLOY-PROD to confirm'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  gateway-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r gateway/requirements-dev.txt
+      - run: cd gateway && python -m pytest -q
+
+  deploy:
+    needs: gateway-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install 'modal==1.6.3'
+      - name: Refuse unconfirmed production deploys
+        if: ${{ inputs.target == 'gateway-prod' && inputs.confirm_prod != 'DEPLOY-PROD' }}
+        run: |
+          echo 'gateway-prod needs confirm_prod=DEPLOY-PROD. Refusing.' >&2
+          exit 1
+      - name: Deploy staging gateway
+        if: ${{ inputs.target == 'staging' }}
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          test -n "$MODAL_TOKEN_ID" || { echo 'MODAL_TOKEN_ID secret missing' >&2; exit 1; }
+          modal deploy gateway/modal_staging.py
+      - name: Deploy production gateway
+        if: ${{ inputs.target == 'gateway-prod' }}
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          test -n "$MODAL_TOKEN_ID" || { echo 'MODAL_TOKEN_ID secret missing' >&2; exit 1; }
+          modal deploy gateway/modal_app.py
+      - run: |
+          echo "### Modal deploy: ${{ inputs.target }} finished." >> "$GITHUB_STEP_SUMMARY"
+          echo 'Next: run the verification ladder in docs/MODAL.md against the fresh deployment.' >> "$GITHUB_STEP_SUMMARY"

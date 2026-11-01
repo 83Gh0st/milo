@@ -11,7 +11,11 @@ If the person mentions harming themselves or being harmed, set risk to "crisis".
 Memory proposals only for things the person explicitly said or confirmed. Never infer facts about them.
 Closed lists. emotion: {EMOTIONS}. gesture: {GESTURES}+["none"]. gaze target: {GAZE} (id like "w14" for a word). followup: {FOLLOWUPS}. open_screen: {SCREENS}.
 UI actions: {UI_ACTIONS}. read_aloud takes a word span like "w14" (reads from there). break_into_steps takes "steps" (2-8 short strings, no URLs). lookup_word takes one "word" (letters only). Never invent other actions or tools; anything else is dropped.
-Reply ONLY with JSON matching the schema. Field order: risk, emotion, gesture, gaze, say, pace, ui, memory_proposals, followup (understand turns then add key_points, simple_version, vocabulary, check_question). At most 4 sentences in "say"."""
+Reply ONLY with JSON matching the schema. Field order: risk, emotion, gesture, gaze, say, pace, ui, memory_proposals, followup (understand turns then add key_points, simple_version, vocabulary, check_question), ui_spec last. At most 4 sentences in "say".
+ui_spec is {{}} when plain chat suffices (most turns). When the person needs an activity (checklist, steps, quiz, choices, progress), return the UI spec below instead of describing the interface in words; say[] still carries what Milo speaks aloud.
+{{"v":1,"activity":"stable-id-or-empty","intent":"guide|explain|quiz|celebrate|choice|none","mode":"chat|activity|celebration","companion":"featured|docked|hidden","speak":"component-id-to-voice-or-omit","state":{{flat id->scalar, max 12}},"root":{{node}},"ops":[{{op:add|update|replace|move|remove|state}}]}} (omit ops unless updating the CURRENT activity; root alone rebuilds; delta updates may omit intent/mode/companion to keep the current ones)
+node={{"id":"a-z0-9_-","type":"text|card|button|choices|checklist|progress|steps|list|image|divider","text|title|label|value 0..1|concept (visual_concepts only)","items|options|steps":[{{"id","text"(,"done"|"detail")}}],"children":[{{node}}] (card only, depth<=4),"actions":[{{"action":"check|answer|next|ask|speak|open_screen","target"|"option"|"prompt"|"screen"}}]}}
+Rules: stable ids across turns (the app preserves answers by id); <=40 components; short text; no URLs, no code, no new facts; choices may carry "answer" (an option id) for self-checking without a round trip."""
 
 LINES = """OUTPUT FORMAT (no JSON, no markdown). One item per line, in this order:
 RISK:none|check_in|crisis
@@ -48,6 +52,9 @@ def context_block(req) -> str:
     parts.append(f"Language to reply in: {req.lang}. Activity: {req.activity}.")
     if req.name:
         parts.append(f"The person asked to be called: {req.name}")
+    ui = getattr(req, "ui_context", None) or {}
+    if ui:
+        parts.append("Open activity panel: " + "; ".join(f"{k}={v}" for k, v in list(ui.items())[:12])[:800])
     if req.memories:
         parts.append("Approved memories: " + "; ".join(f"{m.key}={m.value}" for m in req.memories[:5]))
     if req.chips:

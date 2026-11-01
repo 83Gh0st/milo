@@ -84,10 +84,14 @@ void main() {
     api = FakeApi(db, SecureStore());
     final c2 = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c2);
+    final list = find.byType(ListView).first;
     for (final label in ['Meta (recommended)', 'OpenAI', 'Anthropic', 'Custom or local']) {
-      expect(find.text(label, skipOffstage: false), findsOneWidget); // lower tiles start below the fold
+      await dragToBuild(t, find.text(label, skipOffstage: false), list); // lower tiles start below the fold
+      final title = find.text(label, skipOffstage: false);
+      expect(title, findsOneWidget);
+      final tile = find.ancestor(of: title, matching: find.byType(ListTile)); // this tile's own row
+      expect(t.widget<ListTile>(tile).subtitle, isA<Text>().having((w) => w.data, 'data', 'Not connected'));
     }
-    expect(find.text('Not connected', skipOffstage: false), findsNWidgets(4));
     expect(t.takeException(), isNull);
     c2.dispose();
   });
@@ -121,6 +125,7 @@ void main() {
     final api = FakeApi(db, SecureStore());
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
+    await dragToBuild(t, find.text('OpenAI', skipOffstage: false), find.byType(ListView).first);
     await t.ensureVisible(find.text('OpenAI', skipOffstage: false));
     await t.pump();
     await t.tap(find.text('OpenAI'));
@@ -160,6 +165,7 @@ void main() {
       'policy': {'trains_on_data': 'unknown', 'needs_ack': true, 'note': 'Fake policy for tests.'}});
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
+    await dragToBuild(t, find.text('OpenAI', skipOffstage: false), find.byType(ListView).first);
     await t.ensureVisible(find.text('OpenAI', skipOffstage: false));
     await t.pump();
     await t.tap(find.text('OpenAI'));
@@ -191,6 +197,28 @@ void main() {
     await t.ensureVisible(find.text('Chat', skipOffstage: false).first);
     await t.pump();
     expect(find.text('Chat'), findsOneWidget); // fail row still labelled, no crash
+    expect(t.takeException(), isNull);
+    c.dispose();
+  });
+
+  testWidgets('tested date shows only after a passed probe; saved alone never reads connected', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model',
+      'policy': {}, 'caps': {'fake-model': {'strategy': 'json_schema', 'tested_at': '2026-10-29T00:00:00Z'}}});
+    api.savedConns.add({'provider': 'anthropic', 'base_url': '', 'hint': '…9999', 'default_model': 'x', 'policy': {}});
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c);
+    final list = find.byType(ListView).first;
+    await dragToBuild(t, find.textContaining('Tested 2026-10-29', skipOffstage: false), list);
+    await t.ensureVisible(find.textContaining('Tested 2026-10-29', skipOffstage: false));
+    await t.pump();
+    expect(find.textContaining('Tested 2026-10-29'), findsOneWidget);
+    await dragToBuild(t, find.textContaining('not tested yet', skipOffstage: false), list);
+    await t.ensureVisible(find.textContaining('not tested yet', skipOffstage: false));
+    await t.pump();
+    expect(find.textContaining('not tested yet'), findsOneWidget);
+    expect(find.textContaining('Connected'), findsNothing); // saved keys never read as working
     expect(t.takeException(), isNull);
     c.dispose();
   });

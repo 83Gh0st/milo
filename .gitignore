@@ -10,3 +10,11 @@ smoke_report.json
 analysis_options.zip
 .venv*/
 pip-*/
+# Local Flutter SDK for verification runs (large, machine-specific).
+.sdk-probe/
+
+# Widget Preview related
+.widget_preview/
+# Local-only: IDE state and the auto-resolved lockfile (CI resolves fresh).
+.idea/
+pubspec.lock

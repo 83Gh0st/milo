@@ -31,6 +31,7 @@ _LOADERS = {"meta": ("app.providers.meta_adapter", "MetaAdapter"),
             "openai": ("app.providers.openai_compat", "OpenAICompatAdapter"),
             "anthropic": ("app.providers.anthropic", "AnthropicAdapter"),
             "custom": ("app.providers.openai_compat", "OpenAICompatAdapter"),
+            "modal": ("app.providers.modal_hosted", "ModalAdapter"),
             "mock": ("app.providers.mock_adapter", "MockAdapter")}
 _CACHE = {}
 
@@ -54,6 +55,16 @@ def get_adapter(provider: str, *args, **kwargs):
     if not args and not kwargs:
         _CACHE[provider] = inst
     return inst
+
+
+def get_adapter_for(provider: str, settings):
+    """Settings-aware construction: only the meta adapter needs suite
+    settings (endpoint URLs); every other adapter builds with no args
+    (their first constructor parameter is an HTTP transport, NOT
+    settings, so passing settings blindly would corrupt them)."""
+    if provider == "meta":
+        return get_adapter(provider, settings)
+    return get_adapter(provider)
 
 
 def deny_model(model: str) -> str | None:

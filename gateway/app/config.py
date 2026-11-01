@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     session_per_min_ip: int = 20
     daily_budget_usd: float = 20.0
     monthly_budget_usd: float = 100.0  # UTC-month cap on deployer-path vendor spend; family keys spend the family's quota, never this
+    modal_models_url: str = ""       # Modal Shared Endpoint base, MUST end with /v1 (the adapter appends /chat/completions and /models)
+    modal_models_key: str = ""       # proxy token (id.secret) for that endpoint (server-side only, never to the app)
+    modal_model: str = ""            # endpoint hostname from the dashboard's request examples (no default: a wrong id must fail loudly, never guess)
+    reasoning_provider: str = ""     # "" = follow PROVIDER suite; "modal" = hosted Muse Spark for text caps
+    modal_fallback: bool = True      # text turns fall back to the suite entries when the hosted model errors pre-byte
+    spend_backend: str = "auto"      # auto | postgres | modal_dict | memory (see app/spend.py)
+    spend_dict_name: str = ""        # Modal Dict for spend totals; empty disables the dict backend (see app/spend.py)
+    ephemeral_day_usd: float = 5.0   # ceilings that ALWAYS bind the memory ledger (see app/spend.py)
+    ephemeral_month_usd: float = 20.0
     price_in: float = 1.25                 # USD per 1M tokens (list prices, confirm on your dashboard)
     price_cached_in: float = 0.15
     price_out: float = 4.25
@@ -51,21 +60,41 @@ def assert_model_allowed(s: Settings, model: str) -> None:
 
 
 def validate_runtime(s: Settings) -> None:
+    import logging
+
     for m in s.allowed_models:
         assert_model_allowed(s, m)
         if not (m.startswith("muse-") or m.startswith("sam-")):
             raise RuntimeError(f"unexpected model id: {m}")
+    if s.reasoning_provider == "modal" and s.modal_models_url.strip() and not s.modal_model.strip():
+        raise RuntimeError("MODAL_MODEL must name the Shared Endpoint model (endpoint hostname from the dashboard) when the modal path is enabled")
+    if s.modal_model.strip().endswith("-contributor"):
+        raise RuntimeError("MODAL_MODEL must be a non-contributor id")
+    if bool(s.modal_models_url.strip()) != bool(s.modal_models_key.strip()):
+        raise RuntimeError("MODAL_MODELS_URL and MODAL_MODELS_KEY must be set together or not at all")
+    if s.reasoning_provider not in ("", "modal"):
+        raise RuntimeError('REASONING_PROVIDER must be "" or "modal"')
+    if s.reasoning_provider == "modal" and not s.modal_models_url.strip():
+        raise RuntimeError('REASONING_PROVIDER=modal needs MODAL_MODELS_URL and MODAL_MODELS_KEY')
+    if s.spend_backend.strip().lower() not in ("auto", "postgres", "modal_dict", "memory"):
+        raise RuntimeError("SPEND_BACKEND must be auto, postgres, modal_dict, or memory")
+    if s.spend_backend.strip().lower() == "postgres" and not s.database_url.strip():
+        raise RuntimeError("SPEND_BACKEND=postgres needs DATABASE_URL")
+    if s.spend_backend.strip().lower() == "modal_dict" and not s.spend_dict_name.strip():
+        raise RuntimeError("SPEND_BACKEND=modal_dict needs SPEND_DICT_NAME")
     if s.brain_mode not in ("json", "lines"):
         raise RuntimeError("BRAIN_MODE must be json or lines")
+    if s.provider not in ("meta", "mock"):
+        raise RuntimeError("PROVIDER must be meta or mock")
     if s.env == "prod":
         if len(s.jwt_secret) < 32:
             raise RuntimeError("JWT_SECRET must be at least 32 characters in prod")
         if len(s.key_enc_secret) < 32:
             raise RuntimeError("KEY_ENC_SECRET must be at least 32 characters in prod (it encrypts family API keys)")
-        if s.provider != "meta" or not s.model_api_key:
-            raise RuntimeError("prod requires PROVIDER=meta and MODEL_API_KEY")
-        if s.database_url.startswith("sqlite"):
-            raise RuntimeError("prod requires a PostgreSQL DATABASE_URL")
+        if s.provider == "meta" and not s.model_api_key:
+            raise RuntimeError("PROVIDER=meta needs MODEL_API_KEY")
+        if not s.database_url.strip():
+            logging.getLogger("milo").warning("prod without DATABASE_URL: chat runs, vault/sync/cache are honestly unavailable")
         if s.attestation_mode == "enforce":
             raise RuntimeError("ATTESTATION_MODE=enforce needs a Play Integrity / App Attest verifier wired in app/security.py")
 

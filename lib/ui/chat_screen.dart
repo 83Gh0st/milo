@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import '../companion/react.dart';
+import '../genui/panel.dart';
+import '../genui/widgets.dart';
 import '../media/photo.dart';
 import 'screen.dart';
 import 'theme.dart';
@@ -77,9 +79,31 @@ class _ChatState extends ConsumerState<ChatScreen> {
                   if (m.steps.isNotEmpty) _StepsCard(steps: m.steps),
                   if (m.milo && m.text.isNotEmpty) Align(alignment: Alignment.centerRight, child: InkWell(onTap: () => d.speak(m.text), child: const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.volume_up, size: 18, color: T.pri))))]))),
               if (msgs.isNotEmpty && msgs.last.milo) Wrap(spacing: 8, children: [for (final s in ['Explain', 'Simplify', 'Examples']) OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40), foregroundColor: T.pri, side: const BorderSide(color: T.pri)), onPressed: () => _send(s), child: Text(s))]),
+              _ActivityPanel(send: _send),
             ])),
       Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 10), child: MiloReact.watch(child: TextField(controller: c, onSubmitted: _send, onChanged: (_) => MiloReact.typed(context), decoration: InputDecoration(hintText: 'Ask me anything…', suffixIconConstraints: const BoxConstraints(minWidth: 144, maxWidth: 144, minHeight: 48), suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(tooltip: 'Show Milo', icon: const Icon(Icons.photo_camera_outlined, color: T.pri), onPressed: _showMilo), IconButton(tooltip: 'Speak to Milo', icon: const Icon(Icons.mic, color: T.pri), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceListenScreen()))), IconButton(tooltip: 'Send', icon: const Icon(Icons.send, color: T.pri), onPressed: () => _send(c.text))]))))),
     ]);
+  }
+}
+
+/// The generative activity panel, pinned at the end of the thread. Hidden
+/// companion mode renders nothing; featured mode gives Milo the stage.
+class _ActivityPanel extends ConsumerWidget {
+  const _ActivityPanel({required this.send});
+  final void Function(String) send;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final panel = ref.watch(panelProvider);
+    if (!panel.active || panel.companion == 'hidden') return const SizedBox.shrink();
+    final d = ref.read(directorProvider);
+    return PanelView(panel: panel,
+        companionHeader: panel.companion == 'featured' ? const MiloStage() : null,
+        cb: PanelCallbacks(ask: send, speak: d.speak, openScreen: (s) => openScreen(s), showImage: (c) async {
+          if (ref.read(visualProvider).containsKey(c)) return;
+          try {
+            ref.read(visualProvider.notifier).put(c, await ref.read(apiProvider).visual(c));
+          } catch (_) {}
+        }));
   }
 }
 

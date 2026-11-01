@@ -179,13 +179,15 @@ by `gateway/scripts/smoke_providers.py` with `MILO_SMOKE_META_KEY` set.
 
 ### 4.3 Logs, rollback, teardown, cost
 
-**Cost estimate (verify before relying on it).** Third-party summaries of
-`modal.com/pricing` (June 2026) quote Modal Functions CPU at about
-$0.0000131/physical-core/second (minimum 0.125 cores per container) plus
-~$0.00000222/GiB/second of memory. One minimum-size warm container
-(`min_containers=1`, the shipped setting) is therefore on the order of **$5
-per month** of Modal credit — the $100 grant covers many months of hosting.
-The variable cost is vendor inference (your Meta key), bounded by
+**Cost estimate (live rates from modal.com/pricing, fetched 2026-10-29;
+re-confirm before relying on it).** CPU $0.0000131/core/s (min 0.125
+cores), memory $0.00000222/GiB/s: one minimum-size warm container
+(`min_containers=1`, the shipped setting) is on the order of **$5 per
+month** of Modal credit — the $100 grant covers many months of hosting.
+Hosted model (§8): Muse Spark is a Modal-managed Shared Endpoint, billed
+per token at the rate shown on its dashboard page — there are no GPU
+servers, cold starts, or weight volumes to pay for on our side. The
+other variable cost is vendor inference (suite/BYOK keys), bounded by
 `DAILY_BUDGET_USD` (default 20) + `MONTHLY_BUDGET_USD` (default 100), and by
 `max_containers=1` (the gateway can never scale out). This agent cannot see
 your Modal balance: check it at modal.com → your workspace → Usage, and
@@ -242,9 +244,20 @@ imports cleanly, endpoint audit against the code above, Flutter wording
 change (CI runs `flutter analyze`/`flutter test` — no Flutter SDK on this
 machine, so those two are **UNVERIFIED** until CI runs).
 
+29 Oct round (hosted model + providers + DB-optional): vendor endpoint
+shapes probed live (OpenAI/Anthropic/Meta 401 envelopes match the
+adapters); OpenAI/Anthropic data terms verified from official pages;
+all three Modal specs import cleanly; gateway sync gate green (56
+passed); family-creds isolation, route synthesis, tested_at, and
+database-optional paths covered by new tests (async ones run in CI —
+this sandbox cannot create an event loop). Nothing was deployed from
+here: the Modal CLI needs asyncio, which this sandbox blocks, so every
+`modal` command below is **[YOU]** (or the `modal-deploy` workflow).
+
 **[YOU]**: `modal setup` (browser sign-in), Neon/Supabase signup + connection
 string, Meta key, the two `modal deploy` runs, the curl checks, and the APK
-install. Nothing is deployed until you run those commands.
+install — plus §8 (hosted model secrets + staging ladder) for real online
+AI. Nothing is deployed until you run those commands.
 
 ## 7. Verification appendix (agent-run, 28 Oct 2026)
 
@@ -292,3 +305,128 @@ Results (measured, not claimed):
   `pathlib` + explicit UTF-8 (identical behaviour on Linux CI).
 - **No deployment exists yet**: nothing was pushed, no secret created, no
   `modal deploy` run. The first deploy is yours (§4.1).
+
+## 8. Hosted model: Muse Spark Shared Endpoint + staging (rewritten 31 Oct 2026)
+
+Milo's hosted thinking is **Meta Muse Spark Open
+(`meta-models/Muse-Spark-Open-816B-A42B`) served by Modal as a managed
+Shared Endpoint** — Modal hosts the weights, we never deploy model
+servers. There is deliberately no `models` deploy target anymore
+(`gateway/modal_models.py` and its workflow step were deleted): the only
+Modal-hosted model work is (a) creating the Shared Endpoint + proxy
+token in the dashboard, (b) pointing staging/prod at it, (c) verifying
+real inference. Two apps, three secrets:
+
+| # | Modal app | Source | Secrets it reads | Serves |
+|---|-----------|--------|------------------|--------|
+| 1 | `milo-gateway-staging` | `gateway/modal_staging.py` | `milo-gateway-staging` + `milo-models-client` | full gateway, `REASONING_PROVIDER=modal`, `MODAL_FALLBACK=false`, scale-to-zero |
+| 2 | `milo-gateway` (prod) | `gateway/modal_app.py` | `milo-gateway` (UNCHANGED) + `milo-models-client` + `milo-gateway-switches` | same, after staging verifies |
+
+Model choice: Muse Spark Open is the ONLY Modal-hosted model. Do not
+deploy Qwen3-4B or any other self-hosted server; do not silently
+substitute another model if Spark is unavailable — the gateway fails
+loudly (`MODAL_FALLBACK=false` on staging) or falls back to the
+configured suite (prod, `MODAL_FALLBACK=true`). The gateway speaks plain
+OpenAI-compatible `/v1/chat/completions` (+ `/v1/models` for the
+connection test) to the endpoint; the request `model` is the endpoint
+hostname exactly as shown in the dashboard's request example, and auth
+is the proxy token (`Authorization: Bearer <proxy token>`), held
+server-side only. Shared Endpoint per-token pricing is shown on the
+endpoint page in the dashboard — confirm it there before relying on it
+(this agent cannot see your balance or live rates).
+
+### 8.1 [YOU] Shared Endpoint + secrets (Modal dashboard, one time)
+
+Dashboard path (no CLI needed for the endpoint itself):
+
+1. modal.com → your workspace → **Shared Endpoints** (or Models) →
+   find `meta-models/Muse-Spark-Open-816B-A42B` → **Create endpoint**
+   (or Enable). Note the endpoint base URL (ends `/v1`) and the request
+   example's `model` value (the endpoint hostname).
+2. On the same page, create a **proxy auth token** for the endpoint.
+   This token is a server credential: it lives in the Modal secret
+   below, never in the app, repo, or logs.
+3. Secrets → **New secret**, names + keys exactly:
+   - `milo-models-client`: `MODAL_MODELS_URL` = the endpoint base URL
+     (must end `/v1`), `MODAL_MODELS_KEY` = the proxy token,
+     `MODAL_MODEL` = the endpoint hostname from the request example.
+   - `milo-gateway-staging`: `ENV=dev`, `PROVIDER=mock`,
+     `REASONING_PROVIDER=modal`, `MODAL_FALLBACK=false`,
+     `JWT_SECRET` (48+ random), `KEY_ENC_SECRET` (48+ random),
+     `SPEND_BACKEND=modal_dict`, `SPEND_DICT_NAME=milo-spend-staging`,
+     `DATABASE_URL=` (leave empty to exercise database-optional chat,
+     or a throwaway Postgres URL to also test vault/sync).
+   - `milo-gateway-switches` (prod only): `REASONING_PROVIDER=modal`,
+     `MODAL_FALLBACK=true`. Keeps the `milo-gateway` secret
+     byte-identical — create this before the first production deploy
+     that uses hosted reasoning.
+
+CLI equivalents for the secrets only (from the repo root, after `modal
+setup` — the endpoint itself is dashboard-created):
+
+```cmd
+modal secret create milo-models-client MODAL_MODELS_URL=<endpoint base /v1> MODAL_MODELS_KEY=<proxy token> MODAL_MODEL=<endpoint hostname>
+modal secret create milo-gateway-staging ENV=dev PROVIDER=mock REASONING_PROVIDER=modal MODAL_FALLBACK=false JWT_SECRET=<48+ random> KEY_ENC_SECRET=<48+ random> SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
+```
+
+Or deploy via GitHub instead of local CLI: add repository secrets
+`MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET` (from `modal token new` on your
+machine), then Actions → `modal-deploy` → Run workflow → target
+`staging`. Production additionally requires typing `DEPLOY-PROD` and
+only passes with green gateway tests. The workflow deploys gateway
+code only — it never creates the Shared Endpoint.
+
+### 8.2 [YOU] Deploy staging, verify each step
+
+```cmd
+modal deploy gateway/modal_staging.py
+```
+
+### 8.3 [YOU] Staging verification ladder (PowerShell)
+
+Run against the **staging** URL (from `modal app list`). Each step must
+pass before the next; anything failing here must never reach prod.
+
+```powershell
+$B = 'https://<workspace>--milo-gateway-staging-web.us-east.modal.run'
+# 1. Health reports the hosted model honestly (not mock-as-hosted)
+(Invoke-RestMethod "$B/v1/health") | ConvertTo-Json
+# expect: reasoning_provider=modal, reasoning_model=<your endpoint hostname>,
+#         vault_available=false (empty DATABASE_URL), spend_backend=modal_dict
+# 2. Session + genuine streaming turn (mock suite would answer instantly with scripted text)
+$tok = (Invoke-RestMethod -Method Post "$B/v1/session" -Body '{"install_id":"aaaaaaaaaaaaaaaaaaaa","app_version":"1.0.0","platform":"android"}' -ContentType 'application/json').token
+$body = '{"presentation":"playful","text":"Why is the sky blue? Answer in one short sentence.","activity":"chat"}'
+Invoke-RestMethod -Method Post "$B/v1/brain/turn" -Headers @{Authorization="Bearer $tok"} -Body $body -ContentType 'application/json' -TimeoutSec 240
+# expect: SSE risk/body/say events with a FRESH one-sentence answer and
+#         done.provider=modal — a ui_spec event may also arrive for activity-shaped
+#         requests; plain chat turns carry {} (no panel)
+# 3. Hosted outage fails loudly (staging has no suite fallback)
+#    In the milo-models-client secret, temporarily set MODAL_MODELS_URL to
+#    https://invalid.example/v1, redeploy staging, repeat step 2, and expect an
+#    SSE error event (provider_error/unreachable) — NOT scripted mock text.
+#    Then restore the real URL and redeploy staging.
+# 4. Budget guard still bites (memory/modal_dict ledger, same code path)
+#    covered by CI (test_budget_units.py); spot-check /v1/health budget_ok flips after heavy use
+```
+
+Telling the three apart: `done.provider` says which engine answered
+(`mock` = scripted demo, `modal` = Muse Spark, `meta`/`openai`/… =
+that vendor). Health 200 with `reasoning_provider=mock` is NOT hosted
+inference; a `modal` turn with a fresh, prompt-specific answer is.
+
+### 8.4 [YOU] Promote to production (only after 8.3 is green)
+
+1. Confirm staging shows real `modal` turns, loud hosted-outage errors,
+   and honest `vault_available=false`.
+2. Create the `milo-gateway-switches` secret (§8.1). The `milo-gateway`
+   secret itself stays byte-identical.
+3. Deploy prod (code only): `modal deploy gateway/modal_app.py`, or the
+   `modal-deploy` workflow with target `gateway-prod` + typed
+   confirmation.
+4. Re-run the §8.3 ladder against the production URL and confirm
+   `reasoning_provider=modal`, `vault_available=true` (prod keeps its
+   Postgres), `spend_backend=postgres`.
+5. Rollback (hosted model misbehaving): remove `REASONING_PROVIDER` from
+   `milo-gateway-switches` and redeploy — text falls back to the suite
+   with zero code changes. Full rollback: redeploy the previous git SHA
+   (§4.3).

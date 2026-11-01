@@ -48,8 +48,13 @@ async def session(req: SessionReq, request: Request):
 @router.get("/health")
 async def health(request: Request):
     st = request.app.state
-    return {"status": "ok", "provider": st.settings.provider, "models": {"reasoning": st.settings.spark_model, "voice": st.settings.voice_model, "image": st.settings.image_model},
-            "budget_ok": await st.budget.ok(), "budget_month_ok": await st.budget.month_ok(), "brain_mode": st.settings.brain_mode}
+    s = st.settings
+    modal_text = s.reasoning_provider == "modal" and bool(s.modal_models_url.strip())
+    return {"status": "ok", "provider": s.provider, "models": {"reasoning": s.spark_model, "voice": s.voice_model, "image": s.image_model},
+            "budget_ok": await st.budget.ok(), "budget_month_ok": await st.budget.month_ok(), "brain_mode": s.brain_mode,
+            "reasoning_provider": "modal" if modal_text else s.provider,
+            "reasoning_model": s.modal_model if modal_text else (s.spark_model if s.provider == "meta" else "mock"),
+            "vault_available": st.engine is not None, "budget_persistent": st.budget.persistent, "spend_backend": st.budget.backend}
 
 
 def _peek_lines(st, ctx, cap, need=None) -> bool:
@@ -75,9 +80,11 @@ def _peek_lines(st, ctx, cap, need=None) -> bool:
 async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float, understand: bool, kind: str, user_text: str = "", ctx=None, metered: bool = True, route: dict | None = None, need=None):
     from .streaming import JsonStream, LineStream
     cap = "brain" if kind == "chat" else kind
-    creds = dict(st.deployer_creds)
-    if ctx:
-        creds.update(ctx.creds)
+    # Family turns use ONLY family credentials: deployer keys (vendor suite
+    # or hosted GPU) are never reachable from a family request, so shared
+    # spend cannot leak across the trust boundary and metering stays exact
+    # (metered ⟺ deployer creds used).
+    creds = dict(ctx.creds) if ctx else dict(st.deployer_creds)
     lines_default = st.settings.brain_mode == "lines"
 
     def _strat(entry, probed):
@@ -173,9 +180,7 @@ async def collect(st, msgs, schema, effort, timeout, cap: str, ctx=None, metered
         return "json_schema"  # plan/compose need JSON; lines-only models fail honestly below
 
     buf, usage = "", Usage()
-    creds = dict(st.deployer_creds)
-    if ctx:
-        creds.update(ctx.creds)
+    creds = dict(ctx.creds) if ctx else dict(st.deployer_creds)  # no deployer fallback on family requests (see run_brain)
     try:
         _, _, _, pieces = await st.router.select_and_stream(
             cap, ctx.routes if ctx else None, creds, msgs, schema=schema, effort=effort,
@@ -245,17 +250,16 @@ async def visual(req: VisualReq, request: Request, dev: str = Depends(auth), _b:
         raise HTTPException(422, {"error": "concept_not_allowed"})
     ctx = await vault_ctx(request)
     routes = ctx.routes if ctx else None
-    creds = dict(st.deployer_creds)
-    if ctx:
-        creds.update(ctx.creds)
+    creds = dict(ctx.creds) if ctx else dict(st.deployer_creds)  # no deployer fallback on family requests (see run_brain)
     caps = ctx.caps if ctx else None
     last_err: ProviderError | None = None
     for e in st.router.entries_for("visual", routes):
         h = hashlib.sha256(f"{e.provider}|{e.model}|{STYLE}|{c}".encode()).hexdigest()
-        async with st.engine.connect() as conn:
-            png = (await conn.execute(select(visual_cache.c.png).where(visual_cache.c.h == h))).scalar()
-        if png is not None:
-            return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+        if st.engine is not None:  # cache is a pure optimisation: skipped without a database
+            async with st.engine.connect() as conn:
+                png = (await conn.execute(select(visual_cache.c.png).where(visual_cache.c.h == h))).scalar()
+            if png is not None:
+                return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
         try:
             _, _, png = await st.router.generate_image({"visual": [e]}, creds, STYLE.format(c=c), caps_map=caps)
         except ProviderError as err:
@@ -265,11 +269,12 @@ async def visual(req: VisualReq, request: Request, dev: str = Depends(auth), _b:
             continue
         if ctx is None:
             await st.budget.add(st.settings.price_image)
-        async with st.engine.begin() as conn:
-            try:
-                await conn.execute(insert(visual_cache).values(h=h, png=png, created=int(time.time())))
-            except Exception:
-                pass
+        if st.engine is not None:
+            async with st.engine.begin() as conn:
+                try:
+                    await conn.execute(insert(visual_cache).values(h=h, png=png, created=int(time.time())))
+                except Exception:
+                    pass
         return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
     raise HTTPException((last_err.status if last_err else 502), {"error": last_err.code if last_err else "unsupported_capability"})
 
@@ -299,9 +304,7 @@ async def voice(ws: WebSocket):
         return
     lang = [first["lang"]] if isinstance(first.get("lang"), str) and len(first["lang"]) < 30 else None
     kws = [str(k)[:30] for k in first["keywords"][:20]] if isinstance(first.get("keywords"), list) else None
-    creds = dict(st.deployer_creds)
-    if ctx:
-        creds.update(ctx.creds)
+    creds = dict(ctx.creds) if ctx else dict(st.deployer_creds)  # no deployer fallback on family requests (see run_brain)
     try:
         _, _, sess = await st.router.open_voice(ctx.routes if ctx else None, creds, lang, kws, caps_map=ctx.caps if ctx else None)
     except ProviderError as e:

@@ -2,11 +2,12 @@
 and other OpenAI-compatible providers or local servers (Ollama, LM Studio,
 vLLM). Dependency-free module; HTTP goes through an injected transport.
 
-API-shape note (28 Oct 2026, UNVERIFIED-live): the request/response shapes
-below follow the published OpenAI Chat Completions + Models API. This
-environment has no network, so they are isolated behind the _PATH/_FIELD
-constants and the _vision_messages helper; the first live `test` run against
-each vendor confirms or corrects them. Record the check in datapolicy.py.
+API-shape note: request/response shapes follow the published OpenAI Chat
+Completions + Models API. Endpoint shapes verified live 2026-10-29 via
+no-auth probes (api.openai.com/v1/models returns the documented 401
+invalid_request_error envelope; api.meta.ai/v1/models returns an
+OpenAI-compatible 401). Full keyed inference still needs a vendor key
+(the in-app Test connection performs it). Terms recorded in datapolicy.py.
 """
 import json
 import time
@@ -17,7 +18,8 @@ from .capabilities import Capabilities, ProbeResult
 
 _CHAT_PATH = "/chat/completions"
 _MODELS_PATH = "/models"
-# Models that accept reasoning parameters (isolated assumption, UNVERIFIED-live).
+# Models that accept reasoning parameters (conservative list: unknown
+# prefixes simply omit the parameter, which every model accepts).
 _REASONING_PREFIXES = ("o1", "o3", "o4", "gpt-5")
 # 1x1 red JPEG for the vision probe (no image library needed).
 _PIXEL_JPEG = ("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP////////////////////////////////////////////////////////////////////////////////////"
@@ -79,6 +81,11 @@ class OpenAICompatAdapter:
     def _headers(self, creds):
         return {"Authorization": f"Bearer {creds.api_key}", "Content-Type": "application/json"}
 
+    def _payload_extra(self, model):
+        """Vendor-specific payload additions. Base: none; subclasses (the
+        Modal-hosted adapter) override without touching shared code."""
+        return {}
+
     def _payload(self, model, messages, *, schema, effort, max_tokens, use_legacy_tokens=False):
         max_tokens = max_tokens or 900
         kw = {"model": model, "messages": messages, "stream": True, "stream_options": {"include_usage": True}}
@@ -87,6 +94,7 @@ class OpenAICompatAdapter:
             kw["reasoning_effort"] = effort
         if schema:
             kw["response_format"] = {"type": "json_schema", "json_schema": {"name": "milo_turn", "schema": schema, "strict": True}}
+        kw.update(self._payload_extra(model))
         return kw
 
     async def stream(self, messages, *, schema=None, effort="low", max_tokens=None, creds, model, timeout=30):

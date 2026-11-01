@@ -1,11 +1,11 @@
 """Anthropic Messages API adapter (streaming). Dependency-free module; HTTP
 goes through an injected transport.
 
-API-shape note (28 Oct 2026, UNVERIFIED-live): shapes follow the published
-Anthropic Messages + streaming API. No network here, so paths, headers and
-the vision block shape are isolated behind the _MSG/_VER constants and the
-_vision_messages helper; the first live `test` run confirms or corrects
-them. Record the check in datapolicy.py.
+API-shape note: shapes follow the published Anthropic Messages +
+streaming API. Endpoint shape verified live 2026-10-29 via a no-auth probe
+(api.anthropic.com/v1/messages returns the documented 401
+authentication_error envelope). Full keyed inference still needs a vendor
+key (the in-app Test connection performs it). Terms in datapolicy.py.
 """
 import json
 import time

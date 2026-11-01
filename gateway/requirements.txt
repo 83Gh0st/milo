@@ -10,3 +10,4 @@ SQLAlchemy[asyncio]==2.0.36
 aiosqlite==0.20.0
 asyncpg==0.30.0
 httpx==0.28.1
+modal==1.6.3  # Modal Dict spend ledger when SPEND_BACKEND=modal_dict (lazy import; unit tests never need it)

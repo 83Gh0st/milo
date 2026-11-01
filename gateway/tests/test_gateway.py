@@ -108,8 +108,28 @@ def test_contributor_models_refused(tmp_path):
     with pytest.raises(RuntimeError):
         validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="short", database_url="postgresql+asyncpg://x"))
     with pytest.raises(RuntimeError):
-        validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40))  # sqlite in prod
+        validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40))  # missing key_enc
     validate_runtime(Settings(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40, key_enc_secret="z" * 40, database_url="postgresql+asyncpg://x"))
+
+
+def test_db_optional_and_modal_runtime_contract():
+    full = dict(env="prod", provider="meta", model_api_key="k", jwt_secret="y" * 40, key_enc_secret="z" * 40)
+    validate_runtime(Settings(**full, database_url=""))  # database-optional prod: chat runs, vault/sync honestly unavailable
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="", spend_backend="postgres"))  # persistent ledger needs a database
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="", modal_models_url="https://m.example"))  # url without key
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", reasoning_provider="modal"))  # modal reasoning without endpoint
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", reasoning_provider="llama"))
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", modal_models_url="https://m.example", modal_models_key="k" * 8,
+                                   reasoning_provider="modal"))  # endpoint configured but model id missing
+    validate_runtime(Settings(**full, database_url="x", modal_models_url="https://m.example", modal_models_key="k" * 8,
+                               reasoning_provider="modal", modal_model="m.example"))
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(**full, database_url="x", modal_model="x-contributor"))
 
 
 def test_streaming_parsers_survive_any_chunking():
@@ -154,6 +174,22 @@ def test_dart_and_python_contracts_agree():
             tabs = re.findall(r"'([a-z_]+)'", re.search(r"kTabs = \[(.*?)\];", dart, re.S).group(1))
             items = tabs + items
         assert items == C[key], name
+
+
+def test_dart_and_python_ui_contracts_agree():
+    dart = (Path(__file__).resolve().parents[2] / "lib" / "genui" / "spec.dart").read_text(encoding="utf-8")
+    from app.contract import U
+    for name, key in (("uiComponents", "components"), ("uiSpecActions", "actions"), ("uiOps", "ops"),
+                      ("uiLayouts", "layouts"), ("uiIntents", "intents"), ("uiModes", "modes"), ("uiCompanions", "companion")):
+        m = re.search(name + r" = \{(.*?)\};", dart, re.S)
+        assert re.findall(r"'([a-z_0-9]+)'", m.group(1)) == U[key], name
+    assert int(re.search(r"uiVersion = (\d+);", dart).group(1)) == U["version"]
+    for name, key in (("uiMaxComponents", "max_components"), ("uiMaxDepth", "max_depth"), ("uiMaxText", "max_text"),
+                      ("uiMaxTitle", "max_title"), ("uiMaxItems", "max_items"), ("uiMaxActionsPerNode", "max_actions_per_node"),
+                      ("uiMaxOps", "max_ops"), ("uiMaxStateKeys", "max_state_keys"), ("uiMaxStateValue", "max_state_value"),
+                      ("uiMaxId", "max_id")):
+        assert int(re.search(name + r" = (\d+)", dart).group(1)) == U["limits"][key], name
+    assert int(re.search(r"uiMaxContext = (\d+);", dart).group(1)) == 12  # must match the [:12] slice in models._ui_context
 
 
 def test_voice_websocket_end_to_end(tmp_path):
@@ -249,11 +285,11 @@ async def test_connections_crud_and_validation(client):
     assert (await client.get("/v1/connections", headers=V)).json() == {"connections": [], "routes": {}}
     assert (await client.get("/v1/connections")).status_code == 401
     KEY = "sk-conn-test-key-12345678"
-    r = await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x"})
+    r = await client.post("/v1/connections/meta", headers=V, json={"api_key": KEY, "default_model": "muse-spark-1.3"})
     assert r.status_code == 409 and r.json()["error"] == "policy_ack_required"  # unknown policy needs ack
-    r = await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x", "ack_data_policy": True})
-    assert r.status_code == 200 and r.json()["hint"] == "…5678" and KEY not in r.text
-    assert r.json()["caps"]["text_stream"] and r.json()["policy"]["needs_ack"]
+    r = await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x"})
+    assert r.status_code == 200 and r.json()["hint"] == "…5678" and KEY not in r.text  # verified no-train policy: no ack
+    assert r.json()["caps"]["text_stream"] and not r.json()["policy"]["needs_ack"]
     assert (await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "base_url": "http://x.test", "ack_data_policy": True})).status_code == 422
     assert (await client.post("/v1/connections/openai", headers=V, json={"api_key": KEY, "default_model": "gpt-x-contributor", "ack_data_policy": True})).status_code == 422
     assert (await client.post("/v1/connections/nope", headers=V, json={"api_key": KEY})).status_code == 422
