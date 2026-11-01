@@ -136,6 +136,8 @@ The Shared Endpoint itself is dashboard-managed; nothing here deploys weights.
   pre-hackathon blueprint. Move-or-remove decisions belong to the maintainer.
 - `generated_images/` (untracked) holds the AI master renders behind
   `assets/branding/`; `.sdk-probe/brand_gen.dart` derived them.
-- `ios/` uses Swift Package Manager (no Podfile by design on this Flutter);
-  if a plugin ever lacks SPM support, regenerate with
-  `FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create --platforms=ios .`
+- `ios/` uses Swift Package Manager where plugins support it (no committed
+  Podfile); five plugins don't yet, so the tool falls back to CocoaPods for
+  them automatically — do not add an explicit `pod install` to CI. Full
+  CocoaPods fallback: `FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create
+  --platforms=ios .`

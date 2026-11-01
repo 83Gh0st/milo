@@ -77,11 +77,15 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 > and upload step runs on the macOS GitHub Actions runners below (or a local
 > Mac). The simulator check (§4.3) needs no secrets and no paid membership.
 
-> Plugin integration: this Flutter resolves iOS plugins via Swift Package
-> Manager — there is intentionally no `ios/Podfile`, and the workflows do
-> not run `pod install`. If a plugin ever lacks SPM support, regenerate the
-> CocoaPods shell with `FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create
-> --platforms=ios .` (then re-apply the Info.plist + icon work from git).
+> Plugin integration: this Flutter prefers Swift Package Manager (no
+> committed `ios/Podfile`), but five plugins still lack SPM support
+> (`flutter_tts`, `google_mlkit_commons`, `google_mlkit_text_recognition`,
+> `sensors_plus`, `sqflite_sqlcipher`) — so the tool falls back to
+> CocoaPods for those automatically at build time (see the "Running pod
+> install" line in CI logs). The workflows intentionally run no explicit
+> `pod install`; if SPM ever breaks, regenerate a full CocoaPods shell with
+> `FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create --platforms=ios .`
+> (then re-apply the Info.plist + icon work from git).
 
 ### Requirements (Apple)
 
