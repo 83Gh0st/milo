@@ -72,10 +72,12 @@ class PostgresSpend:
 
 
 class DictSpend:
-    """Ledger over a Modal Dict (or any dict-like get/set mapping in tests).
+    """Ledger over a Modal Dict (or a plain dict in tests).
 
-    Keys hold running float totals per UTC day / UTC month. Only
-    ``__getitem__``/``__setitem__`` are used so any Modal Dict version works.
+    Keys hold running float totals per UTC day. Modal Dicts are touched
+    ONLY through their async API (``get.aio``/``put.aio``) — blocking
+    ``mapping[key]`` calls stall the event loop and Modal warns loudly
+    about them. Plain dicts (no ``.aio``) use the sync path.
     """
 
     persistent = True
@@ -83,27 +85,43 @@ class DictSpend:
     def __init__(self, mapping):
         self.mapping = mapping
 
-    def _get(self, key: str) -> float:
+    async def _get(self, key: str) -> float:
+        get = getattr(self.mapping, "get", None)
+        if get is not None and hasattr(get, "aio"):
+            v = await get.aio(key)  # Modal failures propagate loudly, as before
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return 0.0
         try:
             return float(self.mapping[key])
         except (KeyError, ValueError, TypeError):
             return 0.0
 
+    async def _put(self, key: str, value: float) -> None:
+        put = getattr(self.mapping, "put", None)
+        if put is not None and hasattr(put, "aio"):
+            await put.aio(key, value)
+        else:
+            self.mapping[key] = value
+
     async def add(self, usd: float) -> None:
         day = utc_day()
-        self.mapping[f"spend:day:{day}"] = self._get(f"spend:day:{day}") + usd
+        key = f"spend:day:{day}"
+        await self._put(key, await self._get(key) + usd)
 
     async def spent_day(self) -> float:
-        return self._get(f"spend:day:{utc_day()}")
+        return await self._get(f"spend:day:{utc_day()}")
 
     async def spent_month(self) -> float:
-        prefix = utc_month()
-        total, mapping = 0.0, self.mapping
-        keys = list(mapping.keys()) if hasattr(mapping, "keys") else []
-        for k in keys:  # day keys only; a stray key can only over-count, never hide spend
-            if isinstance(k, str) and k.startswith(f"spend:day:{prefix}"):
-                total += self._get(k)
-        return total
+        import asyncio
+        import calendar
+
+        now = time.gmtime()
+        last = calendar.monthrange(now.tm_year, now.tm_mon)[1]
+        vals = await asyncio.gather(*[self._get(f"spend:day:{now.tm_year:04d}-{now.tm_mon:02d}-{d:02d}")
+                                      for d in range(1, last + 1)])
+        return float(sum(vals))
 
 
 class MemorySpend:

@@ -173,3 +173,4 @@ def test_ui_context_flattens_and_caps():
 
 def test_prompt_teaches_ui_spec_shape():
     assert "ui_spec" in PERSONA and "checklist" in PERSONA and "CURRENT activity" in PERSONA
+    assert "first character must be {" in PERSONA  # reasoning models must not preamble

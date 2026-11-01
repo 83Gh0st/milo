@@ -86,8 +86,10 @@ class OpenAICompatAdapter:
         Modal-hosted adapter) override without touching shared code."""
         return {}
 
+    _default_max_tokens = 900
+
     def _payload(self, model, messages, *, schema, effort, max_tokens, use_legacy_tokens=False):
-        max_tokens = max_tokens or 900
+        max_tokens = max_tokens or self._default_max_tokens
         kw = {"model": model, "messages": messages, "stream": True, "stream_options": {"include_usage": True}}
         kw["max_tokens" if use_legacy_tokens else "max_completion_tokens"] = max_tokens
         if any(model.startswith(p) for p in _REASONING_PREFIXES):

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     monthly_budget_usd: float = 100.0  # UTC-month cap on deployer-path vendor spend; family keys spend the family's quota, never this
     modal_models_url: str = ""       # Modal Shared Endpoint base, MUST end with /v1 (the adapter appends /chat/completions and /models)
     modal_models_key: str = ""       # proxy token (id.secret) for that endpoint (server-side only, never to the app)
-    modal_model: str = ""            # endpoint hostname from the dashboard's request examples (no default: a wrong id must fail loudly, never guess)
+    modal_model: str = ""            # Shared Endpoint model id per the Modal docs (meta-models/Muse-Spark-Open-816B-A42B); no default: a wrong id must fail loudly, never guess
     reasoning_provider: str = ""     # "" = follow PROVIDER suite; "modal" = hosted Muse Spark for text caps
     modal_fallback: bool = True      # text turns fall back to the suite entries when the hosted model errors pre-byte
     spend_backend: str = "auto"      # auto | postgres | modal_dict | memory (see app/spend.py)
@@ -67,7 +67,7 @@ def validate_runtime(s: Settings) -> None:
         if not (m.startswith("muse-") or m.startswith("sam-")):
             raise RuntimeError(f"unexpected model id: {m}")
     if s.reasoning_provider == "modal" and s.modal_models_url.strip() and not s.modal_model.strip():
-        raise RuntimeError("MODAL_MODEL must name the Shared Endpoint model (endpoint hostname from the dashboard) when the modal path is enabled")
+        raise RuntimeError("MODAL_MODEL must name the Shared Endpoint model (meta-models/Muse-Spark-Open-816B-A42B) when the modal path is enabled")
     if s.modal_model.strip().endswith("-contributor"):
         raise RuntimeError("MODAL_MODEL must be a non-contributor id")
     if bool(s.modal_models_url.strip()) != bool(s.modal_models_key.strip()):

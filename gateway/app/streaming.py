@@ -20,15 +20,24 @@ class JsonStream:
     def _step(self):
         b = self.buf
         if self.state == "done":
-            return None
+            # tolerate a preamble pseudo-object: keep scanning for the real turn object
+            self.state = "start"
         while self.pos < len(b) and b[self.pos] in " \n\r\t,":
             self.pos += 1
         if self.pos >= len(b):
             return None
         c = b[self.pos]
         if self.state == "start":
+            if c != "{":
+                self.pos += 1
+                return "cont"
+            j = self.pos + 1  # latch only on { opening a JSON object (brace + quoted key),
+            while j < len(b) and b[j] in " \n\r\t":  # so stray braces in thinking traces don't poison the parse
+                j += 1
+            if j >= len(b):
+                return None  # undecided at buffer end: wait for more
             self.pos += 1
-            if c == "{":
+            if b[j] == '"':
                 self.state = "key"
             return "cont"
         if self.state == "key":

@@ -19,6 +19,10 @@ class ModalAdapter(OpenAICompatAdapter):
     id = "modal"
     display_name = "Milo hosted"
 
+    _default_max_tokens = 2000  # Spark reasons out loud: the shared 900-token
+    # default truncated live turns mid-JSON (tok_out stuck at exactly 900
+    # with partial parses). Spend stays metered + budget-capped.
+
     def capabilities(self):
         return Capabilities(text_stream=True, json_schema=True)
 

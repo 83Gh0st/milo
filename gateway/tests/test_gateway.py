@@ -146,6 +146,26 @@ def test_streaming_parsers_survive_any_chunking():
     assert ("item", "say", (0, "Hi there.")) in out and ("field", "followup", "wait") in out
 
 
+def test_json_stream_skips_thinking_preamble():
+    p = JsonStream()
+    out = p.feed('Let me think {hmm} about "risk" and [brackets]...\n')
+    assert out == []  # stray braces/quotes in prose never latch a pseudo-object
+    out += p.feed('{"risk": "none", "say": ["Hi."]}')
+    assert ("field", "risk", "none") in out and ("item", "say", (0, "Hi.")) in out
+
+
+def test_json_stream_recovers_after_pseudo_object():
+    p = JsonStream()
+    out = p.feed('{"note": "x"} {"risk": "none"}')
+    assert ("field", "note", "x") in out and ("field", "risk", "none") in out  # keeps scanning past the first }
+
+
+def test_json_stream_latch_survives_chunk_split():
+    p = JsonStream()
+    assert p.feed("{") == []  # undecided at buffer end: waits, never latches blindly
+    assert ("field", "risk", "none") in p.feed('"risk": "none"}')
+
+
 def test_assembler_caps_and_blocks():
     a = Assembler("playful")
     a.handle("field", "emotion", {"name": "furious", "intensity": 9})
