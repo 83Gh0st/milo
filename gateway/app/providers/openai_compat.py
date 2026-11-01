@@ -86,8 +86,10 @@ class OpenAICompatAdapter:
         Modal-hosted adapter) override without touching shared code."""
         return {}
 
+    _default_max_tokens = 900
+
     def _payload(self, model, messages, *, schema, effort, max_tokens, use_legacy_tokens=False):
-        max_tokens = max_tokens or 900
+        max_tokens = max_tokens or self._default_max_tokens
         kw = {"model": model, "messages": messages, "stream": True, "stream_options": {"include_usage": True}}
         kw["max_tokens" if use_legacy_tokens else "max_completion_tokens"] = max_tokens
         if any(model.startswith(p) for p in _REASONING_PREFIXES):
@@ -99,11 +101,14 @@ class OpenAICompatAdapter:
 
     async def stream(self, messages, *, schema=None, effort="low", max_tokens=None, creds, model, timeout=30):
         payload = self._payload(model, messages, schema=schema, effort=effort, max_tokens=max_tokens)
+        t0, connect_ms, ttft_ms = time.monotonic(), 0, 0
         for attempt in (False, True):  # new token param, then legacy on a 400 hint
             if attempt:
                 payload = self._payload(model, messages, schema=schema, effort=effort, max_tokens=max_tokens, use_legacy_tokens=True)
             try:
+                t_post = time.monotonic()
                 resp = await self._http.post_stream(creds.base_url + _CHAT_PATH, self._headers(creds), payload, timeout)
+                connect_ms = int((time.monotonic() - t_post) * 1000)
             except TimeoutError:
                 raise ProviderError(TIMEOUT, 504)
             except (ConnectionError, OSError):
@@ -127,10 +132,13 @@ class OpenAICompatAdapter:
             async for chunk in resp:
                 for text, u in _sse_texts(chunk):
                     if text:
+                        if not ttft_ms:
+                            ttft_ms = int((time.monotonic() - t0) * 1000)
                         yield text
                     if u:
                         usage = Usage(u.get("prompt_tokens") or 0, (u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
-                                      u.get("completion_tokens") or 0)
+                                      u.get("completion_tokens") or 0, connect_ms, ttft_ms)
+            usage.connect_ms, usage.ttft_ms = connect_ms, ttft_ms  # timing survives even without a usage chunk
             yield usage
             return
 

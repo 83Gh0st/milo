@@ -19,7 +19,8 @@ Required Modal secrets (create once; values stay in Modal)::
         SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
     milo-models-client     MODAL_MODELS_URL=<models endpoint URL>
                            MODAL_MODELS_KEY=<proxy token for the Shared Endpoint>
-                           MODAL_MODEL=<endpoint hostname from the dashboard request example>
+                           MODAL_MODEL=meta-models/Muse-Spark-Open-816B-A42B (model id per the Modal docs)
+                           (+ INFERENCE_TIMEOUT_S=20 in milo-gateway-staging; prod keeps the 8 s default)
 
 With MODAL_FALLBACK=false, text turns use ONLY the hosted model: a hosted
 outage fails loudly instead of silently testing mock. Verify with the
@@ -58,6 +59,7 @@ def web():
 
     sys.path.insert(0, "/root/milo")
     os.environ.setdefault("CONTRACT_PATH", "/root/milo/contracts/brain_contract.json")
+    os.environ.setdefault("UI_CONTRACT_PATH", "/root/milo/contracts/ui_contract.json")
     from app.main import create_app
 
     return create_app()

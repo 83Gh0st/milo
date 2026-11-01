@@ -71,6 +71,33 @@ async def test_plan_compose_visual(client):
     assert client.app.state.image.calls == 1  # second call served from cache
 
 
+def test_image_prompt_screen():
+    import pytest as _pt
+    from pydantic import ValidationError
+    from app.models import ImageReq
+    from app.routes import _IMAGE_PAT
+    hit = lambda s: _IMAGE_PAT.search(s.lower()) is not None  # the route lowercases first
+    assert not hit("a friendly dinosaur")
+    assert hit("a dinosaur with a gun")
+    assert hit("GUNS")  # plurals included
+    assert not hit("a butterfly garden")
+    with _pt.raises(ValidationError):
+        ImageReq(prompt="x")
+    assert ImageReq(prompt="a butterfly").prompt == "a butterfly"
+
+
+async def test_image_generate_flow(client):
+    h = await token(client)
+    assert (await client.post("/v1/image", json={"prompt": "x"}, headers=h)).status_code == 422
+    r = await client.post("/v1/image", json={"prompt": "a dinosaur with a gun"}, headers=h)
+    assert r.status_code == 422 and r.json() == {"detail": {"error": "prompt_not_allowed"}}
+    n = client.app.state.image.calls
+    for _ in range(2):
+        r = await client.post("/v1/image", json={"prompt": "a friendly dinosaur"}, headers=h)
+        assert r.status_code == 200 and r.content[:4] == b"\x89PNG" and r.headers["X-Milo-Image"] == "ai-generated"
+    assert client.app.state.image.calls == n + 1  # second call served from cache
+
+
 async def test_rate_limit(tmp_path):
     app = mk(tmp_path, rate_per_min=2)
     async with app.router.lifespan_context(app):
@@ -130,6 +157,10 @@ def test_db_optional_and_modal_runtime_contract():
                                reasoning_provider="modal", modal_model="m.example"))
     with pytest.raises(RuntimeError):
         validate_runtime(Settings(**full, database_url="x", modal_model="x-contributor"))
+    assert Settings().inference_timeout_s == 8  # prod default unchanged; staging raises it by secret
+    with pytest.raises(RuntimeError):
+        validate_runtime(Settings(inference_timeout_s=0))
+    validate_runtime(Settings(inference_timeout_s=20))
 
 
 def test_streaming_parsers_survive_any_chunking():
@@ -144,6 +175,26 @@ def test_streaming_parsers_survive_any_chunking():
     ls = LineStream()
     out = ls.feed("RISK:none\nEMO:happy:0.5\nSAY:Hi th") + ls.feed("ere.\nFOLLOW:wait\n")
     assert ("item", "say", (0, "Hi there.")) in out and ("field", "followup", "wait") in out
+
+
+def test_json_stream_skips_thinking_preamble():
+    p = JsonStream()
+    out = p.feed('Let me think {hmm} about "risk" and [brackets]...\n')
+    assert out == []  # stray braces/quotes in prose never latch a pseudo-object
+    out += p.feed('{"risk": "none", "say": ["Hi."]}')
+    assert ("field", "risk", "none") in out and ("item", "say", (0, "Hi.")) in out
+
+
+def test_json_stream_recovers_after_pseudo_object():
+    p = JsonStream()
+    out = p.feed('{"note": "x"} {"risk": "none"}')
+    assert ("field", "note", "x") in out and ("field", "risk", "none") in out  # keeps scanning past the first }
+
+
+def test_json_stream_latch_survives_chunk_split():
+    p = JsonStream()
+    assert p.feed("{") == []  # undecided at buffer end: waits, never latches blindly
+    assert ("field", "risk", "none") in p.feed('"risk": "none"}')
 
 
 def test_assembler_caps_and_blocks():

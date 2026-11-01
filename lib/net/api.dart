@@ -36,7 +36,9 @@ class MiloApi {
   /// Vault headers for family-keyed (BYOK) inference, or empty for the
   /// deployer key. Wired by the app; the provider key itself is never here.
   Future<Map<String, String>> Function()? vaultAuth;
-  final Dio _dio = Dio(BaseOptions(baseUrl: Env.apiBase, connectTimeout: const Duration(seconds: 8), sendTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 15)));
+  // Receive (30 s) stays above the gateway's inference deadline (staging 20 s,
+  // prod 8 s) with room for error handling; connect/send stay tight.
+  final Dio _dio = Dio(BaseOptions(baseUrl: Env.apiBase, connectTimeout: const Duration(seconds: 8), sendTimeout: const Duration(seconds: 15), receiveTimeout: const Duration(seconds: 30)));
   String? _tok;
   DateTime _exp = DateTime(2000);
   Future<String>? _pending; // a refresh in flight: concurrent callers share it instead of stampeding /v1/session
@@ -139,6 +141,16 @@ class MiloApi {
     return Uint8List.fromList(r.data!);
   }
 
+  /// AI-drawn picture (Muse Image via the gateway): explicit tap only, never
+  /// auto-fetched. The gateway screens + wraps the prompt; 422s arrive as
+  /// ApiError('http_422', {error: prompt_not_allowed|no_content}).
+  Future<Uint8List> generateImage(String prompt) async {
+    final body = {'prompt': prompt};
+    await _ledger('/v1/image', 'picture', body);
+    final r = await _send<List<int>>('POST', '/v1/image', body: body, rt: ResponseType.bytes);
+    return Uint8List.fromList(r.data!);
+  }
+
   Future<bool> healthy() async { try { final r = await _dio.get('/v1/health'); return r.data['status'] == 'ok' && r.data['budget_ok'] == true; } catch (_) { return false; } }
 
   /// Voice: the ledger entry is written here, before any audio leaves the phone.
@@ -225,8 +237,9 @@ class MiloApi {
   Future<ConnStatus> connectionCheck() async {
     try {
       final h = await healthDetails();
+      final reasoning = h['reasoning_provider'] is String && (h['reasoning_provider'] as String).isNotEmpty ? h['reasoning_provider'] as String : null;
       return ConnStatus(apiBase: Env.apiBase, ok: h['status'] == 'ok' && h['budget_ok'] == true,
-          provider: h['provider'] is String ? h['provider'] as String : null,
+          provider: reasoning ?? (h['provider'] is String ? h['provider'] as String : null),
           brainMode: h['brain_mode'] is String ? h['brain_mode'] as String : null, budgetOk: h['budget_ok'] == true,
           words: connectionWords(health: h, error: null));
     } on ApiError catch (e) { return ConnStatus(apiBase: Env.apiBase, ok: false, words: connectionWords(health: null, error: e.code)); } catch (_) {

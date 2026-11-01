@@ -328,10 +328,11 @@ substitute another model if Spark is unavailable — the gateway fails
 loudly (`MODAL_FALLBACK=false` on staging) or falls back to the
 configured suite (prod, `MODAL_FALLBACK=true`). The gateway speaks plain
 OpenAI-compatible `/v1/chat/completions` (+ `/v1/models` for the
-connection test) to the endpoint; the request `model` is the endpoint
-hostname exactly as shown in the dashboard's request example, and auth
-is the proxy token (`Authorization: Bearer <proxy token>`), held
-server-side only. Shared Endpoint per-token pricing is shown on the
+connection test) to the endpoint; the request `model` is the documented
+model id `meta-models/Muse-Spark-Open-816B-A42B` (NOT the endpoint
+hostname — the proxy rejects unknown ids), and auth is the complete
+proxy token (`Authorization: Bearer <id.secret>`), held server-side
+only. Shared Endpoint per-token pricing is shown on the
 endpoint page in the dashboard — confirm it there before relying on it
 (this agent cannot see your balance or live rates).
 
@@ -341,17 +342,19 @@ Dashboard path (no CLI needed for the endpoint itself):
 
 1. modal.com → your workspace → **Shared Endpoints** (or Models) →
    find `meta-models/Muse-Spark-Open-816B-A42B` → **Create endpoint**
-   (or Enable). Note the endpoint base URL (ends `/v1`) and the request
-   example's `model` value (the endpoint hostname).
+   (or Enable). Note the endpoint base URL (ends `/v1`); the request
+   `model` is always the documented id above, not the hostname.
 2. On the same page, create a **proxy auth token** for the endpoint.
    This token is a server credential: it lives in the Modal secret
    below, never in the app, repo, or logs.
 3. Secrets → **New secret**, names + keys exactly:
    - `milo-models-client`: `MODAL_MODELS_URL` = the endpoint base URL
-     (must end `/v1`), `MODAL_MODELS_KEY` = the proxy token,
-     `MODAL_MODEL` = the endpoint hostname from the request example.
+     (must end `/v1`), `MODAL_MODELS_KEY` = the complete proxy token
+     (`id.secret`, exactly as issued), `MODAL_MODEL` =
+     `meta-models/Muse-Spark-Open-816B-A42B`.
    - `milo-gateway-staging`: `ENV=dev`, `PROVIDER=mock`,
      `REASONING_PROVIDER=modal`, `MODAL_FALLBACK=false`,
+     `INFERENCE_TIMEOUT_S=20` (Spark needs room; prod keeps the 8 s default),
      `JWT_SECRET` (48+ random), `KEY_ENC_SECRET` (48+ random),
      `SPEND_BACKEND=modal_dict`, `SPEND_DICT_NAME=milo-spend-staging`,
      `DATABASE_URL=` (leave empty to exercise database-optional chat,
@@ -365,8 +368,8 @@ CLI equivalents for the secrets only (from the repo root, after `modal
 setup` — the endpoint itself is dashboard-created):
 
 ```cmd
-modal secret create milo-models-client MODAL_MODELS_URL=<endpoint base /v1> MODAL_MODELS_KEY=<proxy token> MODAL_MODEL=<endpoint hostname>
-modal secret create milo-gateway-staging ENV=dev PROVIDER=mock REASONING_PROVIDER=modal MODAL_FALLBACK=false JWT_SECRET=<48+ random> KEY_ENC_SECRET=<48+ random> SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
+modal secret create milo-models-client MODAL_MODELS_URL=<endpoint base /v1> MODAL_MODELS_KEY=<proxy token id.secret> MODAL_MODEL=meta-models/Muse-Spark-Open-816B-A42B
+modal secret create milo-gateway-staging ENV=dev PROVIDER=mock REASONING_PROVIDER=modal MODAL_FALLBACK=false INFERENCE_TIMEOUT_S=20 JWT_SECRET=<48+ random> KEY_ENC_SECRET=<48+ random> SPEND_BACKEND=modal_dict SPEND_DICT_NAME=milo-spend-staging
 ```
 
 Or deploy via GitHub instead of local CLI: add repository secrets
@@ -391,7 +394,7 @@ pass before the next; anything failing here must never reach prod.
 $B = 'https://<workspace>--milo-gateway-staging-web.us-east.modal.run'
 # 1. Health reports the hosted model honestly (not mock-as-hosted)
 (Invoke-RestMethod "$B/v1/health") | ConvertTo-Json
-# expect: reasoning_provider=modal, reasoning_model=<your endpoint hostname>,
+# expect: reasoning_provider=modal, reasoning_model=meta-models/Muse-Spark-Open-816B-A42B,
 #         vault_available=false (empty DATABASE_URL), spend_backend=modal_dict
 # 2. Session + genuine streaming turn (mock suite would answer instantly with scripted text)
 $tok = (Invoke-RestMethod -Method Post "$B/v1/session" -Body '{"install_id":"aaaaaaaaaaaaaaaaaaaa","app_version":"1.0.0","platform":"android"}' -ContentType 'application/json').token

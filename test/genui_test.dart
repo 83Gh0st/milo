@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/genui/panel.dart';
 import 'package:milo/genui/spec.dart';
 
-Map<String, dynamic> validSpec() => {
+// JSON round-trip: every map is Map<String, dynamic> (like real wire data),
+// so the tests can graft actions/children onto any node. Bare literals would
+// reify all-String maps that reject List values at runtime.
+Map<String, dynamic> validSpec() => jsonDecode(jsonEncode({
       'v': 1,
       'activity': 'school-prep',
       'intent': 'guide',
@@ -26,7 +31,7 @@ Map<String, dynamic> validSpec() => {
         ]
       },
       'state': {'step': 1},
-    };
+    })) as Map<String, dynamic>;
 
 void main() {
   group('spec validator', () {
@@ -75,6 +80,21 @@ void main() {
       ((spec['root'] as Map)['children'] as List).last['concept'] = 'mystery box';
       final out = validateUiSpec(spec)!;
       expect(((out['root'] as Map)['children'] as List).map((c) => (c as Map)['id']), isNot(contains('im')));
+    });
+    test('genimage keeps prompt and alt, drops short prompts, fills missing alt', () {
+      List kids(Map<String, dynamic> s) => ((validateUiSpec(s)!['root'] as Map)['children'] as List);
+      final spec = validSpec();
+      ((spec['root'] as Map)['children'] as List).add({'id': 'g1', 'type': 'genimage', 'prompt': 'a friendly dinosaur', 'alt': 'A green cartoon dinosaur smiling'});
+      var out = kids(spec).last as Map;
+      expect(out['prompt'], 'a friendly dinosaur');
+      expect(out['alt'], 'A green cartoon dinosaur smiling');
+      final noAlt = validSpec();
+      ((noAlt['root'] as Map)['children'] as List).add({'id': 'g1', 'type': 'genimage', 'prompt': 'a butterfly'});
+      out = kids(noAlt).last as Map;
+      expect(out['alt'], contains('AI-made picture'));
+      final short = validSpec();
+      ((short['root'] as Map)['children'] as List).add({'id': 'g1', 'type': 'genimage', 'prompt': 'x'});
+      expect(kids(short).map((c) => (c as Map)['id']), isNot(contains('g1')));
     });
     test('strings sanitized and capped', () {
       final spec = validSpec();

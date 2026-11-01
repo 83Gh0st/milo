@@ -6,9 +6,11 @@ import 'core/providers.dart';
 import 'data/db.dart';
 import 'data/secure_store.dart';
 import 'sys/share_in.dart';
+import 'ui/brand.dart';
 import 'ui/chat_screen.dart';
 import 'ui/explore_screen.dart';
 import 'ui/home_screen.dart';
+import 'ui/intro.dart';
 import 'ui/more_screen.dart';
 import 'ui/onboarding.dart';
 import 'ui/progress_screen.dart';
@@ -38,10 +40,18 @@ class Gate extends ConsumerStatefulWidget { const Gate({super.key}); @override C
 class _GateState extends ConsumerState<Gate> {
   late Future<String?> _f = ref.read(dbProvider).get('onboarded');
   @override
-  Widget build(BuildContext context) => FutureBuilder<String?>(future: _f, builder: (_, s) {
-    if (s.connectionState != ConnectionState.done) return const Scaffold(body: SizedBox());
-    return s.data == '1' ? const Shell() : Onboarding(onDone: () => setState(() => _f = Future.value('1')));
-  });
+  Widget build(BuildContext context) {
+    final introDone = ref.watch(introDoneProvider);
+    return FutureBuilder<String?>(future: _f, builder: (_, s) {
+      // Cream from the first frame: the native splash hands off without a white flash.
+      if (s.connectionState != ConnectionState.done) return const Scaffold(backgroundColor: Color(0xFFFEF4E5), body: Center(child: MiloBrand(size: 120)));
+      final app = s.data == '1' ? const Shell() : Onboarding(onDone: () => setState(() => _f = Future.value('1')));
+      // Returning users get the calm veil over a Shell that is already
+      // working underneath; first-run goes straight to onboarding.
+      if (s.data == '1' && !introDone) return Stack(children: [app, const MiloIntro()]);
+      return app;
+    });
+  }
 }
 
 class Shell extends ConsumerStatefulWidget { const Shell({super.key}); @override ConsumerState<Shell> createState() => _ShellState(); }
@@ -101,7 +111,7 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
     final d = ref.watch(directorProvider);
     final tab = ref.watch(tabProvider);
     ref.listen<int>(tabProvider, (_, n) => d.setTab(n));
-    ref.listen<Ladder>(ladderProvider, (_, n) { if (n != _said) { _said = n; if (!d.quiet) d.speak(ladderWords(n)); } });
+    ref.listen<Ladder>(ladderProvider, (_, n) { if (n != _said) { _said = n; if (!d.quiet && ref.read(introDoneProvider)) d.speak(ladderWords(n)); } });
     const titles = ['Home', 'Explore', 'Milo', 'Progress', 'More'];
     const kinds = ['home', 'explore', 'chat', 'progress', 'more'];
     const tabs = [HomeScreen(), ExploreScreen(), ChatScreen(), ProgressScreen(), MoreScreen()];

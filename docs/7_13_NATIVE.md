@@ -2,9 +2,9 @@
 
 Status: Dart side landed (`lib/sys/share_in.dart`, `sharedTextProvider`,
 `UnderstandScreen` consume-once, `main.dart` arming). Native sides below are
-**UNVERIFIED**: `android/` and `ios/` do not exist in this checkout (CI
-regenerates them with `flutter create`), there is no Flutter SDK here, and no
-device. Apply after `flutter create --platforms=android,ios`, then run the
+**UNVERIFIED**: no device here. (An older revision of this note said
+`android/` and `ios/` do not exist — they are committed now; CI refreshes
+them with `flutter create`.) Apply, then run the
 human 30-minute check per surface. Order is the plan's: share-in, widget,
 keyboard, accessibility service.
 

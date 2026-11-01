@@ -122,7 +122,8 @@ jobs:
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
       - run: dart run flutter_native_splash:create
-      - run: cd ios && pod install
+      # No `pod install`: iOS plugins resolve via Swift Package Manager on
+      # this Flutter (no Podfile by design); `flutter build` drives it.
       - name: Build for simulator (unsigned)
         env:
           API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
@@ -156,7 +157,8 @@ jobs:
       - run: flutter create --platforms=ios --project-name milo .
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
-      - run: cd ios && pod install
+      # No `pod install`: iOS plugins resolve via Swift Package Manager on
+      # this Flutter (no Podfile by design); `flutter build` drives it.
       - name: Import signing certificate
         env:
           CERT_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}

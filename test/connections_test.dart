@@ -89,7 +89,7 @@ void main() {
       await dragToBuild(t, find.text(label, skipOffstage: false), list); // lower tiles start below the fold
       final title = find.text(label, skipOffstage: false);
       expect(title, findsOneWidget);
-      final tile = find.ancestor(of: title, matching: find.byType(ListTile)); // this tile's own row
+      final tile = find.ancestor(of: title, matching: find.byType(ListTile, skipOffstage: false)); // this tile's own row (built but maybe below the fold)
       expect(t.widget<ListTile>(tile).subtitle, isA<Text>().having((w) => w.data, 'data', 'Not connected'));
     }
     expect(t.takeException(), isNull);
@@ -149,6 +149,7 @@ void main() {
     await t.pump();
     expect(find.textContaining('Key …5678'), findsOneWidget);
     // The family switch is usable now and persists the flag.
+    await dragToBuild(t, find.byType(SwitchListTile, skipOffstage: false), find.byType(ListView).first, dy: 400); // back up: the list is still scrolled down to the tiles
     await t.ensureVisible(find.byType(SwitchListTile, skipOffstage: false));
     await t.pump();
     await t.tap(find.byType(SwitchListTile));
@@ -245,6 +246,7 @@ void main() {
     await settle(t);
     expect(api.savedRoutes['brain']!.first, {'provider': 'openai', 'model': 'fake-model'});
     expect(find.text('Saved. Milo now uses your choices.'), findsOneWidget);
+    await db.put('ai.family_key', 'x'); // family mode with one key
 
     await dragToBuild(t, find.text('OpenAI', skipOffstage: false), list, dy: 400);
     await t.ensureVisible(find.text('OpenAI', skipOffstage: false));
@@ -257,6 +259,27 @@ void main() {
     await settle(t);
     expect(api.savedConns, isEmpty);
     expect(find.text('Not connected', skipOffstage: false), findsNWidgets(4));
+    expect(await db.get('ai.family_key'), isEmpty); // last key gone: reverted to hosted
+    expect(t.takeException(), isNull);
+    c.dispose();
+  });
+
+  testWidgets('hosted status names Milo hosted Muse Spark', (t) async {
+    final db = FakeDb(), api = FakeApi(db, SecureStore());
+    final c = ProviderContainer(overrides: [
+      dbProvider.overrideWithValue(db),
+      storeProvider.overrideWithValue(SecureStore()),
+      directorProvider.overrideWith((_) => Director()),
+      apiProvider.overrideWithValue(api),
+      syncProvider.overrideWithValue(FakeSync(db, api, SecureStore())),
+      connectionCheckProvider.overrideWith((_) => Future.value(const ConnStatus(apiBase: 'http://test', ok: true, provider: 'modal', brainMode: 'json', budgetOk: true, words: 'Connected.'))),
+    ]);
+    await pumpConn(t, c);
+    await settle(t);
+    expect(find.text('Hosted by Milo — Muse Spark', skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('Milo hosted (Muse Spark)', skipOffstage: false), findsOneWidget);
+    await dragToBuild(t, find.text('MY API KEYS (BYOK)', skipOffstage: false), find.byType(ListView).first);
+    expect(find.text('MY API KEYS (BYOK)', skipOffstage: false), findsOneWidget); // Section renders uppercase
     expect(t.takeException(), isNull);
     c.dispose();
   });

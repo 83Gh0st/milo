@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, WebSoc
 from fastapi.responses import StreamingResponse
 from .contract import CONCEPTS, brain_schema
 from .db import visual_cache
-from .models import BrainReq, ComposeReq, PlanReq, SessionReq, UnderstandReq, VisualReq
+from .models import BrainReq, ComposeReq, ImageReq, PlanReq, SessionReq, UnderstandReq, VisualReq
 from .prompts import PRESENTATION, build_messages
 from .providers.base import FAILOVER_CODES, ProviderError, Usage
 from .safety import Assembler, CAPS, cap_sentence, clean, is_crisis, no_new_content
@@ -95,7 +95,7 @@ async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float,
         return "lines" if lines_default else "json_schema"
 
     asm, usage, err, t0 = Assembler(presentation, user_text), Usage(), None, time.monotonic()
-    provider, model = "", ""
+    provider, model, parse_ms = "", "", 0
     try:
         provider, model, strategy, pieces = await st.router.select_and_stream(
             cap, ctx.routes if ctx else None, creds, msgs, schema=brain_schema(understand), effort=effort,
@@ -108,9 +108,11 @@ async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float,
                 if isinstance(piece, Usage):
                     usage = piece
                     continue
+                tp = time.monotonic()
                 for k, key, val in parser.feed(piece):
                     for e, d in asm.handle(k, key, val):
                         yield sse(e, d)
+                parse_ms += int((time.monotonic() - tp) * 1000)
                 if asm.halted:
                     break
             if strategy == "lines":
@@ -131,7 +133,7 @@ async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float,
     yield sse("done", {"followup": asm.followup, "blocked": asm.blocked, "capped": asm.capped, "provider": provider, "model": model})
     if metered:
         await st.budget.add(cost_chat(st.settings, usage))  # family-keyed turns spend the family's quota, not the deployer's
-    log.info("turn", extra={"kind": kind, "ms": int((time.monotonic() - t0) * 1000), "tok_in": usage.prompt, "tok_cached": usage.cached, "tok_out": usage.completion, "err": err or "", "prov": provider, "pmodel": model})
+    log.info("turn", extra={"kind": kind, "ms": int((time.monotonic() - t0) * 1000), "tok_in": usage.prompt, "tok_cached": usage.cached, "tok_out": usage.completion, "ttft": usage.ttft_ms, "conn": usage.connect_ms, "parse": parse_ms, "err": err or "", "prov": provider, "pmodel": model})
 
 
 def _crisis_stream():
@@ -148,7 +150,7 @@ async def brain_turn(req: BrainReq, request: Request, dev: str = Depends(auth), 
         return _crisis_stream()
     ctx = await vault_ctx(request)
     msgs = build_messages(req, lines=_peek_lines(st, ctx, "brain"))
-    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=8, understand=False, kind="chat", user_text=req.text, ctx=ctx, metered=ctx is None))
+    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=st.settings.inference_timeout_s, understand=False, kind="chat", user_text=req.text, ctx=ctx, metered=ctx is None))
 
 
 @router.post("/understand")
@@ -168,7 +170,7 @@ async def understand(req: UnderstandReq, request: Request, dev: str = Depends(au
     ctx = await vault_ctx(request)
     need = "vision" if req.image_b64 else None  # a blind entry must fail over, never claim the picture
     msgs = build_messages(req, lines=_peek_lines(st, ctx, "understand", need), strategy=req.strategy, content_text=req.content_text, image_b64=req.image_b64)
-    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=12 if req.image_b64 else 8, understand=True, kind="understand", user_text=req.text, ctx=ctx, metered=ctx is None, need=need))
+    return sse_response(run_brain(st, msgs, req.presentation, effort="low", timeout=12 if req.image_b64 else st.settings.inference_timeout_s, understand=True, kind="understand", user_text=req.text, ctx=ctx, metered=ctx is None, need=need))
 
 
 async def collect(st, msgs, schema, effort, timeout, cap: str, ctx=None, metered: bool = True) -> dict:
@@ -276,6 +278,59 @@ async def visual(req: VisualReq, request: Request, dev: str = Depends(auth), _b:
                 except Exception:
                     pass
         return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    raise HTTPException((last_err.status if last_err else 502), {"error": last_err.code if last_err else "unsupported_capability"})
+
+
+# Free-form picture requests ("draw a dinosaur") arrive here; /visual keeps the
+# fixed concept allowlist. Prompts are screened + wrapped in a child-safe
+# style before any provider sees them. Generation is always explicit (the app
+# shows a Create button, never auto-generates); bytes are cached by content
+# hash for cost control with no user link, like /visual.
+_IMAGE_DENY = ("nude", "naked", "sex", "porn", "kill", "murder", "blood", "gore", "gun", "knife",
+               "bomb", "suicide", "self-harm", "selfharm", "horror", "zombie", "demon", "cigarette",
+               "alcohol", "beer", "wine", "drug", "weed", "cannabis")
+_IMAGE_STYLE = ("Cheerful child-friendly cartoon illustration for young children, soft rounded shapes, "
+                "bright kind colours, cartoon style (never photorealistic), no text, no words, no letters, "
+                "no scary or violent content, no real people: {p}")
+_IMAGE_PAT = re.compile(r"\b(?:" + "|".join(_IMAGE_DENY) + r")s?\b")
+
+
+@router.post("/image")
+async def image(req: ImageReq, request: Request, dev: str = Depends(auth), _b: None = Depends(budget_guard)):
+    st = request.app.state
+    p = clean(req.prompt, 140)
+    if len(p) < 2:
+        raise HTTPException(422, {"error": "no_content"})
+    if _IMAGE_PAT.search(p.lower()):
+        raise HTTPException(422, {"error": "prompt_not_allowed"})
+    ctx = await vault_ctx(request)
+    routes = ctx.routes if ctx else None
+    creds = dict(ctx.creds) if ctx else dict(st.deployer_creds)  # no deployer fallback on family requests (see run_brain)
+    caps = ctx.caps if ctx else None
+    last_err: ProviderError | None = None
+    for e in st.router.entries_for("visual", routes):
+        h = hashlib.sha256(f"{e.provider}|{e.model}|gen|{p}".encode()).hexdigest()
+        if st.engine is not None:  # cache is a pure optimisation: skipped without a database
+            async with st.engine.connect() as conn:
+                png = (await conn.execute(select(visual_cache.c.png).where(visual_cache.c.h == h))).scalar()
+            if png is not None:
+                return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Image": "ai-generated"})
+        try:
+            _, _, png = await st.router.generate_image({"visual": [e]}, creds, _IMAGE_STYLE.format(p=p), caps_map=caps)
+        except ProviderError as err:
+            last_err = err  # fail over to the next visual entry when eligible
+            if err.code not in FAILOVER_CODES:
+                raise HTTPException(err.status, {"error": err.code})
+            continue
+        if ctx is None:
+            await st.budget.add(st.settings.price_image)
+        if st.engine is not None:
+            async with st.engine.begin() as conn:
+                try:
+                    await conn.execute(insert(visual_cache).values(h=h, png=png, created=int(time.time())))
+                except Exception:
+                    pass
+        return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Image": "ai-generated"})
     raise HTTPException((last_err.status if last_err else 502), {"error": last_err.code if last_err else "unsupported_capability"})
 
 

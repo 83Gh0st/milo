@@ -67,9 +67,10 @@ def web():
     import sys
 
     sys.path.insert(0, "/root/milo")
-    # contract.py defaults to <repo>/contracts/brain_contract.json relative to
-    # the source tree; pin it explicitly so image layout can never drift.
+    # contract.py defaults to <repo>/contracts/*.json relative to the
+    # source tree; pin both explicitly so image layout can never drift.
     os.environ.setdefault("CONTRACT_PATH", "/root/milo/contracts/brain_contract.json")
+    os.environ.setdefault("UI_CONTRACT_PATH", "/root/milo/contracts/ui_contract.json")
     from app.main import create_app
 
     return create_app()

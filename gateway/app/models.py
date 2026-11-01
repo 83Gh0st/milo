@@ -86,6 +86,10 @@ class VisualReq(BaseModel):
     concept: str = Field(max_length=30)
 
 
+class ImageReq(BaseModel):
+    prompt: str = Field(min_length=2, max_length=300)
+
+
 class SpeakReq(BaseModel):
     text: str = Field(min_length=1, max_length=500)  # one sentence; the phone pipelines sentences
     lang: str = Field(default="en", max_length=8)

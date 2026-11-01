@@ -11,6 +11,7 @@ import '../companion/react.dart';
 import '../genui/panel.dart';
 import '../genui/widgets.dart';
 import '../media/photo.dart';
+import '../net/api.dart' show ApiError;
 import 'screen.dart';
 import 'theme.dart';
 
@@ -86,6 +87,18 @@ class _ChatState extends ConsumerState<ChatScreen> {
   }
 }
 
+/// Honest words for a failed picture creation, by cause. Pure: unit-tested.
+/// Blocked prompts, missing picture access (BYOK Meta key), offline, and
+/// plain outages each say their thing — never a silent spinner.
+String genImageErrorWords(ApiError e) {
+  final err = e.detail is Map ? (e.detail as Map)['error'] : null;
+  if (err == 'prompt_not_allowed') return 'I can only draw kind pictures for kids. What else shall we draw?';
+  if (e.code == 'http_422') return 'That request did not work. Try different words?';
+  if (e.code == 'auth_failed' || e.code == 'http_401' || e.code == 'http_403') return 'Drawing needs a grown-up to set up picture access first.';
+  if (e.code == 'offline') return 'I need the internet to draw that. Your board still works.';
+  return 'The drawing did not work just now. We can try again later.';
+}
+
 /// The generative activity panel, pinned at the end of the thread. Hidden
 /// companion mode renders nothing; featured mode gives Milo the stage.
 class _ActivityPanel extends ConsumerWidget {
@@ -103,6 +116,16 @@ class _ActivityPanel extends ConsumerWidget {
           try {
             ref.read(visualProvider.notifier).put(c, await ref.read(apiProvider).visual(c));
           } catch (_) {}
+        }, generateImage: (p) async {
+          final k = genImageKey(p);
+          if (ref.read(genImageProvider).containsKey(k)) return;
+          try {
+            ref.read(genImageProvider.notifier).put(k, await ref.read(apiProvider).generateImage(p));
+          } on ApiError catch (e) {
+            d.speak(genImageErrorWords(e));
+          } catch (_) {
+            d.speak('The drawing did not work just now. We can try again later.');
+          }
         }));
   }
 }

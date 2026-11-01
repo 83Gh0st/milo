@@ -154,7 +154,13 @@ void main() {
       final p = OkPlatform();
       final d = speakingDirector(p);
       d.tapMilo();
-      await Future.delayed(const Duration(milliseconds: 50));
+      // The greeting speaks, then the caption hold settles: wait for the
+      // turn to finish rather than assuming a fixed 50 ms.
+      final t0 = DateTime.now();
+      while (d.speaking &&
+          DateTime.now().difference(t0) < const Duration(seconds: 5)) {
+        await Future.delayed(const Duration(milliseconds: 25));
+      }
       expect(p.spoken, isNotEmpty); // the advertised action: Milo says hi
       expect(d.speaking, isFalse);
       final n = p.spoken.length;

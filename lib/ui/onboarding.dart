@@ -16,7 +16,7 @@ class _OState extends ConsumerState<Onboarding> {
   String lang = 'en', who = 'self', voice = 'Friendly';
   final comm = <String>{'Touch'}, brings = <String>{'Learn and understand'};
   bool readAloud = false, cloud = true, sendName = false, mic = false, cam = false;
-  Color col = const Color(0xFF8E9BFF);
+  Color col = const Color(0xFF149E87);
   final name = TextEditingController();
   static const _n = 10;
 
@@ -55,7 +55,7 @@ class _OState extends ConsumerState<Onboarding> {
   @override
   Widget build(BuildContext context) {
     final d = ref.watch(directorProvider);
-    return Scaffold(backgroundColor: i == 0 || i == 9 ? const Color(0xFFE9EDFF) : T.bg, body: SafeArea(child: PageView(controller: pc, physics: const NeverScrollableScrollPhysics(), onPageChanged: (v) => setState(() => i = v), children: [
+    return Scaffold(backgroundColor: i == 0 || i == 9 ? const Color(0xFFFEF4E5) : T.bg, body: SafeArea(child: PageView(controller: pc, physics: const NeverScrollableScrollPhysics(), onPageChanged: (v) => setState(() => i = v), children: [
       _page('', [const MiloStage(), const Center(child: Text('Hi! I’m Milo.', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800))), const Center(child: Text('Your AI companion.\nLet’s get to know each other.', textAlign: TextAlign.center, style: TextStyle(color: T.mute, fontSize: 16)))], say: 'Hi! I’m Milo. Your AI companion.', next: 'Get started'),
       _page('Choose your language', [for (final e in kLangNames.entries.take(5)) _row(e.value, 'Speech and text', lang == e.key, () => setState(() { lang = e.key; d.set(() => d.lang = e.key); }), icon: Icons.language)], say: 'Which language would you like?'),
       _page('Who is using Milo?', [const MiloStage(), Row(children: [Expanded(child: AspectRatio(aspectRatio: .95, child: PastelTile(icon: Icons.person_outline, label: 'Me', color: 0, selected: who == 'self', speaker: true, onTap: () => setState(() => who = 'self')))), const SizedBox(width: 12),
@@ -68,7 +68,7 @@ class _OState extends ConsumerState<Onboarding> {
         TextButton(onPressed: _next, child: const Text('I’ll explore'))], say: 'How do you like to communicate? Touch, speak, type, or pictures.'),
       _page('What brings you here?', [for (final b in [('Learn and understand', Icons.menu_book_outlined), ('Express and communicate', Icons.chat_bubble_outline), ('Daily tasks', Icons.check_circle_outline), ('Just explore', Icons.explore_outlined)]) _row(b.$1, '', brings.contains(b.$1), () => setState(() => brings.contains(b.$1) ? brings.remove(b.$1) : brings.add(b.$1)), icon: b.$2)], say: 'What would you like Milo to help with?'),
       _page('Personalise Milo', [const MiloStage(),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (final c in [0xFF8E9BFF, 0xFFFFA3C0, 0xFF6FD9B0, 0xFFFFD166, 0xFFC3A6FF]) GestureDetector(onTap: () { setState(() => col = Color(c)); d.set(() => d.color = Color(c)); }, child: Container(margin: const EdgeInsets.all(6), width: 40, height: 40, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle, border: Border.all(width: 3, color: col == Color(c) ? T.ink : Colors.transparent))))]),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (final c in [0xFF149E87, 0xFF8E9BFF, 0xFFFFA3C0, 0xFF6FD9B0, 0xFFFFD166]) GestureDetector(onTap: () { setState(() => col = Color(c)); d.set(() => d.color = Color(c)); }, child: Container(margin: const EdgeInsets.all(6), width: 40, height: 40, decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle, border: Border.all(width: 3, color: col == Color(c) ? T.ink : Colors.transparent))))]),
         const Section('Voice'), for (final v in [('Friendly', 'Warm and bright'), ('Calm', 'Soft and slow'), ('Energetic', 'Quick and playful')]) _row(v.$1, v.$2, voice == v.$1, () { setState(() => voice = v.$1); d.set(() => d.voiceStyle = v.$1); d.applyVoice().then((_) => d.speak('Hello, I’m Milo.')); }, icon: Icons.play_arrow),
         const SizedBox(height: 6), TextField(controller: name, decoration: const InputDecoration(hintText: 'Name (optional, stays on this phone)'))], say: 'This is how I look and sound. Pick what you like.'),
       _page('Privacy, in plain words', [

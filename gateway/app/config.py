@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     spark_model: str = "muse-spark-1.3"
     voice_model: str = "muse-voice-transcribe-1.0"
     image_model: str = "muse-image-1.0"
+    wonder_model: str = "muse-wonder-1.0"  # allowlisted, unrouted: set SPARK_MODEL to this id deliberately (see meta_catalog)
     brain_mode: str = "json"               # json | lines
     jwt_secret: str = ""
     key_enc_secret: str = ""             # encrypts family BYOK keys at rest; required (>=32 chars) in prod
@@ -24,9 +25,10 @@ class Settings(BaseSettings):
     monthly_budget_usd: float = 100.0  # UTC-month cap on deployer-path vendor spend; family keys spend the family's quota, never this
     modal_models_url: str = ""       # Modal Shared Endpoint base, MUST end with /v1 (the adapter appends /chat/completions and /models)
     modal_models_key: str = ""       # proxy token (id.secret) for that endpoint (server-side only, never to the app)
-    modal_model: str = ""            # endpoint hostname from the dashboard's request examples (no default: a wrong id must fail loudly, never guess)
+    modal_model: str = ""            # Shared Endpoint model id per the Modal docs (meta-models/Muse-Spark-Open-816B-A42B); no default: a wrong id must fail loudly, never guess
     reasoning_provider: str = ""     # "" = follow PROVIDER suite; "modal" = hosted Muse Spark for text caps
     modal_fallback: bool = True      # text turns fall back to the suite entries when the hosted model errors pre-byte
+    inference_timeout_s: float = 8   # deadline for hosted text inference (first byte + full stream); staging raises this, prod keeps 8
     spend_backend: str = "auto"      # auto | postgres | modal_dict | memory (see app/spend.py)
     spend_dict_name: str = ""        # Modal Dict for spend totals; empty disables the dict backend (see app/spend.py)
     ephemeral_day_usd: float = 5.0   # ceilings that ALWAYS bind the memory ledger (see app/spend.py)
@@ -50,7 +52,7 @@ class Settings(BaseSettings):
 
     @property
     def allowed_models(self) -> set[str]:
-        return {self.spark_model, self.voice_model, self.image_model}
+        return {self.spark_model, self.voice_model, self.image_model, self.wonder_model}
 
 
 def assert_model_allowed(s: Settings, model: str) -> None:
@@ -67,7 +69,7 @@ def validate_runtime(s: Settings) -> None:
         if not (m.startswith("muse-") or m.startswith("sam-")):
             raise RuntimeError(f"unexpected model id: {m}")
     if s.reasoning_provider == "modal" and s.modal_models_url.strip() and not s.modal_model.strip():
-        raise RuntimeError("MODAL_MODEL must name the Shared Endpoint model (endpoint hostname from the dashboard) when the modal path is enabled")
+        raise RuntimeError("MODAL_MODEL must name the Shared Endpoint model (meta-models/Muse-Spark-Open-816B-A42B) when the modal path is enabled")
     if s.modal_model.strip().endswith("-contributor"):
         raise RuntimeError("MODAL_MODEL must be a non-contributor id")
     if bool(s.modal_models_url.strip()) != bool(s.modal_models_key.strip()):
@@ -76,6 +78,8 @@ def validate_runtime(s: Settings) -> None:
         raise RuntimeError('REASONING_PROVIDER must be "" or "modal"')
     if s.reasoning_provider == "modal" and not s.modal_models_url.strip():
         raise RuntimeError('REASONING_PROVIDER=modal needs MODAL_MODELS_URL and MODAL_MODELS_KEY')
+    if not 1 <= s.inference_timeout_s <= 120:
+        raise RuntimeError("INFERENCE_TIMEOUT_S must be between 1 and 120 seconds")
     if s.spend_backend.strip().lower() not in ("auto", "postgres", "modal_dict", "memory"):
         raise RuntimeError("SPEND_BACKEND must be auto, postgres, modal_dict, or memory")
     if s.spend_backend.strip().lower() == "postgres" and not s.database_url.strip():

@@ -155,7 +155,11 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
     if (vh == null || !mounted) return;
     try {
       final st = await api.listConnections(vh['X-Vault-Id']!, vh['X-Vault-Key']!);
-      final flag = await aiChoice(db) == AiChoice.family ? 'family' : '';
+      var flag = await aiChoice(db) == AiChoice.family ? 'family' : '';
+      if (((st['connections'] as List?) ?? []).isEmpty && flag.isNotEmpty) {
+        await setAiChoice(db, AiChoice.miloHosted); // last key gone: family mode would fail every turn; hosted still works
+        flag = '';
+      }
       if (!mounted) return;
       final routes = Map<String, dynamic>.from(st['routes'] as Map? ?? {});
       for (final (cap, _) in kRouteCaps) {
@@ -217,7 +221,7 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
             useFamily! ? 'Milo is thinking with: ${primary['brain'] ?? 'your saved providers (pick routes below)'}.' : 'Milo is thinking with: Milo hosted.',
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)))),
         const _HostedStatus(),
-        const Section('Providers'),
+        const Section('My API keys (BYOK)'),
         for (final (id, name) in kConnProviders)
           Card(child: ListTile(leading: Icon(_conn(id) == null ? Icons.key_off : Icons.key, color: T.pri),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -251,10 +255,10 @@ class _HostedStatus extends ConsumerWidget {
     final check = ref.watch(connectionCheckProvider);
     Widget line(String s) => Text(s, style: const TextStyle(fontSize: 13, color: T.mute));
     return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Milo hosted', style: TextStyle(fontWeight: FontWeight.w700)),
+      const Text('Hosted by Milo — Muse Spark', style: TextStyle(fontWeight: FontWeight.w700)),
       const SizedBox(height: 4),
       ...check.when(
-        data: (s) => [line(s.provider == null ? 'Unreachable right now.' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used — resting.'}')],
+        data: (s) => [line(s.provider == null ? 'Unreachable right now.' : s.provider == 'modal' ? 'Answering via Milo hosted (Muse Spark).${s.budgetOk == true ? '' : ' Daily budget used — resting.'}' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used — resting.'}')],
         loading: () => [line('Checking…')],
         error: (_, __) => [line('Unreachable right now.')],
       ),

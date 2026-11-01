@@ -26,7 +26,8 @@ class HttpxTransport:
 
     def _client(self, timeout):
         import httpx  # lazy: CI/prod dependency, never imported in unit tests
-        return httpx.AsyncClient(timeout=timeout, follow_redirects=False)
+        return httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=timeout, write=timeout, pool=timeout),
+                                 follow_redirects=False)
 
     async def post_stream(self, url, headers, payload, timeout=30):
         import httpx

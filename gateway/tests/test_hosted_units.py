@@ -38,12 +38,12 @@ def test_ephemeral_ceilings_always_bind_memory():
 def test_modal_adapter_registered_and_routed():
     kw = dict(env="dev", provider="mock", jwt_secret="x" * 40, database_url="",
               modal_models_url="https://spark-test.modal.msp.run", modal_models_key="k" * 16,
-              modal_model="spark-test.modal.msp.run", reasoning_provider="modal")
+              modal_model="meta-models/Muse-Spark-Open-816B-A42B", reasoning_provider="modal")
     app = create_app(Settings(**kw))
     assert "modal" in app.state.adapters
     assert app.state.deployer_creds["modal"].base_url == "https://spark-test.modal.msp.run"
     first = app.state.default_routes["brain"][0]
-    assert (first.provider, first.model) == ("modal", "spark-test.modal.msp.run")
+    assert (first.provider, first.model) == ("modal", "meta-models/Muse-Spark-Open-816B-A42B")
     assert len(app.state.default_routes["brain"]) == 2  # suite fallback by default
     assert app.state.default_routes["visual"][0].provider == "mock"  # image/voice stay on the suite
     strict = create_app(Settings(**kw, modal_fallback=False))
@@ -53,11 +53,18 @@ def test_modal_adapter_registered_and_routed():
     validate_runtime(Settings(**kw))  # dev settings validate
 
 
+def test_modal_default_max_tokens_fits_reasoning():
+    modal = ModalAdapter()
+    assert modal._payload("m", [], schema=None, effort="low", max_tokens=None)["max_completion_tokens"] == 2000
+    assert modal._payload("m", [], schema=None, effort="low", max_tokens=10)["max_completion_tokens"] == 10
+    assert OpenAICompatAdapter()._payload("m", [], schema=None, effort="low", max_tokens=None)["max_completion_tokens"] == 900
+
+
 def test_modal_payload_adapter_extras():
     modal = ModalAdapter()
-    spark = modal._payload("spark-test.modal.msp.run", [{"role": "user", "content": "hi"}], schema=None, effort="low", max_tokens=10)
+    spark = modal._payload("meta-models/Muse-Spark-Open-816B-A42B", [{"role": "user", "content": "hi"}], schema=None, effort="low", max_tokens=10)
     assert "chat_template_kwargs" not in spark  # Shared Endpoint: plain OpenAI body
-    assert spark["stream"] is True and spark["model"] == "spark-test.modal.msp.run"
+    assert spark["stream"] is True and spark["model"] == "meta-models/Muse-Spark-Open-816B-A42B"
     qwen = modal._payload("Qwen/Qwen3-4B-Instruct-2507", [], schema=None, effort="low", max_tokens=10)
     assert qwen["chat_template_kwargs"] == {"enable_thinking": False}  # legacy self-host flag only
     base = OpenAICompatAdapter()._payload("gpt-x", [], schema=None, effort="low", max_tokens=10)

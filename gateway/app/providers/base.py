@@ -6,6 +6,8 @@ class Usage:
     prompt: int = 0
     cached: int = 0
     completion: int = 0
+    connect_ms: int = 0  # upstream connect+send+headers (0 when the adapter doesn't measure)
+    ttft_ms: int = 0  # time to first content token (0 when unmeasured)
 
 
 # Normalised provider error codes (Phase 3). Existing codes

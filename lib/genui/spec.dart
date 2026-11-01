@@ -6,7 +6,7 @@ import '../contracts/brain_contract.dart';
 /// tampered wire degrades to plain chat instead of breaking the panel.
 /// Returns the sanitized spec, or null when there is nothing usable.
 const uiVersion = 1;
-const uiComponents = {'text', 'card', 'button', 'choices', 'checklist', 'progress', 'steps', 'list', 'image', 'divider'};
+const uiComponents = {'text', 'card', 'button', 'choices', 'checklist', 'progress', 'steps', 'list', 'image', 'genimage', 'divider'};
 const uiSpecActions = {'check', 'answer', 'next', 'ask', 'speak', 'open_screen'};
 const uiOps = {'add', 'update', 'replace', 'move', 'remove', 'state'};
 const uiLayouts = {'column', 'row', 'card'};
@@ -147,6 +147,11 @@ Map<String, dynamic>? validateNode(Object? n, Set<String> seen, int depth) {
     final c = n['concept'];
     if (c is! String || !kVisualConcepts.contains(c.trim().toLowerCase())) return null;
     out['concept'] = c.trim().toLowerCase();
+  } else if (t == 'genimage') {
+    final p = uiText(n['prompt'], 140), a = uiText(n['alt'], 200);
+    if (p.length < 2) return null;
+    out['prompt'] = p;
+    out['alt'] = a.length < 2 ? 'AI-made picture: $p' : a; // alt text always present for screen readers
   }
   final acts = _actions(n['actions']);
   if (acts == null) return null;

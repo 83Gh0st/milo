@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/providers.dart' show visualProvider;
+import '../core/providers.dart' show genImageKey, genImageProvider, visualProvider;
 import '../ui/theme.dart';
 import 'panel.dart';
 
@@ -9,11 +9,12 @@ import 'panel.dart';
 /// validated navigation, showImage = the explainer picture fetch). The panel
 /// never invents its own side effects.
 class PanelCallbacks {
-  const PanelCallbacks({required this.ask, required this.speak, required this.openScreen, required this.showImage});
+  const PanelCallbacks({required this.ask, required this.speak, required this.openScreen, required this.showImage, required this.generateImage});
   final void Function(String text) ask;
   final void Function(String text) speak;
   final void Function(String screen) openScreen;
   final Future<void> Function(String concept) showImage;
+  final Future<void> Function(String prompt) generateImage;
 }
 
 /// The live activity panel: renders the validated tree, or nothing when no
@@ -144,6 +145,7 @@ class _NodeView extends StatelessWidget {
         ]),
       'button' => FilledButton.tonal(onPressed: () => view._runAction(ref, (node['action'] as Map).cast<String, dynamic>(), node), child: Text('${node['label']}')),
       'image' => _PanelImage(concept: node['concept'] as String, showImage: view.cb.showImage),
+      'genimage' => _PanelGenImage(prompt: node['prompt'] as String, alt: node['alt'] as String, generateImage: view.cb.generateImage),
       'checklist' => Column(children: [
           for (final i in (node['items'] as List).cast<Map<String, dynamic>>())
             CheckboxListTile(value: not.isDone(i['id'] as String), activeColor: T.pri, controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, dense: true,
@@ -176,7 +178,7 @@ class _NodeView extends StatelessWidget {
             Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('•  ', style: TextStyle(fontSize: 16, color: T.pri)), Expanded(child: Text('${i['text']}', style: const TextStyle(fontSize: 16)))])),
         ]),
       'card' => _PanelCard(node: node, panel: panel, view: view, ref: ref),
-      _ => const SizedBox.shrink(), // unreachable: the validator only passes the 10 known types
+      _ => const SizedBox.shrink(), // unreachable: the validator only passes the 11 known types
     };
     final acts = (node['actions'] as List?) ?? const [];
     if (acts.isEmpty || t == 'button') return main; // buttons carry their action in the tap itself
@@ -237,5 +239,39 @@ class _PanelImage extends ConsumerWidget {
     return InkWell(onTap: () => showImage(concept), borderRadius: BorderRadius.circular(12),
         child: Container(height: 120, decoration: BoxDecoration(color: T.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: T.line)),
             child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.image_outlined, color: T.mute, size: 32), const SizedBox(height: 4), Text('Tap to load: $concept', style: const TextStyle(color: T.mute, fontSize: 13))]))));
+  }
+}
+
+/// An AI-drawn picture: explicit Create tap (never auto-generated), the bytes
+/// once they arrive, and always the AI-made disclosure plus the alt text the
+/// model wrote (screen readers get the same words via semanticLabel).
+class _PanelGenImage extends ConsumerWidget {
+  const _PanelGenImage({required this.prompt, required this.alt, required this.generateImage});
+  final String prompt;
+  final String alt;
+  final Future<void> Function(String) generateImage;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bytes = ref.watch(genImageProvider)[genImageKey(prompt)];
+    if (bytes == null) {
+      return InkWell(onTap: () => generateImage(prompt), borderRadius: BorderRadius.circular(12),
+          child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: T.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: T.line)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.auto_awesome_outlined, color: T.pri, size: 32),
+                const SizedBox(height: 8),
+                Text(prompt, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                const Text('Tap to create this picture', style: TextStyle(color: T.pri, fontSize: 14, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                const Text('Milo will draw it with AI', style: TextStyle(color: T.mute, fontSize: 12)),
+              ])));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, height: 180, width: double.infinity, fit: BoxFit.cover, semanticLabel: 'AI-made picture. $alt')),
+      const SizedBox(height: 6),
+      Row(children: [const Icon(Icons.auto_awesome, size: 14, color: T.mute), const SizedBox(width: 4), const Text('AI-made picture', style: TextStyle(color: T.mute, fontSize: 12, fontWeight: FontWeight.w700))]),
+      const SizedBox(height: 2),
+      Text(alt, style: const TextStyle(color: T.mute, fontSize: 13, height: 1.3)),
+    ]);
   }
 }

@@ -221,9 +221,53 @@ def test_openai_stream_and_usage():
     t = FakeTransport([(200, [oai_chunk("Hel"), oai_chunk("lo"), oai_chunk(None, {"prompt_tokens": 10, "completion_tokens": 3, "prompt_tokens_details": {"cached_tokens": 4}}), b"data: [DONE]\n\n"])])
     a = OpenAICompatAdapter(transport=t)
     out = run(_collect(a.stream([{"role": "user", "content": "hi"}], creds=Creds("https://x.test/v1", "k"), model="gpt-x")))
-    assert out == ["Hel", "lo", Usage(10, 4, 3)]
+    u = out[2]
+    assert out[:2] == ["Hel", "lo"] and (u.prompt, u.cached, u.completion) == (10, 4, 3)
+    assert u.ttft_ms >= 0 and u.connect_ms >= 0  # stage timing rides along, never negative
     assert "reasoning_effort" not in t.posts[0]["payload"]  # only reasoning models get it
     assert t.posts[0]["payload"]["max_completion_tokens"] == 900
+
+
+def test_http_client_splits_connect_timeout():
+    import httpx
+    from app.providers.http import HttpxTransport
+    t = HttpxTransport()._client(20).timeout
+    assert isinstance(t, httpx.Timeout) and (t.connect, t.read, t.write, t.pool) == (10.0, 20.0, 20.0, 20.0)
+
+
+def test_meta_catalog_complete_and_honest():
+    from app.providers.meta_catalog import META_CAPABILITIES, get_capability, live_capabilities
+    ids = [c.id for c in META_CAPABILITIES]
+    assert ids == ["spark", "wonder", "image", "voice", "sam", "glimmer"]
+    for c in META_CAPABILITIES:  # every row fully specified, no placeholders
+        assert c.status in {"live", "wired", "probe", "manual", "absent"}
+        assert c.via in {"modal-shared", "meta-api", "local", "none"}
+        for f in (c.endpoint, c.credentials, c.request, c.response, c.cost, c.latency, c.offline, c.retention):
+            assert isinstance(f, str) and len(f) > 10
+        assert isinstance(c.models, tuple) and c.models and isinstance(c.byok, bool)
+    assert live_capabilities() == ("spark",)  # only staging-verified rows claim live
+    assert get_capability("sam").status == "probe" and not get_capability("sam").verified_live
+    try:
+        get_capability("muse-fairy")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("unknown capability must raise")
+
+
+def test_wonder_allowlisted_not_default():
+    from app.config import Settings, assert_model_allowed, validate_runtime
+    s = Settings()
+    assert "muse-wonder-1.0" in s.allowed_models and s.spark_model == "muse-spark-1.3"  # default unchanged
+    assert_model_allowed(s, "muse-wonder-1.0")
+    sw = Settings(spark_model="muse-wonder-1.0")
+    validate_runtime(sw)  # deliberate SPARK_MODEL override validates end to end
+    try:
+        assert_model_allowed(s, "muse-wonder-1.0-contributor")
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("contributor training tier must stay refused")
 
 
 def test_openai_legacy_token_retry_and_reasoning_flag():
