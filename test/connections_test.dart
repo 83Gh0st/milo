@@ -278,6 +278,7 @@ void main() {
     await settle(t);
     expect(find.text('Hosted by Milo — Muse Spark', skipOffstage: false), findsOneWidget);
     expect(find.textContaining('Milo hosted (Muse Spark)', skipOffstage: false), findsOneWidget);
+    await dragToBuild(t, find.text('My API keys (BYOK)', skipOffstage: false), find.byType(ListView).first);
     expect(find.text('My API keys (BYOK)', skipOffstage: false), findsOneWidget);
     expect(t.takeException(), isNull);
     c.dispose();
