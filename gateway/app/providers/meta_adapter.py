@@ -4,7 +4,7 @@ protocol's (creds, model) into their api_key + configured-model shape.
 The `meta` module (openai SDK) is imported lazily so unit tests can import
 this module without the web stack.
 """
-from .base import ProviderError, MODEL_NOT_FOUND
+from .base import ProviderError, MODEL_NOT_FOUND, UNSUPPORTED_CAPABILITY
 from .capabilities import ProbeResult
 
 # SAM 3.1 app path: implemented from Meta's own cookbook (07_sam/01_api_basics:
@@ -52,6 +52,8 @@ class MetaAdapter:
         return await self.image.generate(prompt, api_key=self._key(creds))
 
     async def ground(self, image_b64, phrase, creds=None, model=None):
+        if SAM_KEYED_PROBE_PENDING:
+            raise ProviderError(UNSUPPORTED_CAPABILITY, 502)
         want = model or self.s.sam_model
         if want != self.s.sam_model:
             raise ProviderError(MODEL_NOT_FOUND, 502)
