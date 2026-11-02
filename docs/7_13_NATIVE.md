@@ -1,9 +1,9 @@
-# Plan 7.13 — system surfaces (share-in first, the rest in order)
+# Plan 7.13 - system surfaces (share-in first, the rest in order)
 
 Status: Dart side landed (`lib/sys/share_in.dart`, `sharedTextProvider`,
 `UnderstandScreen` consume-once, `main.dart` arming). Native sides below are
 **UNVERIFIED**: no device here. (An older revision of this note said
-`android/` and `ios/` do not exist — they are committed now; CI refreshes
+`android/` and `ios/` do not exist - they are committed now; CI refreshes
 them with `flutter create`.) Apply, then run the
 human 30-minute check per surface. Order is the plan's: share-in, widget,
 keyboard, accessibility service.
@@ -76,7 +76,7 @@ manifest. iOS WidgetKit equivalent after Android is verified on-device.
 
 Biggest native surface and the most sensitive (it sees everything typed).
 Headless API it calls is ready: `CoreRouter.explain` (understand),
-`MiloApi.compose` (wording help), `MiloApi.plan` (step guides) — see table
+`MiloApi.compose` (wording help), `MiloApi.plan` (step guides) - see table
 below. Ships only with its own consent screen and a Play Data-Safety entry.
 
 ## 4. Accessibility service (last)

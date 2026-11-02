@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     price_cached_in: float = 0.15
     price_out: float = 4.25
     price_image: float = 0.01
-    price_segment: float = 0.01  # one SAM grounding call; Meta prices per 1k images — recheck on the dashboard
+    price_segment: float = 0.01  # one SAM grounding call; Meta prices per 1k images - recheck on the dashboard
     price_voice_hour: float = 0.18
     max_body_bytes: int = 3_000_000
     max_image_bytes: int = 2_000_000

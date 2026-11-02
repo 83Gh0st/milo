@@ -26,14 +26,14 @@ from `--dart-define` (default `http://10.0.2.2:8000`, the Android emulator's
 loopback to the developer's machine).
 
 - CI's APK check build bakes the staging gateway URL and a verification step
-  fails the job if `api.example.com` is present or the staging host is absent —
+  fails the job if `api.example.com` is present or the staging host is absent -
   the `milo-android-apk` artifact is a usable staging client.
 - The CI iOS simulator check uses the `MILO_API_BASE` secret when set, else
   the compiled-in default (that build only proves compilation, never
   distributed).
 - `release.yml` resolves API_BASE as `api_base` dispatch input, else the
   `MILO_API_BASE` repository secret, else the production-gateway default
-  baked into the workflow (a public URL, not a credential) — release
+  baked into the workflow (a public URL, not a credential) - release
   artifacts can never silently ship the emulator-only compiled-in default
   (`http://10.0.2.2:8000`). Set `MILO_API_BASE` to point a release at a
   different gateway (e.g. staging) without editing the workflow. A
@@ -61,7 +61,7 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 
 ### Play signing (one-time setup)
 
-1. Create a release keystore (keep the file + passwords in a password manager —
+1. Create a release keystore (keep the file + passwords in a password manager -
    losing them means a new Play listing):
    ```cmd
    keytool -genkeypair -v -keystore milo-release.jks -alias milo -keyalg RSA -keysize 2048 -validity 10000
@@ -69,7 +69,7 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 2. Add repository secrets (Settings → Secrets and variables → Actions):
    `ANDROID_KEYSTORE_BASE64` (base64 of the `.jks`),
    `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
-   plus `ANDROID_APPLICATION_ID` (e.g. `com.yourdomain.milo` — replace the
+   plus `ANDROID_APPLICATION_ID` (e.g. `com.yourdomain.milo` - replace the
    `com.example.milo` template id; Play rejects `com.example.*`).
 3. Push a tag. The workflow decodes the keystore, writes `android/key.properties`,
    wires `signingConfigs.release` via `tools/wire_android_signing.py`, and
@@ -88,7 +88,7 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 > support (`flutter_tts`, `google_mlkit_commons`,
 > `google_mlkit_text_recognition`, `sensors_plus`, `sqflite_sqlcipher`),
 > and the default hybrid SPM+Pods setup fails to link ("Framework
-> 'Pods_Runner' not found") — so the repo commits `ios/Podfile` (platform
+> 'Pods_Runner' not found") - so the repo commits `ios/Podfile` (platform
 > 15.5, ML Kit's floor), the workflows set
 > `FLUTTER_SWIFT_PACKAGE_MANAGER=false` (the flag, not Podfile presence,
 > selects the mode in flutter_tools), and every iOS job runs an explicit
@@ -96,11 +96,11 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 
 ### Requirements (Apple)
 
-- A paid **Apple Developer Program** membership ($99/yr) — required for
+- A paid **Apple Developer Program** membership ($99/yr) - required for
   TestFlight and the App Store (a free Apple ID can only side-load to your own
   tethered devices via Xcode).
 - An **App Store Connect** record: create the app (My Apps → +), pick the
-  bundle id from §4.1 — the bundle id must match exactly.
+  bundle id from §4.1 - the bundle id must match exactly.
 - A **Distribution certificate** (Apple Distribution) + an **App Store
   provisioning profile** for the bundle id, OR an **App Store Connect API key**
   (Issuer ID + Key ID + `.p8`) for upload. This repo uses manual signing with
@@ -183,7 +183,7 @@ flutter build ipa --release --dart-define=API_BASE=https://YOUR_API_BASE
    version). Testers install via the TestFlight app link.
 5. First external version needs **Beta App Review**: submit the build with test
    notes ("AI companion for communication support…"), a demo account if login
-   existed (it doesn't — Milo has no accounts), and contact info.
+   existed (it doesn't - Milo has no accounts), and contact info.
 
 ### 4.6 App Store submission (after TestFlight)
 

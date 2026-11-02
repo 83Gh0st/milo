@@ -3,7 +3,7 @@
 Milo's activity panel is **model-composed, app-rendered**. The model
 decides WHAT to show and HOW to arrange it; the app decides whether the
 spec is valid, what renders, and what every tap may do. Anything invalid
-degrades to plain chat — the turn never breaks.
+degrades to plain chat - the turn never breaks.
 
 Contract source of truth: `contracts/ui_contract.json` (v1).
 Enforcement: `gateway/app/ui_spec.py` (server) + `lib/genui/spec.dart`
@@ -30,7 +30,7 @@ Enforcement: `gateway/app/ui_spec.py` (server) + `lib/genui/spec.dart`
 
 Stable ids across turns preserve answers: a same-activity root rebuild
 keeps local values; a new activity id resets them. Ops apply
-atomically — any failure keeps the previous tree.
+atomically - any failure keeps the previous tree.
 
 ## Components (10), actions (6), ops (6)
 
@@ -38,7 +38,7 @@ Components: `text card button choices checklist progress steps list
 image genimage divider`. Cards nest children (column/row/card layouts,
 depth ≤ 4, ≤ 40 nodes). Images use the visual-concept allow-list only;
 `genimage` carries a model-written `{prompt, alt}` and the app renders an
-explicit Create button — pictures are never auto-generated, always carry
+explicit Create button - pictures are never auto-generated, always carry
 the AI-made disclosure, and always have alt text (see docs/MULTIMODAL.md).
 
 Actions: `check answer next ask speak open_screen`, each with a fixed
@@ -52,7 +52,7 @@ current values.
 
 Display: `mode` (`chat activity celebration`), `companion` (`featured`
 = Milo on stage above the panel, `docked`, `hidden` = panel not
-shown), `speak` (a Listen button voicing that node's text — never
+shown), `speak` (a Listen button voicing that node's text - never
 autoplay).
 
 ## Safety rules

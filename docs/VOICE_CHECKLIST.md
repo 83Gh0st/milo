@@ -9,7 +9,7 @@ The mouth is driven by the **audio lifecycle**, not by animation timers.
    (`VoiceRouter.stopNow()` + a router generation guard), so rapid taps,
    barge-in, and back-to-back turns never layer audio or fight over state.
 3. **Mouth follows proven audio.** `_speechStarted` is set only by a real
-   signal — a platform TTS `started`/`word` event or a non-silent neural
+   signal - a platform TTS `started`/`word` event or a non-silent neural
    envelope feed. Estimated word timing (`_est`) and envelope feeds are gated
    on it; non-speech clips (giggle, hum, thinking-hmm) never pulse the mouth.
 4. **Failure shuts the mouth.** No engine, platform error, fetch/play failure,
@@ -52,7 +52,7 @@ On a real phone (not the emulator), with a release or debug build:
       blinks (no TTS, no mouth). Sprout tap → wiggle + sparkle, mouth still.
 - [ ] **Barge-in.** While Milo speaks a long answer, tap → speech stops
       immediately, Milo listens; no residual audio, no stuck speaking face.
-- [ ] **No engine.** Disable/remove TTS data (or revoke nothing — just test on
+- [ ] **No engine.** Disable/remove TTS data (or revoke nothing - just test on
       a device with TTS disabled if available) → Milo stays silent with the
       caption up, mouth still, returns to idle. (Emulator without Google TTS
       also exercises this.)
@@ -69,14 +69,14 @@ On a real phone (not the emulator), with a release or debug build:
 
 - Word-range callbacks: available on Android (Google TTS, most engines) and
   iOS 16+ (`AVSpeechSynthesizer.willSpeakRange`), but some OEM engines never
-  call back — estimated timing covers those, with visibly coarser sync.
+  call back - estimated timing covers those, with visibly coarser sync.
 - `flutter_tts.speak()` return values are inconsistent across platforms, so
   success is defined as "no exception + completion callback". A lying engine
   (reports success, plays nothing) is indistinguishable from success; captions
   stay the source of truth.
 - Neural gateway voice needs the `audioplayers`-class sink that is not yet
   integrated (`NoopAudioSink` times honestly but is silent, so `auto` mode
-  always resolves to platform — see `lib/companion/sounds.dart` and §4A in
+  always resolves to platform - see `lib/companion/sounds.dart` and §4A in
   `docs/upgrade/`). Until then, online-voice lip-sync is envelope-driven in
   tests only.
 - Background audio is intentionally cancelled (see invariant 6): Milo never

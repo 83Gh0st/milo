@@ -2,7 +2,7 @@
   "_note": "Enable an engine ONLY after recording its current terms (URL + date you checked). Keys live in the environment, never here.",
   "engines": {
     "openai": {"enabled": false, "voice": "alloy", "langs": ["en"], "terms_url": "", "terms_date": "UNVERIFIED", "price_per_1k_chars": "TBD", "streaming": "TBD", "word_timings": "TBD"},
-    "piper": {"enabled": false, "voice": "", "langs": ["en"], "terms_url": "https://github.com/rhasspy/piper — CHECK", "terms_date": "UNVERIFIED", "voice_licence": "UNVERIFIED (per voice file)", "price_per_1k_chars": "0 (local)", "streaming": "no", "word_timings": "no"},
+    "piper": {"enabled": false, "voice": "", "langs": ["en"], "terms_url": "https://github.com/rhasspy/piper - CHECK", "terms_date": "UNVERIFIED", "voice_licence": "UNVERIFIED (per voice file)", "price_per_1k_chars": "0 (local)", "streaming": "no", "word_timings": "no"},
     "azure": {"enabled": false, "voice": "", "langs": ["en"], "terms_url": "", "terms_date": "UNVERIFIED (adapter not implemented)"},
     "google": {"enabled": false, "voice": "", "langs": ["en"], "terms_url": "", "terms_date": "UNVERIFIED (adapter not implemented)"},
     "elevenlabs": {"enabled": false, "voice": "", "langs": ["en"], "terms_url": "", "terms_date": "UNVERIFIED (adapter not implemented)"}

@@ -5,7 +5,7 @@ each enabled engine, blind-name the WAVs, and emit RESULTS.md + scores.csv.
 Honest by construction:
 - No engine runs without its key/model present AND its current terms recorded
   (terms_url + terms_date in engines.json). Anything else is listed as
-  SKIPPED with the reason — never synthesized, never scored.
+  SKIPPED with the reason - never synthesized, never scored.
 - No prices, terms, or API shapes are asserted here. The OpenAI/Piper request
   shapes below are first hypotheses, flagged UNVERIFIED until a run with a
   real key/model succeeds; azure/google/elevenlabs are unimplemented stubs
@@ -97,7 +97,7 @@ class OpenAIEngine(Engine):
 class PiperEngine(Engine):
     id = "piper"
     display = "Piper (local, open source)"
-    # NOTE: each Piper voice model carries its own licence — record the
+    # NOTE: each Piper voice model carries its own licence - record the
     # voice file's licence in engines.json ("voice_licence") before scoring.
 
     def available(self):

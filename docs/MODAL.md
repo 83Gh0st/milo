@@ -14,7 +14,7 @@ auth are the same code the gateway tests exercise.
 ## 1. Pre-deploy security audit (28 Oct 2026, code inspection)
 
 Every route was reviewed before exposing the gateway publicly. Result: **no
-code changes were required** — the controls below already exist and are
+code changes were required** - the controls below already exist and are
 covered by `gateway/tests/`. The table names the evidence.
 
 | Route(s) | Auth | Abuse / size protection | Notes |
@@ -53,7 +53,7 @@ Decisions recorded (deliberate, not omissions):
 | Sync blobs, vault rows, family connections, spend ledger, picture cache | Free-tier **PostgreSQL** via `DATABASE_URL` in the Modal Secret (Stage 2). Tables are created at startup (`main.py:31-38`); no migration step. | Survives restarts and redeploys. |
 | Family BYOK keys | Same Postgres, Fernet-sealed with a KEK derived from `KEY_ENC_SECRET` (`vaultkeys.py`). | **Keep `KEY_ENC_SECRET` stable across redeploys.** Rotating it orphans stored keys (families re-enter them; the API answers `family_key_unreadable`, never garbage). Back the value up offline. |
 | Device JWTs | Stateless HS256, verified against `JWT_SECRET`. | Rotating `JWT_SECRET` logs every device out once; the app re-sessions automatically on the next call. |
-| Rate limits, circuit breakers, `Router.last_route` | In-process memory on the one container. | Reset on restart/redeploy — safe direction (limits restart full; breakers re-probe). |
+| Rate limits, circuit breakers, `Router.last_route` | In-process memory on the one container. | Reset on restart/redeploy - safe direction (limits restart full; breakers re-probe). |
 | `CONTRACT_PATH` | Pinned to `/root/milo/contracts/brain_contract.json` in `modal_app.py`. | Image layout can never drift from the validator. |
 | Piper voice files | Not shipped. `piper_voice` is empty on Modal, so `resolve_engine` skips Piper honestly. | Neural TTS comes from a vault/deployer OpenAI-compatible key; otherwise the app uses platform TTS. |
 
@@ -61,7 +61,7 @@ SQLite-on-a-Modal-Volume was considered and **rejected** for production:
 Modal Volumes do not sync a DB+WAL pair atomically (preemption can corrupt
 the file), and `validate_runtime` already refuses sqlite when `ENV=prod`.
 Stage 1 below uses an **ephemeral** `/tmp` SQLite file for the mock smoke
-test only — losing it costs nothing.
+test only - losing it costs nothing.
 
 ## 3. Honest-health note (requirement: gateway health ≠ provider health)
 
@@ -75,12 +75,12 @@ enforce this:
 2. Provider health is proven only by a real probe: AI connections → **Test
    connection** (runs `adapter.probe`: a tiny streamed call, a JSON-schema
    conformance fixture, and a 1×1 vision call when applicable), or by an
-   actual turn — a failed turn demotes the ladder to resting/offline
+   actual turn - a failed turn demotes the ladder to resting/offline
    (`LadderNotifier.failed`).
 
 ## 4. Deploy runbook (Windows `cmd`)
 
-### 4.0 Install + authenticate — **[YOU]**, one time
+### 4.0 Install + authenticate - **[YOU]**, one time
 
 ```cmd
 pip install modal
@@ -91,9 +91,9 @@ modal setup
 Modal (this links your workspace with the $100 grant), and press Enter back
 in `cmd`. Verify with `modal secret list` (empty is fine).
 
-### 4.1 Stage 1 — plumbing smoke test (no vendor key, ~5 min)
+### 4.1 Stage 1 - plumbing smoke test (no vendor key, ~5 min)
 
-Make two secrets (run each line; the values print once — save them in a
+Make two secrets (run each line; the values print once - save them in a
 password manager, never in a file):
 
 ```cmd
@@ -115,7 +115,7 @@ cd C:\Users\Hydra\Downloads\milo_app_redesigned\milo
 modal deploy gateway/modal_app.py
 ```
 
-The output ends with a `https://…modal.run` URL — that is your `API_BASE`.
+The output ends with a `https://…modal.run` URL - that is your `API_BASE`.
 Save it; every later step calls it `API_BASE`.
 
 Health checks (Windows ships `curl`):
@@ -142,7 +142,7 @@ Expect a stream of `data: {…say…}` lines. If this works, the phone can work:
 point the app at the URL (§6) and the About → Connection row must read
 "Connected to Milo's server…".
 
-### 4.2 Stage 2 — real online mode — **[YOU]** for the two signups
+### 4.2 Stage 2 - real online mode - **[YOU]** for the two signups
 
 1. **Postgres (free):** create a free Neon project (neon.tech) or Supabase
    project, open the connection string (it looks like
@@ -150,7 +150,7 @@ point the app at the URL (§6) and the About → Connection row must read
    SQLAlchemy async form by inserting `+asyncpg` after `postgresql`. Keep the
    `?sslmode=require` suffix.
 2. **Meta key:** copy a Meta Model API key from dev.meta.ai (hackathon
-   credits). Standard model IDs only — the gateway refuses to start with
+   credits). Standard model IDs only - the gateway refuses to start with
    `-contributor` IDs (those train on your data).
 
 Update the secret with the **same** `JWT_SECRET`/`KEY_ENC_SECRET` values
@@ -183,9 +183,9 @@ by `gateway/scripts/smoke_providers.py` with `MILO_SMOKE_META_KEY` set.
 re-confirm before relying on it).** CPU $0.0000131/core/s (min 0.125
 cores), memory $0.00000222/GiB/s: one minimum-size warm container
 (`min_containers=1`, the shipped setting) is on the order of **$5 per
-month** of Modal credit — the $100 grant covers many months of hosting.
+month** of Modal credit - the $100 grant covers many months of hosting.
 Hosted model (§8): Muse Spark is a Modal-managed Shared Endpoint, billed
-per token at the rate shown on its dashboard page — there are no GPU
+per token at the rate shown on its dashboard page - there are no GPU
 servers, cold starts, or weight volumes to pay for on our side. The
 other variable cost is vendor inference (suite/BYOK keys), bounded by
 `DAILY_BUDGET_USD` (default 20) + `MONTHLY_BUDGET_USD` (default 100), and by
@@ -234,14 +234,14 @@ flutter build apk --release --dart-define=API_BASE=https://PASTE_API_BASE
 Install `build\app\outputs\flutter-apk\app-release.apk` on the phone (§6 in
 `SETUP.md` still covers install + permissions). Local development is
 unchanged: omit the flag for the emulator default, or pass your LAN/tunnel
-URL. Never put a key in `--dart-define` — provider keys travel only through
+URL. Never put a key in `--dart-define` - provider keys travel only through
 the PIN-gated AI-connections flow (sent once over TLS, sealed server-side).
 
 ## 6. What the agent verified vs what needs you
 
 Verified here (see §7 for commands): gateway test suite green, Modal spec
 imports cleanly, endpoint audit against the code above, Flutter wording
-change (CI runs `flutter analyze`/`flutter test` — no Flutter SDK on this
+change (CI runs `flutter analyze`/`flutter test` - no Flutter SDK on this
 machine, so those two are **UNVERIFIED** until CI runs).
 
 29 Oct round (hosted model + providers + DB-optional): vendor endpoint
@@ -249,14 +249,14 @@ shapes probed live (OpenAI/Anthropic/Meta 401 envelopes match the
 adapters); OpenAI/Anthropic data terms verified from official pages;
 all three Modal specs import cleanly; gateway sync gate green (56
 passed); family-creds isolation, route synthesis, tested_at, and
-database-optional paths covered by new tests (async ones run in CI —
+database-optional paths covered by new tests (async ones run in CI -
 this sandbox cannot create an event loop). Nothing was deployed from
 here: the Modal CLI needs asyncio, which this sandbox blocks, so every
 `modal` command below is **[YOU]** (or the `modal-deploy` workflow).
 
 **[YOU]**: `modal setup` (browser sign-in), Neon/Supabase signup + connection
 string, Meta key, the two `modal deploy` runs, the curl checks, and the APK
-install — plus §8 (hosted model secrets + staging ladder) for real online
+install - plus §8 (hosted model secrets + staging ladder) for real online
 AI. Nothing is deployed until you run those commands.
 
 ## 7. Verification appendix (agent-run, 28 Oct 2026)
@@ -277,7 +277,7 @@ Results (measured, not claimed):
   Deps were installed with `uv` (system `pip` spins CPU-bound on this
   machine); `cryptography`/`pydantic`/`websockets`/`SQLAlchemy` were left
   unpinned and `asyncpg` omitted because their pinned versions have no
-  CPython 3.14 wheels — the Modal image uses Python 3.12 where the pinned
+  CPython 3.14 wheels - the Modal image uses Python 3.12 where the pinned
   `gateway/requirements.txt` holds exactly.
 - **21 tests UNVERIFIED locally, not failing**: all `async` tests plus the
   real-socket `test_meta_adapter.py` and the TestClient voice test. Cause
@@ -286,7 +286,7 @@ Results (measured, not claimed):
   loop. No gateway runtime code was changed by this deployment work, and
   these same tests are green in CI (Linux); CI re-confirms on push.
 - **`modal_app.py` imports cleanly** under `modal` 1.6.3 (spec
-  construction only — no auth, no network, no deploy): app name
+  construction only - no auth, no network, no deploy): app name
   `milo-gateway`, secret ref `milo-gateway`, image chain
   (`pip_install_from_requirements` + two `add_local_dir`) accepted. The
   check caught one real drift and it is fixed in the file:
@@ -294,7 +294,7 @@ Results (measured, not claimed):
   by `@modal.concurrent(max_inputs=20)`.
 - **CLI names verified** against `modal --help`: `setup`, `deploy`,
   `secret create SECRET_NAME [KEYVALUES]...`, `secret list`, `app logs`,
-  `app stop`, `app list` — exactly as used in §4.
+  `app stop`, `app list` - exactly as used in §4.
 - **Flutter UNVERIFIED here** (no Flutter SDK on this machine): the only
   app change is the one-line `connectionWords` reword plus its test
   expectation; the existing `contains('Connected')` assertion still
@@ -310,7 +310,7 @@ Results (measured, not claimed):
 
 Milo's hosted thinking is **Meta Muse Spark Open
 (`meta-models/Muse-Spark-Open-816B-A42B`) served by Modal as a managed
-Shared Endpoint** — Modal hosts the weights, we never deploy model
+Shared Endpoint** - Modal hosts the weights, we never deploy model
 servers. There is deliberately no `models` deploy target anymore
 (`gateway/modal_models.py` and its workflow step were deleted): the only
 Modal-hosted model work is (a) creating the Shared Endpoint + proxy
@@ -324,16 +324,16 @@ real inference. Two apps, three secrets:
 
 Model choice: Muse Spark Open is the ONLY Modal-hosted model. Do not
 deploy Qwen3-4B or any other self-hosted server; do not silently
-substitute another model if Spark is unavailable — the gateway fails
+substitute another model if Spark is unavailable - the gateway fails
 loudly (`MODAL_FALLBACK=false` on staging) or falls back to the
 configured suite (prod, `MODAL_FALLBACK=true`). The gateway speaks plain
 OpenAI-compatible `/v1/chat/completions` (+ `/v1/models` for the
 connection test) to the endpoint; the request `model` is the documented
 model id `meta-models/Muse-Spark-Open-816B-A42B` (NOT the endpoint
-hostname — the proxy rejects unknown ids), and auth is the complete
+hostname - the proxy rejects unknown ids), and auth is the complete
 proxy token (`Authorization: Bearer <id.secret>`), held server-side
 only. Shared Endpoint per-token pricing is shown on the
-endpoint page in the dashboard — confirm it there before relying on it
+endpoint page in the dashboard - confirm it there before relying on it
 (this agent cannot see your balance or live rates).
 
 ### 8.1 [YOU] Shared Endpoint + secrets (Modal dashboard, one time)
@@ -361,11 +361,11 @@ Dashboard path (no CLI needed for the endpoint itself):
      or a throwaway Postgres URL to also test vault/sync).
    - `milo-gateway-switches` (prod only): `REASONING_PROVIDER=modal`,
      `MODAL_FALLBACK=true`. Keeps the `milo-gateway` secret
-     byte-identical — create this before the first production deploy
+     byte-identical - create this before the first production deploy
      that uses hosted reasoning.
 
 CLI equivalents for the secrets only (from the repo root, after `modal
-setup` — the endpoint itself is dashboard-created):
+setup` - the endpoint itself is dashboard-created):
 
 ```cmd
 modal secret create milo-models-client MODAL_MODELS_URL=<endpoint base /v1> MODAL_MODELS_KEY=<proxy token id.secret> MODAL_MODEL=meta-models/Muse-Spark-Open-816B-A42B
@@ -377,10 +377,10 @@ Or deploy via GitHub instead of local CLI: add repository secrets
 machine), then Actions → `modal-deploy` → Run workflow → target
 `staging`. Production additionally requires typing `DEPLOY-PROD` and
 only passes with green gateway tests. The workflow deploys gateway
-code only — it never creates the Shared Endpoint.
+code only - it never creates the Shared Endpoint.
 
 If a deploy step fails with `Token ID is malformed`, the workflow wiring
-is fine — the `MODAL_TOKEN_ID` secret value itself is wrong (the check
+is fine - the `MODAL_TOKEN_ID` secret value itself is wrong (the check
 only proves it is non-empty). Re-run `modal token new`, then re-paste:
 Token ID (`ak-…`) into `MODAL_TOKEN_ID`, Token Secret (`as-…`) into
 `MODAL_TOKEN_SECRET` (repo Settings → Secrets → Actions). Do not paste
@@ -411,12 +411,12 @@ $tok = (Invoke-RestMethod -Method Post "$B/v1/session" -Body '{"install_id":"aaa
 $body = '{"presentation":"playful","text":"Why is the sky blue? Answer in one short sentence.","activity":"chat"}'
 Invoke-RestMethod -Method Post "$B/v1/brain/turn" -Headers @{Authorization="Bearer $tok"} -Body $body -ContentType 'application/json' -TimeoutSec 240
 # expect: SSE risk/body/say events with a FRESH one-sentence answer and
-#         done.provider=modal — a ui_spec event may also arrive for activity-shaped
+#         done.provider=modal - a ui_spec event may also arrive for activity-shaped
 #         requests; plain chat turns carry {} (no panel)
 # 3. Hosted outage fails loudly (staging has no suite fallback)
 #    In the milo-models-client secret, temporarily set MODAL_MODELS_URL to
 #    https://invalid.example/v1, redeploy staging, repeat step 2, and expect an
-#    SSE error event (provider_error/unreachable) — NOT scripted mock text.
+#    SSE error event (provider_error/unreachable) - NOT scripted mock text.
 #    Then restore the real URL and redeploy staging.
 # 4. Budget guard still bites (memory/modal_dict ledger, same code path)
 #    covered by CI (test_budget_units.py); spot-check /v1/health budget_ok flips after heavy use
@@ -440,6 +440,6 @@ inference; a `modal` turn with a fresh, prompt-specific answer is.
    `reasoning_provider=modal`, `vault_available=true` (prod keeps its
    Postgres), `spend_backend=postgres`.
 5. Rollback (hosted model misbehaving): remove `REASONING_PROVIDER` from
-   `milo-gateway-switches` and redeploy — text falls back to the suite
+   `milo-gateway-switches` and redeploy - text falls back to the suite
    with zero code changes. Full rollback: redeploy the previous git SHA
    (§4.3).

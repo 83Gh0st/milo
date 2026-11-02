@@ -1,12 +1,12 @@
 """First-party Meta capability registry: one honest row per Meta model Milo
-can use — endpoint, credentials, cost, and, crucially, integration status.
+can use - endpoint, credentials, cost, and, crucially, integration status.
 
 Status vocabulary (do not blur these):
-  live   — exercised against a real endpoint and observed working.
-  wired  — client + gateway code complete; awaiting a keyed live run.
-  probe  — no app-path code; a runnable probe script validates the endpoint.
-  manual — operator-run infrastructure (local server), connected generically.
-  absent — evaluated and declined, or no supported endpoint exists.
+  live:   exercised against a real endpoint and observed working.
+  wired:  client + gateway code complete; awaiting a keyed live run.
+  probe:  no app-path code; a runnable probe script validates the endpoint.
+  manual: operator-run infrastructure (local server), connected generically.
+  absent: evaluated and declined, or no supported endpoint exists.
 
 Costs are public list prices at time of writing; confirm on the dashboard.
 Docs: docs/MULTIMODAL.md. Probes: gateway/scripts/probe_*.py.

@@ -30,7 +30,7 @@ def _hdr(request: Request):
 def need_vault_store(request: Request) -> None:
     """Database-optional chat means the vault (sync identity + sealed family
     keys) may not exist on this server. Every vault path answers 503
-    vault_unavailable then — never a crash, never a silent bypass."""
+    vault_unavailable then - never a crash, never a silent bypass."""
     if request.app.state.engine is None:
         raise HTTPException(503, {"error": "vault_unavailable"})
 
@@ -204,7 +204,7 @@ async def vault_ctx_for(vid: str, key: str, engine, s) -> VaultCtx:
         # still gets working turns: each configured provider+model becomes
         # the default entry for every capability, and the router + probed
         # caps skip what a provider cannot serve (honest errors, never
-        # deployer fallback — family requests only ever see family creds).
+        # deployer fallback - family requests only ever see family creds).
         own = [RouteEntry(c["provider"], c["default_model"], "auto")
                for c in conns if c.get("default_model") and c["provider"] in creds]
         if own:

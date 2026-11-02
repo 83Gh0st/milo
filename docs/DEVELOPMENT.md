@@ -18,7 +18,7 @@ docs/                this guide map (see README for the full list)
 ```
 
 The `.sdk-probe/` directory (gitignored) holds a local Flutter SDK and
-throwaway verification scripts — never commit it.
+throwaway verification scripts - never commit it.
 
 ## 2. First-time setup
 
@@ -62,13 +62,13 @@ Commit the regenerated `android/app/src/main/res` and
 
 - Gateway: `pytest` covers contracts, safety screening, routing/failover,
   providers (fake transports), spend guards, streaming parsers, and the UI
-  validator. Async tests need an event loop — plain `pytest` on any desktop
+  validator. Async tests need an event loop - plain `pytest` on any desktop
   OS; locked-down sandboxes without sockets can only run the sync subset.
 - App: `flutter test` covers validators, router/pocket logic, provider
   switching, connections UI, GenUI panels, intro timing, and regressions.
   Widget tests use the `test/helpers/` fakes (never real network/keys).
 - Dart/contract parity: `contracts/*.json` mirror into Dart and Python with
-  tests that fail on drift — change the JSON first, then both sides.
+  tests that fail on drift - change the JSON first, then both sides.
 - Device ladders before any release claim: `PHONE_CHECKLIST.md`,
   `VOICE_CHECKLIST.md`. Never claim a device verification that was not run.
 - CI (`ci.yml`, every push): gateway tests, analyze, full flutter suite,
@@ -90,7 +90,7 @@ flutter build ios --simulator --no-codesign --dart-define=API_BASE=<gateway-url>
 Tagged releases (`v*`) run `release.yml`: checks, fresh brand art, platform
 builds, optional Play signing and signed-IPA jobs (both secret-gated with
 honest summaries when secrets are absent). Never commit keystores,
-certificates, provisioning profiles, or API keys — they arrive via GitHub
+certificates, provisioning profiles, or API keys - they arrive via GitHub
 secrets, Modal secrets, or the in-app vault only.
 
 ## 6. Endpoint probes (need keys or local servers; never in CI)
@@ -102,7 +102,7 @@ JUDGE_BASE_URL=http://localhost:11434/v1 JUDGE_MODEL=glimmer python eval/run_eva
 python tools/smoke_providers.py                                 # every configured provider, when keys exist
 ```
 
-Probes print sanitized summaries only — keys never appear in output.
+Probes print sanitized summaries only - keys never appear in output.
 
 ## 7. Modal workflow
 
@@ -112,7 +112,7 @@ modal deploy gateway/modal_app.py       # production: only after staging passes
 ```
 
 Or dispatch `modal-deploy.yml` (production needs `confirm_prod=DEPLOY-PROD`).
-Never edit production secrets to test an idea — prove it on staging first.
+Never edit production secrets to test an idea - prove it on staging first.
 The Shared Endpoint itself is dashboard-managed; nothing here deploys weights.
 
 ## 8. Contribution workflow
@@ -130,7 +130,7 @@ The Shared Endpoint itself is dashboard-managed; nothing here deploys weights.
 ## 9. Hygiene notes (do not "fix" these blindly)
 
 - `tools/make_branding.py` draws the pre-rebrand identity (marked stale in
-  its docstring) — the shipped path is `assets/branding/` masters.
+  its docstring) - the shipped path is `assets/branding/` masters.
 - Root `error.txt` / `log.txt` are committed CI log captures; `0_*.png` are
   planning wireframes; `Milo_Architecture_and_Build_Plan.docx` is the
   pre-hackathon blueprint. Move-or-remove decisions belong to the maintainer.

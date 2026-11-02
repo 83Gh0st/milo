@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="880" viewBox="0 0 1280 880" role="img" aria-label="Milo app map: tabs, screens, and flows">
+  <rect x="8" y="8" width="1264" height="864" rx="24" fill="#ffffff" stroke="#E4E1D9" stroke-width="2"/>
+  <text x="40" y="46" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="20" font-weight="bold" fill="#2B2B3D">Milo app map - tabs, screens, and flows</text>
+  <text x="40" y="68" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="12" fill="#5B5B72">Built from the shipped navigation (tab shell, pushed screens). Follow the moving dashes for the main journeys.</text>
+  <line x1="40" y1="90" x2="100" y2="90" stroke="#5B6CFF" stroke-width="2" stroke-dasharray="9 7"/>
+  <text x="108" y="94" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">tap flow</text>
+  <line x1="190" y1="90" x2="250" y2="90" stroke="#C98A1B" stroke-width="2" stroke-dasharray="9 7"/>
+  <text x="258" y="94" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">PIN-gated</text>
+  <defs>
+    <g id="flowdot"></g>
+  </defs>
+  <!-- edges (drawn first, nodes cover crossings) -->
+  <g fill="none" stroke="#5B6CFF" stroke-width="2" stroke-dasharray="9 7">
+    <path d="M125,176 L125,200"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,228 C215,228 225,168 240,168"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,228 C215,228 225,236 240,236"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,228 C215,228 225,304 240,304"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,296 C215,296 225,168 240,168"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,296 C215,296 225,236 240,236"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,296 C215,296 225,304 240,304"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,296 C215,296 225,372 240,372"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,296 C215,296 225,576 240,576"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,296 C215,296 225,644 240,644"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,364 C215,364 225,440 240,440"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M200,432 C215,432 225,508 240,508"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M460,168 L500,168"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M460,236 L500,236"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M460,304 L500,304"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M460,372 L500,372"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M460,508 L500,440"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+  </g>
+  <g fill="none" stroke="#C98A1B" stroke-width="2" stroke-dasharray="9 7">
+    <path d="M170,544 L170,700 L1000,700 L1000,212"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M1000,212 L1000,228"><animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.4s" repeatCount="indefinite"/></path>
+  </g>
+  <text x="1012" y="470" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#C98A1B">PIN gate</text>
+  <!-- column A : entry + tabs -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="40" y="120" width="160" height="56" rx="12" fill="#F2FBF6" stroke="#2FA37C" stroke-width="2"/>
+    <text x="54" y="144" font-size="13" font-weight="bold" fill="#2B2B3D">Onboarding</text>
+    <text x="54" y="162" font-size="11" fill="#5B5B72">10 steps · skippable · offline</text>
+    <rect x="40" y="200" width="160" height="56" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="54" y="224" font-size="13" font-weight="bold" fill="#2B2B3D">Home</text>
+    <text x="54" y="242" font-size="11" fill="#5B5B72">Continue · 3 cards</text>
+    <rect x="40" y="268" width="160" height="56" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="54" y="292" font-size="13" font-weight="bold" fill="#2B2B3D">Explore</text>
+    <text x="54" y="310" font-size="11" fill="#5B5B72">6 section cards</text>
+    <rect x="40" y="336" width="160" height="56" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="54" y="360" font-size="13" font-weight="bold" fill="#2B2B3D">Milo</text>
+    <text x="54" y="378" font-size="11" fill="#5B5B72">Chat with Milo</text>
+    <rect x="40" y="404" width="160" height="56" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="54" y="428" font-size="13" font-weight="bold" fill="#2B2B3D">Progress</text>
+    <text x="54" y="446" font-size="11" fill="#5B5B72">Learning · Speaking · Tasks</text>
+    <rect x="40" y="472" width="160" height="72" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="54" y="496" font-size="13" font-weight="bold" fill="#2B2B3D">More</text>
+    <text x="54" y="514" font-size="11" fill="#5B5B72">Profile · A11y · Language</text>
+    <text x="54" y="530" font-size="11" fill="#5B5B72">Offline · Privacy · About</text>
+  </g>
+  <!-- column B : screens -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="240" y="140" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="164" font-size="13" font-weight="bold" fill="#2B2B3D">Understand</text>
+    <text x="254" y="182" font-size="11" fill="#5B5B72">Read · listen · learn</text>
+    <rect x="240" y="208" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="232" font-size="13" font-weight="bold" fill="#2B2B3D">Express</text>
+    <text x="254" y="250" font-size="11" fill="#5B5B72">Talk · type · communicate</text>
+    <rect x="240" y="276" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="300" font-size="13" font-weight="bold" fill="#2B2B3D">Do things</text>
+    <text x="254" y="318" font-size="11" fill="#5B5B72">Plan · organise · get it done</text>
+    <rect x="240" y="344" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="368" font-size="13" font-weight="bold" fill="#2B2B3D">Learn</text>
+    <text x="254" y="386" font-size="11" fill="#5B5B72">Short playful activities</text>
+    <rect x="240" y="412" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="436" font-size="13" font-weight="bold" fill="#2B2B3D">Chat</text>
+    <text x="254" y="454" font-size="11" fill="#5B5B72">type · mic · camera · context</text>
+    <rect x="240" y="480" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="504" font-size="13" font-weight="bold" fill="#2B2B3D">Progress</text>
+    <text x="254" y="522" font-size="11" fill="#5B5B72">Days · counts · week chart</text>
+    <rect x="240" y="548" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="572" font-size="13" font-weight="bold" fill="#2B2B3D">Check in</text>
+    <text x="254" y="590" font-size="11" fill="#5B5B72">Optional mood · unsaved</text>
+    <rect x="240" y="616" width="220" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="254" y="640" font-size="13" font-weight="bold" fill="#2B2B3D">Break time</text>
+    <text x="254" y="658" font-size="11" fill="#5B5B72">Timer · breathing</text>
+  </g>
+  <!-- column C : deeper -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="500" y="140" width="260" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="514" y="164" font-size="13" font-weight="bold" fill="#2B2B3D">Understand steps</text>
+    <text x="514" y="182" font-size="11" fill="#5B5B72">Bring · Photo · Find · Reading</text>
+    <rect x="500" y="208" width="260" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="514" y="232" font-size="13" font-weight="bold" fill="#2B2B3D">Express views</text>
+    <text x="514" y="250" font-size="11" fill="#5B5B72">Speaking · Compose · Voice</text>
+    <rect x="500" y="276" width="260" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="514" y="300" font-size="13" font-weight="bold" fill="#2B2B3D">Plans</text>
+    <text x="514" y="318" font-size="11" fill="#5B5B72">Review · Guide · Celebrate</text>
+    <rect x="500" y="344" width="260" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="514" y="368" font-size="13" font-weight="bold" fill="#2B2B3D">Learn activities</text>
+    <text x="514" y="386" font-size="11" fill="#5B5B72">Goals · Word builder · Story time</text>
+    <rect x="500" y="412" width="260" height="56" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="514" y="436" font-size="13" font-weight="bold" fill="#2B2B3D">Progress detail</text>
+    <text x="514" y="454" font-size="11" fill="#5B5B72">Journey · Achievements · Growth</text>
+  </g>
+  <!-- column D : trust + rules -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="800" y="140" width="400" height="72" rx="12" fill="#FFF8EC" stroke="#C98A1B" stroke-width="2"/>
+    <text x="814" y="166" font-size="13" font-weight="bold" fill="#2B2B3D">Trusted adult (PIN gate)</text>
+    <text x="814" y="186" font-size="11" fill="#5B5B72">Grown-up area: keys, sync, limits stay behind the PIN</text>
+    <rect x="800" y="228" width="400" height="150" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="814" y="252" font-size="13" font-weight="bold" fill="#2B2B3D">Grown-up area</text>
+    <text x="814" y="274" font-size="11" fill="#5B5B72">Words &amp; symbols editor (tiles + AI art)</text>
+    <text x="814" y="296" font-size="11" fill="#5B5B72">Cloud ledger · Reading support</text>
+    <text x="814" y="318" font-size="11" fill="#5B5B72">AI connections (vaulted keys)</text>
+    <text x="814" y="340" font-size="11" fill="#5B5B72">Time limits · Weekly summary</text>
+    <rect x="800" y="394" width="400" height="180" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="814" y="418" font-size="13" font-weight="bold" fill="#2B2B3D">Rules everywhere</text>
+    <text x="814" y="442" font-size="11" fill="#5B5B72">Model proposes, app disposes</text>
+    <text x="814" y="464" font-size="11" fill="#5B5B72">Ledger before every send</text>
+    <text x="814" y="486" font-size="11" fill="#5B5B72">No silent fallbacks or switches</text>
+    <text x="814" y="508" font-size="11" fill="#5B5B72">Break + Help in every header</text>
+    <text x="814" y="540" font-size="11" fill="#5B5B72">Help speaks first, calls after confirm</text>
+  </g>
+  <!-- bottom strips -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="40" y="724" width="1160" height="52" rx="12" fill="#FFF3F1" stroke="#E4B7B2" stroke-width="1.5"/>
+    <text x="60" y="756" font-size="12" fill="#2B2B3D"><tspan font-weight="bold">Always on:</tspan> Break and Help me live in every header - Help speaks first and only calls after confirm.</text>
+    <rect x="40" y="784" width="1160" height="52" rx="12" fill="#F2FBF6" stroke="#BFE3D2" stroke-width="1.5"/>
+    <text x="60" y="816" font-size="12" fill="#2B2B3D"><tspan font-weight="bold">Offline-first:</tspan> board · compose · routines · read-aloud · memories · pocket brain run from encrypted on-device storage.</text>
+  </g>
+</svg>

@@ -93,7 +93,7 @@ class MiloSettingsScreen extends ConsumerWidget {
       const Section('Online voice'),
       _chips<VoiceEngineMode>(VoiceEngineMode.values, d.voiceEngine, (m) => m.name[0].toUpperCase() + m.name.substring(1), d.setVoiceEngine),
       Padding(padding: const EdgeInsets.all(8), child: Text(
-          d.voice.neural.sink.isReal ? 'Online voice is set up. Milo keeps the same voice no matter which AI it thinks with.' : 'Online voice is not set up on this phone yet — Milo uses the phone voice above. Nothing sounds different until the natural voice arrives.',
+          d.voice.neural.sink.isReal ? 'Online voice is set up. Milo keeps the same voice no matter which AI it thinks with.' : 'Online voice is not set up on this phone yet - Milo uses the phone voice above. Nothing sounds different until the natural voice arrives.',
           style: const TextStyle(fontSize: 12, color: T.mute))),
       const _DownloadLinesButton(),
       const Section('Milo’s colour'),

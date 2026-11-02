@@ -1,4 +1,4 @@
-# Phase 2 report — character v2 and logo (28 Oct 2026)
+# Phase 2 report - character v2 and logo (28 Oct 2026)
 
 Branch: `upgrade/phase-2`. No new dependencies. Default look: A (lineage);
 human can re-pick with one script flag + one Lab tap.
@@ -12,7 +12,7 @@ human can re-pick with one script flag + one Lab tap.
 - `lib/companion/v2/renderer.dart` (new): `MiloRenderer` interface,
   `LegacyRenderer` (pixel-identical old painter), `V2Renderer`,
   `MiloPainter2`, `lodForSize` (≥180 full, ≥90 bust, else avatar).
-- `lib/companion/v2/milo2.dart` (new): v2 painter — tight 200-unit viewbox,
+- `lib/companion/v2/milo2.dart` (new): v2 painter - tight 200-unit viewbox,
   full/bust/avatar LODs, motion gain + physical minimums (gaze ≥5/3/2 dp,
   breath ≥2 dp, brow ≥3 dp bust), sclera/iris/pupil/2 highlights, curved
   lids, tapered-arc brows, face patch + cheeks, rim light + subtle outline,
@@ -21,7 +21,7 @@ human can re-pick with one script flag + one Lab tap.
 - `lib/companion/v2/rive_stub.dart` (new): throws until a real `.riv` exists.
 - `lib/companion/milo_view.dart`: v2 default, Lab `legacyRenderer` toggle,
   explicit/auto LOD, per-renderer sprout zones.
-- `lib/companion/emotion.dart`: C3 fixed — happy/curious/thinking/playful
+- `lib/companion/emotion.dart`: C3 fixed - happy/curious/thinking/playful
   brows flipped to raised; `curious` gets one-up `browAsym`; `Face.browAsym`.
 - `lib/companion/director.dart`: 6 new clips (`tilt_head clap lean_back
   thinking_hmm soft_sigh peek`), 20-behaviour idle library (+ `idleGaze`/
@@ -32,7 +32,7 @@ human can re-pick with one script flag + one Lab tap.
   `look`/`legacyRenderer`/`soundOn`/`soundVol` + settings keys.
 - `lib/companion/react.dart`, `greetings.dart` (72 lines en/hi/ml),
   `sounds.dart` (new): reaction hub, deterministic pools, gated sound API
-  (no-op backend until a playback package is resolved — see §6).
+  (no-op backend until a playback package is resolved - see §6).
 - `lib/ui/theme.dart`, `chat_screen.dart`: hooks in BigButton/RowCard/
   PastelTile/PillTabs, chat field (watch/type/scroll/send) + controller
   dispose fix; `lib/ui/scaffold.dart`: LODs on Stage/Buddy/Avatar (buddy
@@ -69,14 +69,14 @@ human can re-pick with one script flag + one Lab tap.
 ## 3. Measurements vs acceptance
 
 - Body: buddy ≥120 dp by construction (width rule); stage 38–45% (Phase 1);
-  chip 44–56 face-only — implemented, device-UNVERIFIED.
+  chip 44–56 face-only - implemented, device-UNVERIFIED.
 - Angry-brow unit test: all 12 faces pass by construction (test runs in CI).
 - Fill ≥85% all LODs (design assertion + test). Golden 12×3×2: need a
-  device run (`--update-goldens`) — human.
+  device run (`--update-goldens`) - human.
 - Reaction: hub→Director mutation is synchronous (same call; first changed
-  frame = next tick, <100 ms at 60 fps) — asserted in test.
-- 10 s fake-clock test: breath range ≈2 + gaze retargets — asserted.
-- 55 fps / p50/p95: need DevTools on device — human.
+  frame = next tick, <100 ms at 60 fps) - asserted in test.
+- 10 s fake-clock test: breath range ≈2 + gaze retargets - asserted.
+- 55 fps / p50/p95: need DevTools on device - human.
 - Board <200 ms, reduce-motion/quiet/AAC gates: preserved (renderer gates
   on `aac`/`quiet`; fidget caller gates unchanged).
 - Logo legible at 48 px (contact sheet inspected) and matches the v2 Milo.
@@ -93,14 +93,14 @@ previous script's values; Android-doc check still open (no network).
 
 `make_branding.py` has the same replace-vs-blend translucency bug; it is
 superseded by `make_logo.py` (kept for history). ProfileCfg `greet` strings
-are now unused (pools replaced them) — kept for compat.
+are now unused (pools replaced them) - kept for compat.
 
 ## 6. Decisions needed
 
 1. Pick look A/B/C (contact sheet ready; A is the working default).
    Re-pick = `python tools\make_logo.py --concept B` + Lab look switch.
 2. Approve the 6 contract gestures (implemented; gateway auto-reads JSON).
-3. Audio playback package (provisional: audioplayers) — needs network to
+3. Audio playback package (provisional: audioplayers) - needs network to
    resolve a version; say the word and it is a one-line backend swap.
 
 ## 7. Next: Phase 3 first tasks

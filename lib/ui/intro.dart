@@ -9,7 +9,7 @@ import 'brand.dart';
 /// underneath, then a crossfade into the app (~1.7 s total, tap to skip).
 /// The Shell builds underneath from the first frame, so sync and startup
 /// work are never delayed by the animation. Reduced motion (system or Milo
-/// setting) gets a brief static hold instead — no fade, no scale.
+/// setting) gets a brief static hold instead - no fade, no scale.
 const introVeilMs = 1700; // full veil: entrance + hold + crossfade (spec: 1.5-2 s)
 const introSkipGate = .3; // tap skips once the controller passes this fraction
 const introReducedHoldMs = 500; // reduced-motion static hold, then a straight cut

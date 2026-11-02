@@ -1,4 +1,4 @@
-# Phase 1 report — layout system (28 Oct 2026)
+# Phase 1 report - layout system (28 Oct 2026)
 
 Branch: `upgrade/phase-1`. No new dependencies.
 
@@ -9,7 +9,7 @@ Branch: `upgrade/phase-1`. No new dependencies.
   `StatusChip` + status sheet, `CompanionDock` (64 dp peek, remembered per
   screen kind, auto-peek on keyboard/large text), `CompanionRail` (280–360 dp),
   `MiloStage`/`MiloBuddy`/`MiloAvatar` (size from space), `ladderWords`.
-- `lib/main.dart`: Shell rebuilt — per-tab scaffolds, `NavigationBar` compact /
+- `lib/main.dart`: Shell rebuilt - per-tab scaffolds, `NavigationBar` compact /
   `NavigationRail` otherwise (side follows handedness), status chip replaces
   banners + top row, Milo speaks once per ladder change (Shell-level,
   quiet-aware), OS×in-app text scale clamped [0.85, 2.4].
@@ -44,7 +44,7 @@ Branch: `upgrade/phase-1`. No new dependencies.
 - Gateway contract units (real): `cd gateway; python -m pytest
   tests/test_contract_units.py --noconftest -p no:cacheprovider
   -o addopts='' -q -W ignore` → **6 passed**.
-- `flutter analyze`, `flutter test`: NOT RUN — no Flutter SDK or network in
+- `flutter analyze`, `flutter test`: NOT RUN - no Flutter SDK or network in
   this environment. New/changed Dart verified by review + leftover searches
   (`Overlays`/`ScreenHeader`/`right: 120`/fixed Milo boxes: zero matches).
   CI runs both when the human pushes. Layout tests were designed to be
@@ -56,7 +56,7 @@ Branch: `upgrade/phase-1`. No new dependencies.
   implemented in `test/layout_test.dart`, UNVERIFIED until CI/human runs it
   (see §6). Before/after screenshots: need a device run (human).
 - Dock/content separation is structural now (Column/Row, no `Positioned` for
-  content) — verified by reading every screen's new tree.
+  content) - verified by reading every screen's new tree.
 - Existing tests untouched and unaffected (settings round-trip gains one
   inert `local.peeked` key).
 - Justified deviation: "wide when short side < 480" is landscape-only in
@@ -68,7 +68,7 @@ Branch: `upgrade/phase-1`. No new dependencies.
 ## 4. UNVERIFIED and why
 
 Everything needing Flutter: analyze, widget/layout tests, goldens (no
-reference PNGs yet — human runs `--update-goldens` once), screenshots,
+reference PNGs yet - human runs `--update-goldens` once), screenshots,
 device matrix, keyboard/viewInsets behavior, labeled-tap-target pass,
 `connectivity_plus` channel names (isolated in `mockConnectivity`; CI
 fails loudly with a one-line fix if renamed).
@@ -77,7 +77,7 @@ fails loudly with a one-line fix if renamed).
 
 iOS `Pods_Runner` link failure on `main` (diagnostic step committed, output
 pending). Pre-existing unlabeled tappables outside More may fail the labeled
-guideline — fix by adding tooltips where CI points.
+guideline - fix by adding tooltips where CI points.
 
 ## 6. Decisions needed
 

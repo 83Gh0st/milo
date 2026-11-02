@@ -50,7 +50,7 @@ void main() {
     await t.pump(const Duration(milliseconds: 100));
     expect(find.text('Type the word first.'), findsNothing, reason: 'draw ran with an empty label');
     expect(find.text('Milo could not draw that. The word still saves.'), findsNothing, reason: 'generateImage threw');
-    expect(find.text('AI-drawn. Look at it before saving — you decide.'), findsOneWidget);
+    expect(find.text('AI-drawn. Look at it before saving - you decide.'), findsOneWidget);
     await t.tap(find.byIcon(Icons.add));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));

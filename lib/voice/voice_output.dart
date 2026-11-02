@@ -141,7 +141,7 @@ abstract class AudioSink {
 
 /// Times neural audio honestly (drives lip-sync, queue and latency stats)
 /// but emits no sound. Shipped default until the 4A winner + a verified
-/// playback package (`audioplayers`/`flutter_soloud`/`just_audio` — needs
+/// playback package (`audioplayers`/`flutter_soloud`/`just_audio` - needs
 /// network + device to evaluate) land. Never selected in `auto` mode.
 class NoopAudioSink extends AudioSink {
   bool _stop = false;
@@ -224,11 +224,11 @@ class NeuralVoice extends VoiceOutput {
 
   static String cacheKey(String text, String lang, String profile, double pace) =>
       // Pace rounded to 0.1: the speed slider is continuous, and a <5% tempo
-      // difference is inaudible — without this the cache would never hit.
+      // difference is inaudible - without this the cache would never hit.
       'voice.cache.${sha256.convert(utf8.encode('$text|$lang|$profile|${pace.toStringAsFixed(1)}')).toString().substring(0, 16)}';
 
   /// Fetches (and caches) one sentence without playing it. Returns false on
-  /// any failure — the caller reports, never throws, during bulk downloads.
+  /// any failure - the caller reports, never throws, during bulk downloads.
   Future<bool> prefetch(String text, {String lang = 'en', String profile = '', double pace = 1, Map<String, String> style = const {}}) async {
     try {
       await _fetch(text: text, lang: lang, profile: profile.isEmpty ? 'milo_warm_en' : profile, pace: pace, style: style);

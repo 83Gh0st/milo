@@ -82,7 +82,7 @@ void _paintBody(Canvas c, Size s, DirectorFrame f) {
   _arms(c, f, lp, col, dark);
 
   // Body: one soft velvety volume. Layered radial shading, ambient occlusion
-  // at the base, a single broad sheen — no outline, no gloss sticker. High
+  // at the base, a single broad sheen - no outline, no gloss sticker. High
   // contrast keeps a thin edge whisper for definition.
   final body = Rect.fromCenter(center: const Offset(0, -78), width: lp.bodyW, height: lp.bodyH);
   c.drawOval(body, Paint()..shader = RadialGradient(center: const Alignment(-.35, -.55), radius: 1.05,
@@ -103,7 +103,7 @@ void _paintBody(Canvas c, Size s, DirectorFrame f) {
   _sprout(c, f, lp);
 
   // The face lives ON the body and rides the head spring with it: no head
-  // disc, no seam, no separate shading — one continuous plush volume.
+  // disc, no seam, no separate shading - one continuous plush volume.
   final hx = f.headX * g, hy = f.headY * g;
   c.save();
   c.translate(hx, -100 + hy + f.chDip * .6);

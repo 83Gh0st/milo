@@ -4,7 +4,7 @@ a coding agent into the terminal. Run inside the gateway container:
     docker compose exec gateway python -m app.cli connect openai
 
 Vault credentials come from VAULT_ID / VAULT_KEY env (Windows cmd:
-`set VAULT_ID=...`) or hidden interactive prompts — never from argv.
+`set VAULT_ID=...`) or hidden interactive prompts - never from argv.
 Provider keys likewise: --key-env / --key-stdin / hidden prompt, never argv.
 Exit codes: 0 ok, 2 usage, 3 vault/auth error, 4 provider error.
 """
@@ -77,7 +77,7 @@ async def cmd_vault_new(args):
     async with engine.begin() as c:
         await c.execute(insert(vaults).values(vault_id=vid, auth_hash=hashlib.sha256(key.encode()).hexdigest(),
                                                created=int(time.time()), last_seq=0, bytes_used=0))
-    print("vault created. Save the key now — it is shown once and cannot be recovered:")
+    print("vault created. Save the key now - it is shown once and cannot be recovered:")
     print(f"  VAULT_ID={vid}\n  VAULT_KEY={key}")
 
 
@@ -176,7 +176,7 @@ async def cmd_list(args):
     conns = await vaultstore.list_connections(engine, vid)
     routes = await vaultstore.get_routes(engine, vid)
     if not conns:
-        print("(no connections — run `connect` first)")
+        print("(no connections - run `connect` first)")
     else:
         print(_table([("provider", "model", "hint", "base url")] +
                      [(c["provider"], c["default_model"] or "-", c["hint"] or "-", c["base_url"] or "-") for c in conns]))
@@ -209,7 +209,7 @@ async def cmd_models(args):
     except ProviderError as e:
         print(f"discovery failed: {e.code}", file=sys.stderr)
         raise SystemExit(EXIT_PROVIDER)
-    print("\n".join(models) if models else "(this provider lists no models — type the id)")
+    print("\n".join(models) if models else "(this provider lists no models - type the id)")
 
 
 async def cmd_test(args):
@@ -227,7 +227,7 @@ async def cmd_test(args):
     if not provider:
         conns = await vaultstore.list_connections(engine, vid)
         if not conns:
-            print("(no connections — run `connect` first)", file=sys.stderr)
+            print("(no connections - run `connect` first)", file=sys.stderr)
             raise SystemExit(EXIT_PROVIDER)
         provider, model = conns[0]["provider"], conns[0]["default_model"]
     _check_provider(provider)
@@ -281,7 +281,7 @@ async def cmd_use(args):
     routes = await vaultstore.get_routes(engine, vid)
     routes[args.capability] = entries
     if not await vaultstore.save_routes(engine, vid, routes):
-        print("no connections yet — run `connect` first", file=sys.stderr)
+        print("no connections yet - run `connect` first", file=sys.stderr)
         raise SystemExit(2)
     print(f"{args.capability}: " + " → ".join(f"{e['provider']}/{e['model']}" for e in entries))
 

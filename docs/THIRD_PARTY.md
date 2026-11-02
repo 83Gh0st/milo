@@ -45,11 +45,11 @@ MIT/Apache-2.0/BSD, pre-existing). No new gateway dependencies in Phases 0–2.
 
 | Package | Version | Licence | Notes |
 |---|---|---|---|
-| modal (PyPI client + CLI) | 1.6.3 (PyPI, 28 Oct 2026) | Apache-2.0 (modal-labs/modal-client) | dev/deploy tooling only: builds the serverless image and runs `modal deploy` for `gateway/modal_app.py`. Not a runtime dependency of the gateway or the app. Modal compute itself is a paid service — the workspace's $100 grant covers it; see `docs/MODAL.md` §4.3 for cost knobs. |
+| modal (PyPI client + CLI) | 1.6.3 (PyPI, 28 Oct 2026) | Apache-2.0 (modal-labs/modal-client) | dev/deploy tooling only: builds the serverless image and runs `modal deploy` for `gateway/modal_app.py`. Not a runtime dependency of the gateway or the app. Modal compute itself is a paid service - the workspace's $100 grant covers it; see `docs/MODAL.md` §4.3 for cost knobs. |
 
 ## Fonts (assets/fonts, OFL licence texts shipped alongside)
 
-Lexend, Atkinson Hyperlegible, OpenDyslexic — all SIL Open Font License 1.1
+Lexend, Atkinson Hyperlegible, OpenDyslexic - all SIL Open Font License 1.1
 (pre-existing).
 
 ## Generated assets (no licence issue: scripted, no samples)

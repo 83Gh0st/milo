@@ -3,7 +3,7 @@
 
 /// Maps a cloud failure code to the pocket fallback variant. Pure:
 /// unit-tested. Hosted turns time out on Muse Spark; family turns on the
-/// family's own provider — the words name who to blame, never the network
+/// family's own provider - the words name who to blame, never the network
 /// when the network is fine.
 String cloudForFailure(String code, bool hosted) => switch (code) {
       'budget_exhausted' || 'rate_limited' => 'resting',

@@ -35,7 +35,7 @@ class MiloSounds {
 
   /// Plays [name] when every gate passes: sounds on, not quiet, a real
   /// presence (never over AAC speech, never in Chip/Hidden). Volume scales
-  /// per cue loudness. Silent no-op otherwise — never an error.
+  /// per cue loudness. Silent no-op otherwise - never an error.
   Future<void> play(String name, {required bool quiet, required bool aac, required String presence, double loud = 1}) async {
     if (!kSoundNames.contains(name)) return;
     playedForTest.add(name);

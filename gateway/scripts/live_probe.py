@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Milo gateway live ladder (staging). Runs the real capabilities end to end
 against a deployed gateway and reports PASS/FAIL per step. Needs nothing but
-the gateway URL — auth is the app's own /v1/session token, and Meta calls are
+the gateway URL - auth is the app's own /v1/session token, and Meta calls are
 billed to the deployer key (or fail honestly when it is absent).
 
     python gateway/scripts/live_probe.py --gateway https://<staging-web> [--photo pic.jpg]
@@ -31,7 +31,7 @@ def call(base, token, method, path, body=None, timeout=90):
         return e.code, e.read()
     except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
         # Transport failure (timeout, refused, reset): a FAILED step, never a
-        # traceback — the ladder must always print its summary and exit 1.
+        # traceback - the ladder must always print its summary and exit 1.
         return -1, f"transport_error: {e}".encode()[:300]
 
 
@@ -62,7 +62,7 @@ def main() -> int:
 
     def check(name, ok, detail=""):
         results.append((name, ok))
-        print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail and not ok else ""))
+        print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f" - {detail}" if detail and not ok else ""))
 
     s, b = call(base, None, "POST", "/v1/session",
                 {"install_id": "live-probe-0000000000", "app_version": "probe", "platform": "other"}, 30)
@@ -112,7 +112,7 @@ def main() -> int:
         if i == 1:
             check("story new", s == 200 and len(j.get("pages", [])) >= 2, f"HTTP {s}: {b[:200]!r}")
     check("story freshness (two asks differ)", len(tales) == 2 and tales[0] != tales[1] and all(tales),
-          "identical pages — the seed is not working")
+          "identical pages - the seed is not working")
 
     s, b = call(base, token, "POST", "/v1/image", {"prompt": "a smiling red apple"}, timeout=120)
     check("image generation (PNG bytes + disclosure header)", s == 200 and b[:8] == b"\x89PNG\r\n\x1a\n",
@@ -127,7 +127,7 @@ def main() -> int:
             img = ""
         else:
             if raw[:2] != b"\xff\xd8":
-                check("photo steps", False, f"not a JPEG file: {args.photo} — pass a .jpg, or drop --photo to skip")
+                check("photo steps", False, f"not a JPEG file: {args.photo} - pass a .jpg, or drop --photo to skip")
                 img = ""
             else:
                 img = base64.b64encode(raw).decode()
@@ -144,12 +144,12 @@ def main() -> int:
             if s == 200:
                 print(f"      regions={len(j['regions'])} model={j.get('model')}")
     else:
-        print("[SKIP] photo steps (understand/segment) — pass --photo pic.jpg")
+        print("[SKIP] photo steps (understand/segment) - pass --photo pic.jpg")
 
     if args.wav:
         print("[NOTE] voice transcription needs a mic stream; use the app's voice check on-device.")
     else:
-        print("[SKIP] voice — on-device check only (no batch audio API in the ladder)")
+        print("[SKIP] voice - on-device check only (no batch audio API in the ladder)")
 
     failed = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} passed" + (f"; failed: {', '.join(failed)}" if failed else ""))

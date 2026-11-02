@@ -21,7 +21,7 @@ sprout is one smooth stem with a single pair of plump tip leaves.
 
 Eyes are nested artboards: `eye` contains `sclera | iris | pupil | hi1 | hi2`.
 Brows are soft short rounded arcs (reduced alpha) with skewable inner/outer
-ends — expressive, never harsh wedges.
+ends - expressive, never harsh wedges.
 
 ## State-machine inputs (1:1 with DirectorFrame channels)
 
@@ -41,9 +41,9 @@ ends — expressive, never harsh wedges.
 | `hop`, `squash` | number | design units | `hop`, `squash` |
 | `clipTilt/Dip/Zoom/Jig/Yawn/Lean` | number | mixed | `ch*` channels |
 | `fx` | text | `dots/arcs/zzz/spark/''` | `fx` |
-| `listening`, `happyEyes`, `tongue` | boolean | — | same names |
+| `listening`, `happyEyes`, `tongue` | boolean | - | same names |
 | `micLevel` | number | 0..1 | `micLevel` |
-| `bodyColor` | color | — | `color` (3 tones derived by lightness ±) |
+| `bodyColor` | color | - | `color` (3 tones derived by lightness ±) |
 | `lod` | number (enum 0..2) | full/bust/avatar | `lod` |
 
 ## Clips (names + durations, seconds)
@@ -56,7 +56,7 @@ clap 1.1, lean_back 1.2, thinking_hmm 1.8, soft_sigh 1.6, peek 1.2`
 ## Mouth and eye shape sets
 
 Mouth: rest, smile, big smile, open A, open O, closed M/B/P, small frown,
-flat, tongue — interpolated by (`mouthSmile`, `mouthOpen`).
+flat, tongue - interpolated by (`mouthSmile`, `mouthOpen`).
 Eyes: open (sclera/iris/pupil/2 highlights), happy-squint arcs, lidded
 (upper + lower lids by `eyeOpen`), blink (160 ms, ±40 ms asymmetry).
 

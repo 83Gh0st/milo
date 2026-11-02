@@ -34,7 +34,7 @@ List<SegRegion> validateRegions(Object? raw, {int max = 20}) {
 }
 
 /// Photo with tappable segmentation boxes overlaid. Coordinates are linear
-/// because the image fills an [AspectRatio] box matching the photo — no
+/// because the image fills an [AspectRatio] box matching the photo - no
 /// letterboxing, no painter math to drift. Tapping a box selects it (thick
 /// border + label chip) and reports the region id for explain-this flows.
 class SegmentOverlay extends StatelessWidget {

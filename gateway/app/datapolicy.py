@@ -5,7 +5,7 @@ official terms, with the source URL and check date. Terms below were
 verified from the vendors' own pages on 2026-10-29 (see source URLs); the
 app requires an explicit trusted-adult acknowledgement for anything
 `unknown` or `yes`, and the CLI prints the policy before saving.
-Re-check the terms before every release — vendors change them.
+Re-check the terms before every release - vendors change them.
 """
 from dataclasses import dataclass
 
@@ -22,7 +22,7 @@ class DataPolicy:
 
 POLICIES = {
     "meta": DataPolicy("meta", "unknown", "standard-model retention unverified",
-                       "https://dev.meta.ai/docs (login required) — NOT YET CHECKED", "unverified",
+                       "https://dev.meta.ai/docs (login required) - NOT YET CHECKED", "unverified",
                        "Endpoint confirmed live 2026-10-29 (OpenAI-compatible 401 shape); "
                        "-contributor model ids train on data (refused by the gateway); "
                        "standard-model retention still unverified, so acknowledgement is required."),
@@ -41,7 +41,7 @@ POLICIES = {
     "modal": DataPolicy("modal", "unknown",
                         "Milo's Modal Shared Endpoint (Muse Spark Open) over TLS; prompts are not stored "
                         "by Milo. Whether Modal trains on or retains endpoint content is NOT YET CHECKED "
-                        "in their terms — verify on modal.com before real users",
+                        "in their terms - verify on modal.com before real users",
                         "https://modal.com/terms (NOT YET CHECKED)", "unverified",
                         "Milo-hosted model, billed to the deployer. Families cannot save a modal "
                         "connection, so this disclosure never gates anyone; it is honest by policy."),

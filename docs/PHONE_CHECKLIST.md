@@ -39,7 +39,7 @@ Needs the gateway reachable (default `API_BASE` is baked in at build).
 - [ ] **Must:** Chat turn streams in (risk → body → say → done), reply is
       spoken with matching mouth movement; captions match audio.
 - [ ] About → Connection row reads *"Connected to Milo's server. AI
-      providers are verified when Milo answers…"* — health is never
+      providers are verified when Milo answers…"* - health is never
       presented as "AI works".
 - [ ] Crisis wording (e.g. self-harm text) routes to the calm support
       flow immediately; the text is never sent to a model.
@@ -50,7 +50,7 @@ Needs the gateway reachable (default `API_BASE` is baked in at build).
 
 ## C. Family AI keys / BYOK (needs sync ON)
 
-`More` → Data and privacy → enable sync (write the secret down — shown
+`More` → Data and privacy → enable sync (write the secret down - shown
 once), then AI connections.
 
 - [ ] **Must:** Sync OFF shows the gate
@@ -62,7 +62,7 @@ once), then AI connections.
       The full key appears nowhere (not in the UI, not in logs).
 - [ ] **Test connection** shows an honest per-check checklist (pass and
       fail both render, no crash); a passed probe stamps **Tested
-      <date>**; a merely-saved key reads *Saved — not tested yet*,
+      <date>**; a merely-saved key reads *Saved - not tested yet*,
       never "Connected".
 - [ ] **Find** opens the models picker; picking fills the model field.
 - [ ] Per-capability routes + **Save choices** persist; with no

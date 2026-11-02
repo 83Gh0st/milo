@@ -1,45 +1,45 @@
-# Phase 5 report — safe multimodal agent + §0.1 leftovers (28 Oct 2026)
+# Phase 5 report - safe multimodal agent + §0.1 leftovers (28 Oct 2026)
 
 Branch: `upgrade/phase-3` (uncommitted). No new dependencies. No secrets.
-Rule: the model proposes, the app disposes — every tool is a closed,
+Rule: the model proposes, the app disposes - every tool is a closed,
 validated `ui` action; nothing new can send, call, buy, or change the device.
 
 ## 1. What changed (files, one line each)
 
-- `contracts/brain_contract.json` — `ui.action` enum +3: `read_aloud`,
+- `contracts/brain_contract.json` - `ui.action` enum +3: `read_aloud`,
   `break_into_steps`, `lookup_word`, with `span`/`steps`/`word` shapes.
-- `gateway/app/safety.py` — Assembler validates the three tools (span
+- `gateway/app/safety.py` - Assembler validates the three tools (span
   `w\d{1,4}`, steps ≤8×140ch cleaned, word letters-only); invented tools
   and malformed args are dropped. Fixed clean-then-cap (junk entries no
   longer eat the 8-step budget).
-- `gateway/app/contract.py` — `brain_schema()` ui items carry the
+- `gateway/app/contract.py` - `brain_schema()` ui items carry the
   `steps`/`word` properties schema-strategy providers need.
-- `gateway/app/prompts.py` — `UI_ACTIONS` + advertised arg shapes in
+- `gateway/app/prompts.py` - `UI_ACTIONS` + advertised arg shapes in
   JSON + LINES prompts ("Never invent other actions or tools").
-- `gateway/tests/test_contract_units.py` — 8-action assertion + new fields.
-- `gateway/tests/test_gateway.py` — assembler tools test; vision-fallback
+- `gateway/tests/test_contract_units.py` - 8-action assertion + new fields.
+- `gateway/tests/test_gateway.py` - assembler tools test; vision-fallback
   test (blind primary skipped for image turns, kept for text).
-- `lib/contracts/brain_contract.dart` — `kActions` + `BrainTurn`
+- `lib/contracts/brain_contract.dart` - `kActions` + `BrainTurn`
   readAloud/steps/lookupWord + identical validation (incl. collapse).
-- `lib/companion/director.dart` — `onReadAloud/onSteps/onLookupWord`
+- `lib/companion/director.dart` - `onReadAloud/onSteps/onLookupWord`
   callbacks, fired from batch and streamed turns.
-- `lib/core/providers.dart` — `ChatMsg.steps/imageB64`, `addSteps`,
+- `lib/core/providers.dart` - `ChatMsg.steps/imageB64`, `addSteps`,
   `userPhoto`, `lookupWordProvider`, callback wiring (lookup navigates
   to Understand); blind-model image failure speaks the honest line
   instead of opening `unreachable`.
-- `lib/media/photo.dart` (new) — shared `preparePhoto`: resize, EXIF
+- `lib/media/photo.dart` (new) - shared `preparePhoto`: resize, EXIF
   wipe, original deleted.
-- `lib/ui/chat_screen.dart` — `_StepsCard` checklist with check-off
+- `lib/ui/chat_screen.dart` - `_StepsCard` checklist with check-off
   and "Save to Do" visible confirmation (Do-shape compatible);
   photo thumbnails with semantic label; camera button kept.
-- `lib/ui/understand_screen.dart` — `_listenFrom` read-aloud entry,
+- `lib/ui/understand_screen.dart` - `_listenFrom` read-aloud entry,
   lookup prefill (consume-once), photo path reuses `preparePhoto`.
-- `test/contract_test.dart` (new) — 6 tests: tool accept/drop/trim/cap,
+- `test/contract_test.dart` (new) - 6 tests: tool accept/drop/trim/cap,
   kActions mirror, batch + streamed callback firing.
-- `test/agent_test.dart` (new) — 4 widget tests: steps save-to-Do,
+- `test/agent_test.dart` (new) - 4 widget tests: steps save-to-Do,
   blind-model honesty (no `unreachable` navigation), check-in count,
   lookup prefill.
-- `test/helpers/harness.dart` — `FakeApi.understand` stub + `blindError`
+- `test/helpers/harness.dart` - `FakeApi.understand` stub + `blindError`
   flag.
 
 ## 2. Tests run (real commands, real output)
@@ -90,9 +90,9 @@ validated `ui` action; nothing new can send, call, buy, or change the device.
 
 ## 6. Decisions made (defaults, human can override)
 
-- Crop box: CUT — full resized photo, EXIF stripped, original deleted.
+- Crop box: CUT - full resized photo, EXIF stripped, original deleted.
   Say the word and a crop UI goes in front of `preparePhoto`.
-- Wardrobe: DEFERRED — no slots, no UI, until the product meaning
+- Wardrobe: DEFERRED - no slots, no UI, until the product meaning
   (unlock? settings?) is decided.
 - Time-of-day/biometric/photo-tiles: stay cut per 00_AUDIT §3.
 

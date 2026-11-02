@@ -51,7 +51,7 @@ class MiloLab extends ConsumerWidget {
       const Section('Voice (live)'),
       Card(child: Padding(padding: const EdgeInsets.all(12), child: Text(
         'engine ${d.voice.engineInUse} (mode ${d.voiceEngine.name}) · sink ${d.voice.neural.sink.isReal ? 'real' : 'noop (timed, silent)'}\n'
-        'neural ready ${d.voice.neuralReady} · last engine ${d.voice.neural.lastEngine.isEmpty ? '—' : d.voice.neural.lastEngine}\n'
+        'neural ready ${d.voice.neuralReady} · last engine ${d.voice.neural.lastEngine.isEmpty ? '-' : d.voice.neural.lastEngine}\n'
         'first audio ${d.voice.neural.lastFirstAudioMs} ms · queue ${d.voice.neural.queueDepth} · mouth ${d.mouth.toStringAsFixed(2)}',
         style: const TextStyle(fontSize: 13)))),
       Wrap(spacing: 8, runSpacing: 8, children: [

@@ -1,4 +1,4 @@
-# Milo expression blind test — score form (Phase 2 acceptance)
+# Milo expression blind test - score form (Phase 2 acceptance)
 
 Target: ≥ 80% correct on the 8 core emotions, and **zero** "angry" labels for
 happy, curious, thinking and encouraging. 5 people, each shown the 8 faces.

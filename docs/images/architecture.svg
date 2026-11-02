@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Milo system architecture: Flutter app, FastAPI gateway, and model providers">
+  <rect x="8" y="8" width="1264" height="704" rx="24" fill="#ffffff" stroke="#E4E1D9" stroke-width="2"/>
+  <text x="40" y="46" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="20" font-weight="bold" fill="#2B2B3D">Milo system architecture - app, gateway, providers</text>
+  <text x="40" y="68" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="12" fill="#5B5B72">Every cloud call is ledgered on-device first; the model proposes, the app disposes. Follow the moving dashes.</text>
+  <line x1="40" y1="92" x2="100" y2="92" stroke="#5B6CFF" stroke-width="2" stroke-dasharray="9 7"/>
+  <text x="108" y="96" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">live request path</text>
+  <rect x="240" y="82" width="52" height="18" rx="9" fill="#2FA37C"/>
+  <text x="266" y="95" text-anchor="middle" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="10" font-weight="bold" fill="#ffffff">LIVE</text>
+  <text x="298" y="96" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">= staging-verified</text>
+  <rect x="440" y="82" width="62" height="18" rx="9" fill="#C98A1B"/>
+  <text x="471" y="95" text-anchor="middle" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="10" font-weight="bold" fill="#ffffff">KEYED</text>
+  <text x="508" y="96" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">= needs a Meta API key run</text>
+  <!-- person -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="24" y="300" width="110" height="96" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="40" y="332" font-size="13" font-weight="bold" fill="#2B2B3D">Person</text>
+    <text x="40" y="352" font-size="11" fill="#5B5B72">type · speak</text>
+    <text x="40" y="368" font-size="11" fill="#5B5B72">tap · listen</text>
+  </g>
+  <!-- phone -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="160" y="120" width="310" height="470" rx="16" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
+    <text x="178" y="144" font-size="12" font-weight="bold" fill="#2B2B3D">PHONE - Flutter app</text>
+    <rect x="174" y="156" width="282" height="62" rx="10" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="186" y="180" font-size="12" font-weight="bold" fill="#2B2B3D">Screens + scaffold</text>
+    <text x="186" y="198" font-size="11" fill="#5B5B72">tabs · header · dock · rail</text>
+    <rect x="174" y="226" width="282" height="62" rx="10" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="186" y="250" font-size="12" font-weight="bold" fill="#2B2B3D">Director + rig + voice</text>
+    <text x="186" y="268" font-size="11" fill="#5B5B72">companion · 12 expressions</text>
+    <rect x="174" y="296" width="282" height="62" rx="10" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="186" y="320" font-size="12" font-weight="bold" fill="#2B2B3D">Router + validators</text>
+    <text x="186" y="338" font-size="11" fill="#5B5B72">brain contract · GenUI spec · payload</text>
+    <rect x="174" y="366" width="282" height="62" rx="10" fill="#F2FBF6" stroke="#2FA37C" stroke-width="2"/>
+    <text x="186" y="390" font-size="12" font-weight="bold" fill="#2B2B3D">Pocket brain</text>
+    <text x="186" y="408" font-size="11" fill="#5B5B72">offline fallback · crisis flows</text>
+    <rect x="174" y="436" width="282" height="62" rx="10" fill="#F2FBF6" stroke="#2FA37C" stroke-width="2"/>
+    <text x="186" y="460" font-size="12" font-weight="bold" fill="#2B2B3D">SQLite + SecureStore</text>
+    <text x="186" y="478" font-size="11" fill="#5B5B72">memory · ledger · PIN · keys</text>
+    <rect x="174" y="506" width="282" height="62" rx="10" fill="#F2FBF6" stroke="#2FA37C" stroke-width="2"/>
+    <text x="186" y="530" font-size="12" font-weight="bold" fill="#2B2B3D">flutter_tts + record</text>
+    <text x="186" y="548" font-size="11" fill="#5B5B72">platform speech · mic input</text>
+  </g>
+  <!-- gateway -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="530" y="120" width="300" height="470" rx="16" fill="#FFF8EC" stroke="#C98A1B" stroke-width="1.5"/>
+    <text x="548" y="144" font-size="12" font-weight="bold" fill="#2B2B3D">GATEWAY - FastAPI</text>
+    <rect x="544" y="156" width="272" height="76" rx="10" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="556" y="180" font-size="12" font-weight="bold" fill="#2B2B3D">Routes</text>
+    <text x="556" y="198" font-size="11" fill="#5B5B72">turn · understand · story · image</text>
+    <text x="556" y="214" font-size="11" fill="#5B5B72">segment · voice · speak · vault</text>
+    <rect x="544" y="240" width="272" height="76" rx="10" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="556" y="264" font-size="12" font-weight="bold" fill="#2B2B3D">Router + registry</text>
+    <text x="556" y="282" font-size="11" fill="#5B5B72">capability routes · failover</text>
+    <text x="556" y="298" font-size="11" fill="#5B5B72">circuit breakers</text>
+    <rect x="544" y="324" width="272" height="76" rx="10" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="556" y="348" font-size="12" font-weight="bold" fill="#2B2B3D">Safety + contracts + spend</text>
+    <text x="556" y="366" font-size="11" fill="#5B5B72">JWT sessions · crisis screen</text>
+    <text x="556" y="382" font-size="11" fill="#5B5B72">budgets · rate limits</text>
+    <rect x="544" y="408" width="272" height="76" rx="10" fill="#ffffff" stroke="#9A97A3" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <text x="556" y="432" font-size="12" font-weight="bold" fill="#2B2B3D">PostgreSQL (optional)</text>
+    <text x="556" y="450" font-size="11" fill="#5B5B72">ledger · cache · E2EE blobs</text>
+    <text x="556" y="466" font-size="11" fill="#5B5B72">chat works without it</text>
+    <rect x="544" y="492" width="272" height="76" rx="10" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="556" y="516" font-size="12" font-weight="bold" fill="#2B2B3D">Sync vault</text>
+    <text x="556" y="534" font-size="11" fill="#5B5B72">sealed family keys</text>
+    <text x="556" y="550" font-size="11" fill="#5B5B72">E2EE opaque blobs</text>
+  </g>
+  <!-- providers -->
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif">
+    <rect x="890" y="120" width="360" height="104" rx="12" fill="#ffffff" stroke="#2FA37C" stroke-width="2">
+      <animate attributeName="opacity" values="1;0.82;1" dur="2.6s" repeatCount="indefinite"/>
+    </rect>
+    <text x="904" y="146" font-size="12" font-weight="bold" fill="#2B2B3D">Modal-hosted Spark Open 816B</text>
+    <rect x="1160" y="130" width="52" height="18" rx="9" fill="#2FA37C"/>
+    <text x="1186" y="143" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">LIVE</text>
+    <text x="904" y="166" font-size="11" fill="#5B5B72">text caps: turn · understand · plan · compose · story</text>
+    <text x="904" y="184" font-size="11" fill="#5B5B72">OpenAI-compatible Shared Endpoint · proxy token</text>
+    <text x="904" y="202" font-size="11" fill="#5B5B72">deployer budget · never on family routes</text>
+    <rect x="890" y="236" width="360" height="122" rx="12" fill="#ffffff" stroke="#C98A1B" stroke-width="2"/>
+    <text x="904" y="262" font-size="12" font-weight="bold" fill="#2B2B3D">Meta Model API</text>
+    <rect x="1150" y="246" width="62" height="18" rx="9" fill="#C98A1B"/>
+    <text x="1181" y="259" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">KEYED</text>
+    <text x="904" y="284" font-size="11" fill="#5B5B72">Muse Image 1.0 - tap-to-create pictures</text>
+    <text x="904" y="302" font-size="11" fill="#5B5B72">Muse Voice Transcribe - speech in, zero retention</text>
+    <text x="904" y="320" font-size="11" fill="#5B5B72">SAM 3.1 boxes - keyed probe still pending</text>
+    <text x="904" y="338" font-size="11" fill="#5B5B72">suite reasoning - same wire, unverified live</text>
+    <rect x="890" y="370" width="360" height="96" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
+    <text x="904" y="396" font-size="12" font-weight="bold" fill="#2B2B3D">BYOK vault</text>
+    <rect x="1120" y="380" width="92" height="18" rx="9" fill="#5B6CFF"/>
+    <text x="1166" y="393" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">FAMILY KEY</text>
+    <text x="904" y="418" font-size="11" fill="#5B5B72">OpenAI · Anthropic · Gemini · custom</text>
+    <text x="904" y="436" font-size="11" fill="#5B5B72">family quota · probed before activation</text>
+    <text x="904" y="454" font-size="11" fill="#5B5B72">never falls back to deployer spend</text>
+    <rect x="890" y="478" width="360" height="62" rx="12" fill="#F4F4F6" stroke="#9A97A3" stroke-width="1.5"/>
+    <text x="904" y="502" font-size="12" font-weight="bold" fill="#2B2B3D">Mock providers</text>
+    <rect x="1148" y="486" width="64" height="18" rx="9" fill="#9A97A3"/>
+    <text x="1180" y="499" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">LOCAL</text>
+    <text x="904" y="522" font-size="11" fill="#5B5B72">deterministic turns · tests · offline dev</text>
+    <text x="904" y="566" font-size="11" fill="#5B5B72">Wonder 1.0 - allowlisted, never auto-routed</text>
+    <text x="904" y="584" font-size="11" fill="#5B5B72">Glimmer 30B - operator-run local only (Ollama)</text>
+  </g>
+  <!-- edges -->
+  <g fill="none" stroke-width="2">
+    <path d="M134,348 L160,348" stroke="#C9C5BA"/>
+    <path d="M470,250 L530,250" stroke="#5B6CFF" stroke-dasharray="9 7">
+      <animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M530,290 L470,290" stroke="#5B6CFF" stroke-dasharray="9 7">
+      <animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M830,200 L890,200" stroke="#2FA37C" stroke-dasharray="9 7">
+      <animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M830,300 L890,300" stroke="#2FA37C" stroke-dasharray="9 7">
+      <animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M830,430 L890,430" stroke="#C9C5BA" stroke-dasharray="6 5"/>
+    <path d="M830,520 L890,520" stroke="#C9C5BA" stroke-dasharray="6 5"/>
+  </g>
+  <g font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="10" fill="#5B5B72" text-anchor="middle">
+    <text x="500" y="240">HTTPS · SSE · WSS</text>
+    <text x="500" y="312">events back</text>
+    <text x="500" y="270" font-weight="bold" fill="#2B2B3D">ledger-first</text>
+    <text x="860" y="190">reasoning</text>
+    <text x="860" y="290">pictures · voice · boxes</text>
+  </g>
+</svg>
