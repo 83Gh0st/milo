@@ -142,6 +142,7 @@ void main() {
       await t.pump();
       expect(find.text('Saved ✓'), findsOneWidget);
       expect(db.settings['local.stories'], contains('The Brave Little Boat'));
+      await t.scrollUntilVisible(find.text('Finish'), 100); // below the fold once the answer lands
       await t.tap(find.text('Finish'));
       await t.pump();
       await t.pump(const Duration(milliseconds: 100));

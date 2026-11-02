@@ -7,6 +7,7 @@ import 'package:milo/companion/director.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/data/secure_store.dart';
 import 'package:milo/net/api.dart';
+import 'package:milo/ui/segment_overlay.dart';
 import 'package:milo/ui/understand_screen.dart';
 
 import 'helpers/fake_db.dart';
@@ -33,7 +34,9 @@ void main() {
     await t.pump(const Duration(milliseconds: 100));
     expect(find.text('heart'), findsWidgets); // both boxes carry the phrase
     expect(find.text('Tap an outlined box'), findsOneWidget);
-    await t.tap(find.text('heart').first);
+    // Scoped to the overlay: find.text also matches the search field's own
+    // EditableText ('heart'), which sorts first and would swallow the tap.
+    await t.tap(find.descendant(of: find.byType(SegmentOverlay), matching: find.text('heart')).first);
     await t.pump();
     expect(find.text('Explain “heart”'), findsOneWidget);
     await t.tap(find.text('Explain “heart”'));

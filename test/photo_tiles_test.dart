@@ -40,9 +40,12 @@ void main() {
     await pumpScreen(t, const WordsEditor(), container: c);
     expect(find.byType(TextField), findsNWidgets(2)); // tripwire: label lookup below assumes exactly two fields
     await t.enterText(find.byKey(const Key('tileLabel')), 'Grandma');
+    expect(t.widget<TextField>(find.byKey(const Key('tileLabel'))).controller?.text, 'Grandma'); // input landed in the label field
     await t.tap(find.text('Draw a picture (AI)'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Type the word first.'), findsNothing, reason: 'draw ran with an empty label');
+    expect(find.text('Milo could not draw that. The word still saves.'), findsNothing, reason: 'generateImage threw');
     expect(find.text('AI-drawn. Look at it before saving — you decide.'), findsOneWidget);
     await t.tap(find.byIcon(Icons.add));
     await t.pump();
