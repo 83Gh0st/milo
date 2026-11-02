@@ -1,8 +1,8 @@
 # Milo development guide
 
 Setup, testing, builds, and contribution workflow. Install/run instructions
-for users live in [`SETUP.md`](SETUP.md); system design in
-[`ARCHITECTURE.md`](ARCHITECTURE.md); releases in [`RELEASE.md`](RELEASE.md).
+for users live in [`docs/SETUP.md`](docs/SETUP.md); system design in
+[`ARCHITECTURE.md`](ARCHITECTURE.md); releases in [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## 1. Repository layout
 
@@ -69,8 +69,8 @@ Commit the regenerated `android/app/src/main/res` and
   Widget tests use the `test/helpers/` fakes (never real network/keys).
 - Dart/contract parity: `contracts/*.json` mirror into Dart and Python with
   tests that fail on drift - change the JSON first, then both sides.
-- Device ladders before any release claim: `PHONE_CHECKLIST.md`,
-  `VOICE_CHECKLIST.md`. Never claim a device verification that was not run.
+- Device ladders before any release claim: `docs/PHONE_CHECKLIST.md`,
+  `docs/VOICE_CHECKLIST.md`. Never claim a device verification that was not run.
 - CI (`ci.yml`, every push): gateway tests, analyze, full flutter suite,
   staging APK (with baked-URL verification), iOS simulator build.
 
@@ -131,11 +131,12 @@ The Shared Endpoint itself is dashboard-managed; nothing here deploys weights.
 
 - `tools/make_branding.py` draws the pre-rebrand identity (marked stale in
   its docstring) - the shipped path is `assets/branding/` masters.
-- Root `error.txt` / `log.txt` are committed CI log captures; `0_*.png` are
-  planning wireframes; `Milo_Architecture_and_Build_Plan.docx` is the
-  pre-hackathon blueprint. Move-or-remove decisions belong to the maintainer.
-- `generated_images/` (untracked) holds the AI master renders behind
-  `assets/branding/`; `.sdk-probe/brand_gen.dart` derived them.
+- The pre-hackathon blueprint ships as `Milo_Architecture_and_Build_Plan.pdf`
+  in the root (the `.docx` source is intentionally not committed).
+- CI log captures (`error.txt`, `log.txt`) and pytest tmp dirs are not
+  committed; `.gitignore` covers their patterns.
+- `generated_images/` holds the AI master renders behind `assets/branding/`
+  (inputs to the gitignored `.sdk-probe/brand_gen.dart` pipeline); keep them.
 - `ios/` uses full CocoaPods mode: `ios/Podfile` is committed (platform
   15.5, ML Kit's floor), CI sets `FLUTTER_SWIFT_PACKAGE_MANAGER=false` and
   runs an explicit `pod install`. Five plugins lack SPM support and the

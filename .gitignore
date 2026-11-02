@@ -20,3 +20,9 @@ pip-*/
 pubspec.lock
 # Generated submission captures (see screenshots/README.md); the README stays.
 screenshots/*.png
+# Log captures, probe outputs, and other local artifacts are never committed.
+*.log
+*.out
+*.err
+*.tmp
+pytest-of-*/
