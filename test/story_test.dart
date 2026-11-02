@@ -142,10 +142,12 @@ void main() {
       await t.pump();
       expect(find.text('Saved ✓'), findsOneWidget);
       expect(db.settings['local.stories'], contains('The Brave Little Boat'));
-      // ensureVisible (not scrollUntilVisible): the question field's own internal
-      // Scrollable makes scrollable-finder resolution ambiguous (two matches)
-      // once ask opens; ensureVisible walks up from the target instead.
-      await t.ensureVisible(find.text('Finish')); // below the fold once the answer lands
+      // Direct drag: the smart scrollers misfire here (the question field's own
+      // Scrollable confuses scrollUntilVisible; ensureVisible no-ops), while a
+      // drag clamps at max scroll and always reveals the end of the tale.
+      await t.drag(find.byType(ListView), const Offset(0, -500));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 100));
       await t.tap(find.text('Finish'));
       await t.pump();
       await t.pump(const Duration(milliseconds: 100));
