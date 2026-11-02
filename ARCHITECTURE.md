@@ -4,9 +4,18 @@ How the system fits together: Flutter app, FastAPI gateway, Meta models on
 Modal and the Model API, BYOK routing, offline operation, and the safety
 boundaries between them. For setup and workflows, see
 [`DEVELOPMENT.md`](DEVELOPMENT.md); for install/runbooks,
-[`SETUP.md`](SETUP.md), [`MODAL.md`](MODAL.md), [`RELEASE.md`](RELEASE.md).
+[`docs/SETUP.md`](docs/SETUP.md), [`docs/MODAL.md`](docs/MODAL.md),
+[`docs/RELEASE.md`](docs/RELEASE.md). The original pre-build blueprint is
+[`Milo_Architecture_and_Build_Plan.pdf`](Milo_Architecture_and_Build_Plan.pdf);
+this file describes the system as built.
 
 ## 1. System architecture
+
+<p align="center">
+  <a href="docs/images/architecture.svg"><img src="docs/images/architecture.svg" width="850" alt="Milo system architecture: Flutter app, FastAPI gateway, and model providers"></a>
+</p>
+
+<p align="center"><em>Phone, gateway, and providers. Green is staging-verified, amber needs a keyed run.</em></p>
 
 ```mermaid
 flowchart TB
@@ -62,11 +71,22 @@ lib/
   in that order. Document chips (`You are reading this now`) scope follow-ups.
 - **Director** (`companion/director.dart`): owns emotion, gesture, gaze,
   speech, and presence; paints only from `DirectorFrame`. Speech follows the
-  audio lifecycle, never animation timers (`VOICE_CHECKLIST.md`).
+  audio lifecycle, never animation timers (`docs/VOICE_CHECKLIST.md`).
 - **Ladder** (`full/cloudOff/offline/resting`): one status chip + spoken
   words per state; inference trouble never claims the network is down.
 - **Timeouts:** connect 8 s, send 15 s, receive 30 s - the receive side stays
   above the gateway's inference deadline with room for error handling.
+
+### Navigation and screen relationships
+
+Five tabs in the shell (`main.dart`): Home (companion stage, continue card,
+Understand/Express/Do entry cards), Explore (section cards with offline
+badges), Milo (chat), Progress (counts and charts), More (profile,
+accessibility, language, offline switch, privacy, about). Feature screens
+(Understand, Express, Do, Learn, Calm, check-in, trusted adult) push on top;
+Break and Help me live in every header (`ui/scaffold.dart`); the trusted-adult
+area sits behind a PIN gate (`ui/pin.dart`). The as-built map is
+[`docs/images/app-wireflow.svg`](docs/images/app-wireflow.svg).
 
 ## 3. Gateway and provider abstraction
 
@@ -107,7 +127,7 @@ shared 900-token default truncated live turns mid-JSON).
 Staging and production are separate Modal apps (`modal_staging.py`,
 `modal_app.py`) with separate secrets; staging sets `MODAL_FALLBACK=false`
 and `INFERENCE_TIMEOUT_S=20` so hosted behaviour is tested loudly. Full
-runbook and the 7-step verification ladder: [`MODAL.md`](MODAL.md).
+runbook and the 7-step verification ladder: [`docs/MODAL.md`](docs/MODAL.md).
 
 ## 5. Image generation (separate capability)
 
@@ -125,7 +145,43 @@ shell) is disabled and reasoning is low: a picture request must not browse or
 run code. Credential: deployer `MODEL_API_KEY` or family BYOK Meta key; with
 neither, Milo says drawing needs a grown-up to set it up.
 
-## 6. BYOK vault and routing
+## 6. Image understanding (vision turns)
+
+`POST /v1/understand` takes text plus an optional photo and streams back an
+explanation (`risk`/`say`/`done` events). The gateway builds a vision-capable
+chat payload (`image_url` parts) and sends it down the Spark route; the same
+closed-contract validation applies as for brain turns. On the phone,
+`media/photo.dart` resizes, strips EXIF/GPS, and deletes the original before
+anything is sent, while on-device OCR (ML Kit) feeds read-aloud so the words
+on the page are available even offline. Exercised on staging with a photo run
+(`live_probe.py --photo`); see [`docs/MULTIMODAL.md`](docs/MULTIMODAL.md) for
+the endpoint analysis behind the wiring.
+
+## 7. SAM segmentation (object boxes)
+
+`POST /v1/segment` takes a photo plus one noun phrase ("the red ball") and
+returns normalized boxes the `SegmentOverlay` renderer draws over the image
+for tap-a-box explanations. The gateway path is wired to the SAM 3.1 wire
+format from Meta's cookbook, but no keyed run has passed yet, so staging
+serves deterministic mock boxes (`model: "mock"`) and says so in the payload.
+`gateway/scripts/probe_sam.py` is the promotion check: exit 0 plus JSON with
+a real key flips the catalog row to live. Video and masks are deferred.
+
+## 8. Voice: transcription in, speech out
+
+Speech-to-text and text-to-speech are separate systems that meet only in the
+conversation. Input is push-to-talk: the app streams 16 kHz PCM frames over
+the realtime Transcribe socket (`muse-voice-transcribe-1.0`, zero-retention
+flag, language and vocabulary hints in the first frame) and renders partials
+live, with typed input always available as the fallback. Output today is
+platform TTS (`flutter_tts`) driven through the voice router in
+`lib/voice/voice_output.dart`, with text normalization (`normalize.dart`) and
+word-level read-aloud callbacks; the `/v1/speak` endpoint plus the neural
+pipeline exist as the online-voice hook, and with no engine configured the app
+says plainly that online voice is not set up yet. Mouth movement follows the
+audio envelope and shuts in silence.
+
+## 9. BYOK vault and routing
 
 Families connect their own provider keys in-app (Trusted adult → AI
 Connections, PIN-gated): pick provider, paste key, run a real probe (text,
@@ -134,24 +190,25 @@ schema, vision checks), activate per capability. Keys are sealed at rest with
 appear in logs, bundles, analytics, or crash reports. Family turns spend the
 family's quota and skip the deployer budget; there is no deployer fallback on
 family requests. Status shows configured / tested / active separately - a
-saved key alone never reads "connected". Trust model: [`BYOK.md`](BYOK.md).
+saved key alone never reads "connected". Trust model:
+[`docs/BYOK.md`](docs/BYOK.md).
 
 First-party Meta surface (endpoint, model, creds, cost, honesty status per
 capability) is data, not prose: `gateway/app/providers/meta_catalog.py`
 (`live` only for staging-verified rows, enforced by tests).
 
-## 7. Local and offline functionality
+## 10. Local and offline functionality
 
 Without any connection: the Express board, composer, quick help, routines,
 memories, read-aloud (platform TTS + on-device OCR), the full character, and
 the pocket brain (hand-written local flows incl. crisis support) all run from
 encrypted on-device SQLite. Cloud sync is optional, off by default, E2EE
 (server sees opaque blobs only), and a separate permission from cloud AI
-(`SYNC_DESIGN.md`, `DATA_MAP.md`). The gateway itself is database-optional:
-with no `DATABASE_URL`, chat, hosted AI, and BYOK work; vault/sync report
-honestly unavailable.
+(`docs/SYNC_DESIGN.md`, `docs/DATA_MAP.md`). The gateway itself is
+database-optional: with no `DATABASE_URL`, chat, hosted AI, and BYOK work;
+vault/sync report honestly unavailable.
 
-## 8. Generative UI contract and validation
+## 11. Generative UI contract and validation
 
 Spark may attach a `ui_spec` object to any turn: `{v, activity, intent,
 mode, companion, speak, state, root, ops}`. Eleven component types (`text`,
@@ -163,9 +220,9 @@ Both validators (gateway `ui_spec.py`, client `genui/spec.dart`, parity-tested)
 sanitize every string; anything malformed degrades to classic chat - the turn
 never breaks. `image` nodes use the visual-concept allow-list; `genimage`
 nodes carry `{prompt, alt}` for the flow in §5. Full protocol:
-[`GENUI.md`](GENUI.md).
+[`docs/GENUI.md`](docs/GENUI.md).
 
-## 9. Privacy, consent, safety, spending
+## 12. Privacy, consent, safety, spending
 
 - Ledger-before-send for every cloud call; per-device consent log; PIN-gated
   grown-up area; no ads/analytics; crash reports carry no content.
@@ -178,7 +235,7 @@ nodes carry `{prompt, alt}` for the flow in §5. Full protocol:
   (`EPHEMERAL_DAY_USD=5`), Modal Dict backend on serverless. Family keys
   exempt by design. Budget trips speak plainly and drop to the pocket brain.
 
-## 10. Error handling, timeouts, provider failure
+## 13. Error handling, timeouts, provider failure
 
 Timeout chain (whole-completion unless noted): Flutter receive 30 s >
 gateway `INFERENCE_TIMEOUT_S` (staging 20 s, prod 8 s) wrapping provider
@@ -190,7 +247,7 @@ wording for hosted timeouts) and the pocket brain keeps helping. Image turns
 get 60 s; voice sockets 5–15 s per leg. Gateway offline vs inference trouble
 stay separate in both UI and words.
 
-## 11. Request sequences
+## 14. Request sequences
 
 ### Text reasoning turn (hosted Spark)
 
@@ -249,6 +306,22 @@ sequenceDiagram
     A->>G: brain turn with vault headers
     G->>G: unseal key, family route
     G->>V: inference, family quota
+    G-->>V: inference, family quota
     V-->>G: tokens
     G-->>A: validated SSE events
 ```
+
+## 15. Deployment and environment
+
+Two Modal serverless apps: `gateway/modal_staging.py` (deploy freely, verify
+with the [`docs/MODAL.md`](docs/MODAL.md) ladder) and `gateway/modal_app.py`
+(production, only after staging passes; `modal-deploy.yml` needs
+`confirm_prod=DEPLOY-PROD`). Each app attaches three named secrets: the
+gateway settings secret (`milo-gateway-staging` / `milo-gateway`), the Shared
+Endpoint client (`milo-models-client`: URL, proxy token, model id), and the
+routing switches (`milo-gateway-switches`: `REASONING_PROVIDER`,
+`MODAL_FALLBACK`). The variable table lives in the README's installation
+section; the VPS alternative (Caddy + Compose in `deploy/`) is documented in
+`docs/DEPLOYMENT.md`. CI (`.github/workflows/`) runs gateway tests, analyze,
+the full Flutter suite, a staging APK, and an iOS simulator build on every
+push.
