@@ -282,7 +282,7 @@ final directorProvider = ChangeNotifierProvider<Director>((ref) {
   d.voice.neural.cacheGet = db.get;
   d.voice.neural.cachePut = db.put;
   d.voice.onlineAllowed = () => ref.read(ladderProvider) == Ladder.full;
-  db.allSettings().then((s) => d.loadSettings(s));
+  db.allSettings().then((s) { d.loadSettings(s); d.adoptReturning(s); });
   d.init();
   ref.onDispose(d.dispose);
   return d;

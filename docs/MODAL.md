@@ -379,6 +379,16 @@ machine), then Actions → `modal-deploy` → Run workflow → target
 only passes with green gateway tests. The workflow deploys gateway
 code only — it never creates the Shared Endpoint.
 
+If a deploy step fails with `Token ID is malformed`, the workflow wiring
+is fine — the `MODAL_TOKEN_ID` secret value itself is wrong (the check
+only proves it is non-empty). Re-run `modal token new`, then re-paste:
+Token ID (`ak-…`) into `MODAL_TOKEN_ID`, Token Secret (`as-…`) into
+`MODAL_TOKEN_SECRET` (repo Settings → Secrets → Actions). Do not paste
+a workspace/account ID, do not swap the two, and do not add whitespace
+or a trailing newline. The workflow's `Validate Modal auth shape` step
+reports presence, length, prefix shape and whitespace without ever
+printing secret values.
+
 ### 8.2 [YOU] Deploy staging, verify each step
 
 ```cmd

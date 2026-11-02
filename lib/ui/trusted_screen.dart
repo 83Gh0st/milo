@@ -101,6 +101,16 @@ class _SwitchRow extends StatelessWidget { const _SwitchRow(this.t, this.v, this
 /// family needs its own API key, billed to its own account.
 const kConnProviders = [('meta', 'Meta (recommended)'), ('openai', 'OpenAI'), ('anthropic', 'Anthropic'), ('custom', 'Custom or local')];
 const kRouteCaps = [('brain', 'Thinking + chat'), ('understand', 'Reading help'), ('visual', 'Pictures'), ('stt', 'Voice in')];
+const kCheckNames = {'chat': 'Chat', 'json_schema': 'Structured replies', 'vision': 'Pictures', 'audio_in': 'Voice in', 'tts': 'Voice out'};
+const kRoleLabels = {'chat': 'Thinking', 'image': 'Pictures', 'voice': 'Voice'};
+/// What Milo itself can do through each BYOK provider (adapter-level, not
+/// vendor marketing: only Meta's adapter implements pictures and voice).
+const kProviderCapsNote = {
+  'meta': 'Thinking, pictures and voice.',
+  'openai': 'Thinking and reading. Milo can’t make pictures or hear voice with OpenAI yet.',
+  'anthropic': 'Thinking and reading. Milo can’t make pictures or hear voice with Anthropic yet.',
+  'custom': 'Thinking and reading through your address.',
+};
 
 String connWords(Object e) {
   if (e is! ApiError) return 'Something went wrong.';
@@ -280,6 +290,7 @@ class _ConnSheetState extends State<_ConnSheet> {
   bool ack = false, busy = false;
   String? error;
   Map<String, dynamic>? probe, _asked;
+  final _knownNames = <String, String>{}; // friendly names learned from Find models (ids stay the source of truth)
 
   @override
   void initState() {
@@ -318,15 +329,10 @@ class _ConnSheetState extends State<_ConnSheet> {
   }
 
   Future<void> _models() async {
-    setState(() { busy = true; error = null; });
-    try {
-      final ms = await widget.api.connectionModels(widget.vid, widget.vkey, widget.provider);
-      if (!mounted) return;
-      final pick = await showDialog<String>(context: context, builder: (c) => AlertDialog(title: const Text('Pick a model'),
-          content: SizedBox(width: double.maxFinite, child: ListView(children: [for (final m in ms) ListTile(title: Text(m), onTap: () => Navigator.pop(c, m))]))));
-      if (pick != null) setState(() => model.text = pick);
-    } catch (e) { if (mounted) setState(() => error = connWords(e)); }
-    if (mounted) setState(() => busy = false);
+    final pick = await showDialog<ConnModel>(
+        context: context,
+        builder: (_) => _ModelDialog(api: widget.api, vid: widget.vid, vkey: widget.vkey, provider: widget.provider, currentId: model.text.trim(), caps: widget.existing?['caps']));
+    if (pick != null && mounted) setState(() { model.text = pick.id; _knownNames[pick.id] = pick.name; });
   }
 
   Future<void> _test() async {
@@ -349,10 +355,10 @@ class _ConnSheetState extends State<_ConnSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const names = {'chat': 'Chat', 'json_schema': 'Structured replies', 'vision': 'Pictures', 'audio_in': 'Voice in', 'tts': 'Voice out'};
     final label = dictLabel(widget.provider);
     return SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+      Padding(padding: const EdgeInsets.only(top: 2), child: Text('Through Milo: ${kProviderCapsNote[widget.provider] ?? 'Thinking and reading.'}', style: const TextStyle(fontSize: 12, color: T.mute))),
       if (widget.existing != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Saved · key ${widget.existing!['hint']}${(() { final t = testedOn(widget.existing!['caps']); return t == null ? ' · not tested yet' : ' · tested $t'; })()}', style: const TextStyle(color: T.mute))),
       if (widget.existing == null) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Paste the key, Save it, then Test connection.', style: TextStyle(fontSize: 13, color: T.mute))),
       const SizedBox(height: 12),
@@ -360,8 +366,14 @@ class _ConnSheetState extends State<_ConnSheet> {
       if (widget.provider == 'custom' || widget.provider == 'openai') ...[const SizedBox(height: 10),
         TextField(controller: base, decoration: InputDecoration(hintText: widget.provider == 'custom' ? 'Address, e.g. http://100.64.0.5:11434/v1' : 'Address (leave empty for OpenAI)'))],
       const SizedBox(height: 10),
-      Row(children: [Expanded(child: TextField(controller: model, decoration: const InputDecoration(hintText: 'Model, e.g. gpt-4o-mini'))),
-        const SizedBox(width: 8), FilledButton.tonal(onPressed: busy || widget.existing == null ? null : _models, child: const Text('Find'))]),
+      Card(child: ListTile(
+          leading: const Icon(Icons.smart_toy_outlined, color: T.pri),
+          title: Text(model.text.trim().isEmpty ? 'No model chosen' : (_knownNames[model.text.trim()] ?? prettyModelId(model.text.trim())), style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: model.text.trim().isEmpty ? null : Text(model.text.trim(), style: const TextStyle(fontSize: 11, color: T.mute)),
+          trailing: FilledButton.tonal(onPressed: busy || widget.existing == null ? null : _models, child: const Text('Choose')))),
+      ExpansionTile(title: const Text('Advanced: type a model ID', style: TextStyle(fontSize: 14)), children: [
+        Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), child: TextField(controller: model, onChanged: (_) => setState(() {}), decoration: const InputDecoration(hintText: 'Model, e.g. gpt-4o-mini'))),
+      ]),
       if (needsAck || policy.isNotEmpty) ...[const SizedBox(height: 10), Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('How this provider handles data', style: TextStyle(fontWeight: FontWeight.w700)),
         Text(policy['note'] ?? 'The provider decides; Milo sends only what the ledger shows.', style: const TextStyle(fontSize: 13)),
@@ -374,7 +386,7 @@ class _ConnSheetState extends State<_ConnSheet> {
         for (final e in (probe!['checks'] as Map).entries)
           ListTile(dense: true, leading: Icon('${e.value}'.startsWith('pass') ? Icons.check_circle : '${e.value}'.startsWith('fail') ? Icons.cancel : Icons.remove_circle,
               color: '${e.value}'.startsWith('pass') ? T.mint : '${e.value}'.startsWith('fail') ? T.coral : T.mute),
-              title: Text('${names[e.key] ?? e.key}'),
+              title: Text('${kCheckNames[e.key] ?? e.key}'),
               subtitle: '${e.value}'.contains(':') ? Text('${e.value}'.split(':').last) : null),
       ]))],
       if (widget.existing != null) ...[const SizedBox(height: 8), BigButton('Remove this connection', busy ? null : _remove, kind: BK.outline)],
@@ -384,6 +396,99 @@ class _ConnSheetState extends State<_ConnSheet> {
 }
 
 String dictLabel(String id) => switch (id) { 'meta' => 'Meta', 'openai' => 'OpenAI', 'anthropic' => 'Anthropic', 'custom' => 'Custom or local', _ => id };
+
+/// Model picker: friendly names first, technical ids second. Shows the
+/// recommended pick, the current selection, verified test results (from the
+/// saved probe caps — never assumed), and a refresh action. Failures and
+/// empty lists keep manual entry under Advanced; nothing is substituted.
+class _ModelDialog extends StatefulWidget {
+  const _ModelDialog({required this.api, required this.vid, required this.vkey, required this.provider, required this.currentId, this.caps});
+  final MiloApi api;
+  final String vid, vkey, provider, currentId;
+  final Object? caps;
+  @override
+  State<_ModelDialog> createState() => _ModelDialogState();
+}
+
+class _ModelDialogState extends State<_ModelDialog> {
+  bool loading = true;
+  String? error, source;
+  List<ConnModel> models = [];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { loading = true; error = null; });
+    try {
+      final r = await widget.api.connectionModels(widget.vid, widget.vkey, widget.provider);
+      if (mounted) setState(() { models = r.models; source = r.source; });
+    } catch (e) {
+      if (mounted) setState(() => error = connWords(e));
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  Map<String, dynamic>? _entry(String id) {
+    final c = widget.caps;
+    return (c is Map && c[id] is Map) ? Map<String, dynamic>.from(c[id] as Map) : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(children: [const Expanded(child: Text('Pick a model')), IconButton(tooltip: 'Refresh', onPressed: loading ? null : _load, icon: const Icon(Icons.refresh))]),
+      content: SizedBox(
+          width: double.maxFinite,
+          height: 380,
+          child: loading
+              ? const Center(child: CircularProgressIndicator())
+              : error != null
+                  ? Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text(error!),
+                      const SizedBox(height: 8),
+                      FilledButton.tonal(onPressed: _load, child: const Text('Try again')),
+                      const SizedBox(height: 4),
+                      const Text('Or type the model ID under Advanced.', style: TextStyle(fontSize: 12, color: T.mute)),
+                    ])
+                  : models.isEmpty
+                      ? const Text('No models listed. Type the model ID under Advanced, or try Refresh.')
+                      : ListView(children: [
+                          Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(source == 'live' ? 'Live list from ${dictLabel(widget.provider)}.' : 'Milo’s configured ${dictLabel(widget.provider)} models.',
+                                  style: const TextStyle(fontSize: 12, color: T.mute))),
+                          for (final m in models)
+                            Builder(builder: (_) {
+                              final e = _entry(m.id);
+                              final tested = e == null ? null : testedOn({m.id: e});
+                              final passed = [for (final c in ((e?['checks'] as Map?) ?? {}).entries) if ('${c.value}'.startsWith('pass')) '${c.key}'];
+                              final meta = [
+                                if (m.recommended) 'Recommended',
+                                if (m.id == widget.currentId) 'Current',
+                                if (m.role != null) kRoleLabels[m.role] ?? m.role!,
+                                if (tested != null) 'Tested $tested' else 'Not tested yet',
+                              ].join(' · ');
+                              return ListTile(
+                                leading: m.recommended ? const Icon(Icons.star_outline, color: T.pri) : null,
+                                title: Text(m.name),
+                                subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(m.id, style: const TextStyle(fontSize: 11, color: T.mute)),
+                                  Text(meta, style: const TextStyle(fontSize: 11, color: T.mute)),
+                                  if (passed.isNotEmpty)
+                                    Wrap(spacing: 4, children: [for (final p in passed) Chip(visualDensity: VisualDensity.compact, label: Text(kCheckNames[p] ?? p, style: const TextStyle(fontSize: 10)))]),
+                                ]),
+                                trailing: m.id == widget.currentId ? const Icon(Icons.check, color: T.mint) : null,
+                                onTap: () => Navigator.pop(context, m),
+                              );
+                            }),
+                        ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
+    );
+  }
+}
 
 class Contacts extends ConsumerStatefulWidget { const Contacts({super.key}); @override ConsumerState<Contacts> createState() => _ContactsState(); }
 class _ContactsState extends ConsumerState<Contacts> {

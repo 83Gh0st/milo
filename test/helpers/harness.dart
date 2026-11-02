@@ -117,8 +117,12 @@ class FakeApi extends MiloApi {
       failProbe ? {'ok': false, 'checks': {'chat': 'fail:unreachable'}} :
           {'ok': true, 'checks': {'chat': 'pass', 'json_schema': 'pass', 'vision': 'pass'}};
 
+  bool failModels = false;
   @override
-  Future<List<String>> connectionModels(String vid, String key, String provider) async => ['fake-model-a', 'fake-model-b'];
+  Future<({List<ConnModel> models, String source})> connectionModels(String vid, String key, String provider) async {
+    if (failModels) throw ApiError('unreachable');
+    return (models: [const ConnModel(id: 'fake-model-a', name: 'Fake Model A', recommended: true, role: 'chat'), const ConnModel(id: 'fake-model-b', name: 'Fake Model B')], source: 'live');
+  }
 
   @override
   Future<Map<String, dynamic>> putRoutes(String vid, String key, Map<String, List<Map<String, String>>> routes) async {

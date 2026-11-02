@@ -358,6 +358,31 @@ async def test_connections_crud_and_validation(client):
     assert (await client.put("/v1/connections/routes", headers=V, json={"routes": {"brain": [{"provider": "mock", "model": "mock"}]}})).status_code == 409
 
 
+async def test_models_endpoint_shape_and_roles(client):
+    from app.providers.capabilities import friendly_model_name
+    V = await _vault(client)
+    KEY = "[REDACTED]"
+    s = client.app.state.settings
+    assert (await client.post("/v1/connections/meta", headers=V, json={"api_key": KEY, "default_model": s.spark_model, "ack_data_policy": True})).status_code == 200
+    r = await client.get("/v1/connections/meta/models", headers=V)
+    assert r.status_code == 200 and r.json()["source"] == "configured" and KEY not in r.text
+    by_id = {m["id"]: m for m in r.json()["models"]}
+    assert set(by_id) == {s.spark_model, s.voice_model, s.image_model}
+    assert by_id[s.spark_model]["recommended"] is True and by_id[s.spark_model]["role"] == "chat"
+    assert by_id[s.image_model]["role"] == "image" and by_id[s.voice_model]["role"] == "voice"
+    assert by_id[s.spark_model]["name"] == friendly_model_name(s.spark_model)
+    assert (await client.get("/v1/connections/openai/models", headers=V)).status_code == 404  # no saved connection
+
+
+def test_friendly_model_names():
+    from app.providers.capabilities import friendly_model_name
+    assert friendly_model_name("gpt-4o-mini") == "GPT 4o Mini"
+    assert friendly_model_name("claude-sonnet-4-5") == "Claude Sonnet 4 5"
+    assert friendly_model_name("meta-models/Muse-Spark-Open-816B-A42B") == "Muse Spark Open 816B A42B"
+    assert friendly_model_name("muse-spark-1.3") == "Muse Spark 1.3"
+    assert friendly_model_name("") == "Unknown model"
+
+
 async def test_connections_unreachable_probe_and_redaction(tmp_path, caplog):
     app = mk(tmp_path, allow_lan_providers=True)
     async with app.router.lifespan_context(app):

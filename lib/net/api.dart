@@ -13,6 +13,40 @@ import '../data/secure_store.dart';
 class CloudDisabled implements Exception {}
 class ApiError implements Exception { final String code; final Map<String, dynamic>? detail; ApiError(this.code, [this.detail]); @override String toString() => 'ApiError($code)'; }
 
+/// One discovered model. The server is the source of truth for names;
+/// [prettyModelId] mirrors its rules for ids the server never described
+/// (saved-before-discovery selections shown offline).
+class ConnModel {
+  const ConnModel({required this.id, required this.name, this.recommended = false, this.role});
+  final String id, name;
+  final bool recommended;
+  final String? role; // chat | image | voice — Meta's configured trio only
+  factory ConnModel.parse(Object? m) {
+    if (m is Map) {
+      return ConnModel(id: '${m['id']}', name: '${m['name'] ?? m['id']}', recommended: m['recommended'] == true, role: m['role']?.toString());
+    }
+    return ConnModel(id: '$m', name: prettyModelId('$m')); // legacy string items
+  }
+}
+
+String prettyModelId(String id) {
+  final seg = id.split('/').last.trim();
+  if (seg.isEmpty) return 'Unknown model';
+  const acr = {'gpt', 'tts', 'stt', 'api', 'xl', 'xs', 'os'};
+  final out = <String>[];
+  for (final w in seg.split(RegExp('[-_]+'))) {
+    if (w.isEmpty) continue;
+    if (w != w.toLowerCase() || RegExp(r'^[0-9.]+$').hasMatch(w)) {
+      out.add(w);
+    } else if (acr.contains(w)) {
+      out.add(w.toUpperCase());
+    } else {
+      out.add(w[0].toUpperCase() + w.substring(1));
+    }
+  }
+  return out.isEmpty ? 'Unknown model' : out.join(' ');
+}
+
 /// User barge-in (or turn change) cancelled an in-flight request: drop
 /// silently — no failure mapping, no fallback, no notice.
 class VoiceCancelled implements Exception { const VoiceCancelled(); }
@@ -215,8 +249,10 @@ class MiloApi {
   }
   Future<Map<String, dynamic>> testConnection(String vid, String key, String provider, {String model = ''}) async =>
       (await _send<Map<String, dynamic>>('POST', '/v1/connections/$provider/test', body: {'model': model}, extra: _vh(vid, key))).data!;
-  Future<List<String>> connectionModels(String vid, String key, String provider) async =>
-      [for (final m in (await _send<Map<String, dynamic>>('GET', '/v1/connections/$provider/models', extra: _vh(vid, key))).data!['models'] as List) '$m'];
+  Future<({List<ConnModel> models, String source})> connectionModels(String vid, String key, String provider) async {
+    final d = (await _send<Map<String, dynamic>>('GET', '/v1/connections/$provider/models', extra: _vh(vid, key))).data!;
+    return (models: [for (final m in d['models'] as List) ConnModel.parse(m)], source: '${d['source'] ?? 'live'}');
+  }
   Future<Map<String, dynamic>> putRoutes(String vid, String key, Map<String, List<Map<String, String>>> routes) async =>
       (await _send<Map<String, dynamic>>('PUT', '/v1/connections/routes', body: {'routes': routes}, extra: _vh(vid, key))).data!;
   Future<void> deleteConnection(String vid, String key, String provider) async {

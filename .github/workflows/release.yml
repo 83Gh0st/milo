@@ -3,13 +3,19 @@ name: release
 # only runs on version tags (v*) or manual dispatch, and every signing step is
 # conditional — without signing secrets it still verifies formatting, analysis,
 # tests, and unsigned builds, and says so in the summary.
+env:
+  # Public production endpoint (a URL, not a credential): the fallback API
+  # base when neither the api_base dispatch input nor the MILO_API_BASE
+  # secret is set, so release artifacts can never silently ship the
+  # emulator-only compiled-in default (http://10.0.2.2:8000).
+  MILO_PROD_API_BASE: https://arjun3314508--milo-gateway-web.us-east.modal.run
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       api_base:
-        description: 'Deployed gateway URL for API_BASE (leave empty to use the secret default)'
+        description: 'Deployed gateway URL for API_BASE (leave empty for MILO_API_BASE secret, else the production default)'
         required: false
         default: ''
 
@@ -92,12 +98,29 @@ jobs:
           fi
       - name: Build APK + App Bundle
         env:
-          API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
+          API_BASE_INPUT: ${{ inputs.api_base }}
+          API_BASE_SECRET: ${{ secrets.MILO_API_BASE }}
         run: |
-          DEFINE_ARGS=""
-          if [ -n "$API_BASE" ]; then DEFINE_ARGS="--dart-define=API_BASE=$API_BASE"; fi
-          flutter build apk --release $DEFINE_ARGS
-          flutter build appbundle --release $DEFINE_ARGS
+          if [ -n "$API_BASE_INPUT" ]; then API_BASE="$API_BASE_INPUT"; SRC='dispatch input';
+          elif [ -n "$API_BASE_SECRET" ]; then API_BASE="$API_BASE_SECRET"; SRC='MILO_API_BASE secret';
+          else API_BASE="$MILO_PROD_API_BASE"; SRC='release default (production gateway)'; fi
+          echo "API_BASE source: $SRC"
+          echo "MILO_EFFECTIVE_API_BASE=$API_BASE" >> "$GITHUB_ENV"
+          echo "MILO_API_SOURCE=$SRC" >> "$GITHUB_ENV"
+          flutter build apk --release --dart-define=API_BASE=$API_BASE
+          flutter build appbundle --release --dart-define=API_BASE=$API_BASE
+      - name: Verify production API base baked in
+        run: |
+          test -n "$MILO_EFFECTIVE_API_BASE" || { echo 'effective API base missing (build step did not export it)' >&2; exit 1; }
+          HOST="$(printf '%s' "$MILO_EFFECTIVE_API_BASE" | sed -e 's#^https\?://##' -e 's#/.*##')"
+          ESCAPED="$(printf '%s' "$HOST" | sed 's/\./\\./g')"
+          for ART in build/app/outputs/flutter-apk/app-release.apk build/app/outputs/bundle/release/app-release.aab; do
+            test -f "$ART" || { echo "missing $ART" >&2; exit 1; }
+            if grep -a -q 'api\.example\.com' "$ART"; then echo "FAIL: $ART contains placeholder api.example.com" >&2; exit 1; fi
+            grep -a -q "$ESCAPED" "$ART" || { echo "FAIL: $ART does not contain the expected API host (source: $MILO_API_SOURCE)" >&2; exit 1; }
+            if grep -a -q '10\.0\.2\.2' "$ART"; then echo "::warning::$ART still contains the emulator default string (may be a leftover literal; expected host is present)"; fi
+          done
+          echo "API base verified in APK+AAB (source: $MILO_API_SOURCE): expected host present, placeholder absent"
       - uses: actions/upload-artifact@v4
         with:
           name: milo-android-release
@@ -129,11 +152,14 @@ jobs:
       - run: dart run flutter_native_splash:create
       - name: Build for simulator (unsigned)
         env:
-          API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
+          API_BASE_INPUT: ${{ inputs.api_base }}
+          API_BASE_SECRET: ${{ secrets.MILO_API_BASE }}
         run: |
-          DEFINE_ARGS=""
-          if [ -n "$API_BASE" ]; then DEFINE_ARGS="--dart-define=API_BASE=$API_BASE"; fi
-          flutter build ios --simulator --no-codesign $DEFINE_ARGS
+          if [ -n "$API_BASE_INPUT" ]; then API_BASE="$API_BASE_INPUT"; SRC='dispatch input';
+          elif [ -n "$API_BASE_SECRET" ]; then API_BASE="$API_BASE_SECRET"; SRC='MILO_API_BASE secret';
+          else API_BASE="$MILO_PROD_API_BASE"; SRC='release default (production gateway)'; fi
+          echo "API_BASE source: $SRC"
+          flutter build ios --simulator --no-codesign --dart-define=API_BASE=$API_BASE
       - run: |
           echo '### iOS: simulator build verified (unsigned - device IPA needs signing, see docs/RELEASE.md)' >> "$GITHUB_STEP_SUMMARY"
 
@@ -213,11 +239,28 @@ jobs:
           sed -i '' 's/^ *//' ios/Runner/ExportOptions.plist
       - name: Build signed IPA
         env:
-          API_BASE: ${{ inputs.api_base != '' && inputs.api_base || secrets.MILO_API_BASE }}
+          API_BASE_INPUT: ${{ inputs.api_base }}
+          API_BASE_SECRET: ${{ secrets.MILO_API_BASE }}
         run: |
-          DEFINE_ARGS=""
-          if [ -n "$API_BASE" ]; then DEFINE_ARGS="--dart-define=API_BASE=$API_BASE"; fi
-          flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist $DEFINE_ARGS
+          if [ -n "$API_BASE_INPUT" ]; then API_BASE="$API_BASE_INPUT"; SRC='dispatch input';
+          elif [ -n "$API_BASE_SECRET" ]; then API_BASE="$API_BASE_SECRET"; SRC='MILO_API_BASE secret';
+          else API_BASE="$MILO_PROD_API_BASE"; SRC='release default (production gateway)'; fi
+          echo "API_BASE source: $SRC"
+          echo "MILO_EFFECTIVE_API_BASE=$API_BASE" >> "$GITHUB_ENV"
+          echo "MILO_API_SOURCE=$SRC" >> "$GITHUB_ENV"
+          flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist --dart-define=API_BASE=$API_BASE
+      - name: Verify production API base baked in
+        run: |
+          test -n "$MILO_EFFECTIVE_API_BASE" || { echo 'effective API base missing (build step did not export it)' >&2; exit 1; }
+          HOST="$(printf '%s' "$MILO_EFFECTIVE_API_BASE" | sed -e 's#^https\?://##' -e 's#/.*##')"
+          ESCAPED="$(printf '%s' "$HOST" | sed 's/\./\\./g')"
+          IPA=(build/ios/ipa/*.ipa)
+          test -f "${IPA[0]}" || { echo 'no IPA built' >&2; exit 1; }
+          unzip -p "${IPA[0]}" 'Payload/Runner.app/Runner' > "$RUNNER_TEMP/Runner-bin"
+          if grep -a -q 'api\.example\.com' "$RUNNER_TEMP/Runner-bin"; then echo 'FAIL: IPA contains placeholder api.example.com' >&2; exit 1; fi
+          grep -a -q "$ESCAPED" "$RUNNER_TEMP/Runner-bin" || { echo "FAIL: IPA does not contain the expected API host (source: $MILO_API_SOURCE)" >&2; exit 1; }
+          if grep -a -q '10\.0\.2\.2' "$RUNNER_TEMP/Runner-bin"; then echo '::warning::IPA still contains the emulator default string (may be a leftover literal; expected host is present)'; fi
+          echo "API base verified in IPA (source: $MILO_API_SOURCE): expected host present, placeholder absent"
       - uses: actions/upload-artifact@v4
         with: {name: milo-ios-ipa, path: build/ios/ipa/*.ipa, if-no-files-found: error}
       - run: |
