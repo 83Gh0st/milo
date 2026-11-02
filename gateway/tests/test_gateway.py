@@ -559,7 +559,7 @@ async def test_speak_mock_sentence_end_to_end(client):
 
 
 def test_assembler_tools_accept_clean_reject_rest():
-    """Phase 5: the assembler is the tools gate — closed set, strict args."""
+    """Phase 5: the assembler is the tools gate - closed set, strict args."""
     a = Assembler("friendly")
     ev = []
     for i, u in enumerate([

@@ -11,7 +11,7 @@ through the Meta Model API. Milo never claims Spark drew a picture it did not.
 | Photo capture + prep | Working | `lib/ui/chat_screen.dart` (`Show Milo`), `lib/ui/understand_screen.dart`, `lib/media/photo.dart` (1600 px cap, EXIF/GPS wipe, original deleted) |
 | Image → model (Understand) | Wired, needs live verification | `UnderstandReq.image_b64` → `build_messages` OpenAI `image_url` parts → `need="vision"` routing; vision probe in `OpenAICompatAdapter.probe` |
 | Image → model (chat) | By design text-only | `BrainReq` has no image field; chat photos route to Understand instead |
-| Hosted vision declaration | Attempted, unverified | The deployer path tries entries blindly (`routing.py` filters only the family `caps_map` path), so hosted image turns reach Spark — but no staging ladder has ever sent one |
+| Hosted vision declaration | Attempted, unverified | The deployer path tries entries blindly (`routing.py` filters only the family `caps_map` path), so hosted image turns reach Spark - but no staging ladder has ever sent one |
 | Cloud voice input (Meta) | Wired, needs keyed verification | mic → `/v1/voice` websocket → `muse-voice-transcribe-1.0` (zero retention requested); typed input always available as fallback |
 | Model audio understanding / video | Unsupported | Transcription turns speech into text; the reasoning endpoint never receives raw audio or video |
 | Picture generation | Implemented this pass | `POST /v1/image` → `router.generate_image` (visual entries) → `MetaImage` (`muse-image-1.0` at `api.meta.ai/v1`) |
@@ -53,16 +53,16 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
   in a fixed child-safe cartoon style (never photorealistic, no text, no
   real people). Ledger-before-send; deployer turns metered at `price_image`
   ($0.01); bytes cached by content hash with no user link.
-- Credentials: a Meta Model API key (`LLM|...`, from dev.meta.ai) — either
+- Credentials: a Meta Model API key (`LLM|...`, from dev.meta.ai) - either
   the deployer's `model_api_key` secret or, preferably, the family's own
   BYOK key in the encrypted vault (no shared-spend abuse vector). Without
   any key the endpoint fails honestly (`image_failed`/auth error → Milo
   says drawing needs a grown-up to set up picture access).
 - Muse Image is NOT on Modal and needs no Modal deployment: it is a
-  Meta-hosted API, also reachable via OpenRouter/fal — any of them can be
+  Meta-hosted API, also reachable via OpenRouter/fal - any of them can be
   wired as a BYOK `custom` entry later without touching this flow.
 - Agentic extras stay off: `tool_enablement` (web/image search, shell) is
-  disabled and reasoning is low — a picture request must not browse or run
+  disabled and reasoning is low - a picture request must not browse or run
   code.
 
 ## 4. Safety and accessibility rules (enforced, not aspirational)
@@ -94,14 +94,14 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
 3. **Budgets**: confirm `price_image` metering on deployer turns and no
    charge path on family turns.
 4. Later, if ever: video frames-as-images and model audio input need new
-   endpoint capabilities — do not fake them with the text endpoint.
+   endpoint capabilities - do not fake them with the text endpoint.
 
 ## 6b. Extended Meta capabilities (registry: `meta_catalog.py`)
 
 - **SAM 3.1 (`sam-3.1`, wired, live-unverified).** `POST /v1/segment` takes
   one photo + one noun phrase and returns normalized boxes, implemented from
   Meta's cookbook wire format (Responses API stream, parsed ONLY with
-  `meta_sam_parser` — the gateway never hand-parses SAM text). The Understand
+  `meta_sam_parser` - the gateway never hand-parses SAM text). The Understand
   photo flow offers "Find things in this photo" when cloud AI is on; tapping
   a box explains that object against the same photo via the Understand path.
   Verify live with `MODEL_API_KEY=... python gateway/scripts/probe_sam.py
@@ -114,7 +114,7 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
   `allowed_models`; set `SPARK_MODEL=muse-wonder-1.0` deliberately for hard
   planning/compose work. Default stays Spark; no silent routing, ever.
 - **Muse Glimmer 30B (operator-run local).** Apache-2.0 open weights, NOT on
-  the Model API, NOT on phones (30B/4-bit ≈ 20 GB — needs ~24 GB VRAM or an
+  the Model API, NOT on phones (30B/4-bit ≈ 20 GB - needs ~24 GB VRAM or an
   equipped Mac). Run `ollama run muse-glimmer:30b`, connect Milo to
   `http://<lan-ip>:11434/v1` as a Custom/local BYOK endpoint (key optional),
   and data never leaves your network. The eval harness already speaks to it
@@ -125,7 +125,7 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
   and arbitrary tool execution stay OFF for a children's product: unvetted
   web content + side effects contradict the closed-action safety contract.
   Enablement path if ever wanted: trusted-adult-gated allow-listed tools,
-  one execute-and-feed-back loop, ledger per call — a design review, not a
+  one execute-and-feed-back loop, ledger per call - a design review, not a
   flag flip.
 
 ## 6. Providers, credentials, costs, limits
@@ -153,15 +153,15 @@ here claims production verification.
 |---|---|---|---|---|---|---|
 | Hosted reasoning (Spark Open via Modal) | yes | yes | yes | yes (staging ladder: real turns, `done.provider=modal`) | yes (chat) | needs run |
 | Structured GenUI (`ui_spec`) | yes | yes | yes | yes (staging: valid `ui_spec` events) | yes | needs run |
-| Story generation (`/v1/story` + StoryTime) | yes | yes | yes | no — run `live_probe.py` after deploy | yes | no |
+| Story generation (`/v1/story` + StoryTime) | yes | yes | yes | no - run `live_probe.py` after deploy | yes | no |
 | Image understanding (`/v1/understand` + photo) | yes | yes | yes | partial (staging ladder ok; needs `--photo` run) | yes | no |
-| Image generation (`/v1/image`, Muse Image) | yes | yes | yes | no — run `live_probe.py` after deploy | yes (story art, tile art, chat) | no |
-| Segmentation (`/v1/segment`, SAM 3.1 boxes) | yes | yes | yes | no — run `probe_sam.py`, then `live_probe.py --photo` | yes (Find things panel) | no |
-| Voice transcription (Transcribe) | yes | yes | yes | no — on-device mic check only | yes | no |
+| Image generation (`/v1/image`, Muse Image) | yes | yes | yes | no - run `live_probe.py` after deploy | yes (story art, tile art, chat) | no |
+| Segmentation (`/v1/segment`, SAM 3.1 boxes) | yes | yes | yes | no - run `probe_sam.py`, then `live_probe.py --photo` | yes (Find things panel) | no |
+| Voice transcription (Transcribe) | yes | yes | yes | no - on-device mic check only | yes | no |
 | Spoken output (platform TTS + neural `/v1/speak`) | yes | yes | yes | TTS yes (device); neural no | yes | partial |
 | Custom board tiles with AI pictures | yes | yes | yes | no (uses `/v1/image`; same live gate) | yes (WordsEditor + board) | no |
 | Word explanations (lookup → Understand) | yes | yes | yes | same gate as reasoning | yes (WordBuilder) | no |
-| Wonder long-form routing | yes | yes | yes | no — needs key + deliberate route | no (route exists, no UI toggle) | no |
+| Wonder long-form routing | yes | yes | yes | no - needs key + deliberate route | no (route exists, no UI toggle) | no |
 | Glimmer local | manual path only | n/a | via Custom endpoint | operator-dependent | via Custom endpoint | n/a |
 | Tools / web grounding | declined | n/a | n/a | n/a | n/a | n/a |
 

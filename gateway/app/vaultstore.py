@@ -15,7 +15,7 @@ from .vaultkeys import open_vault_key
 async def migrate_legacy(engine, vid: str) -> bool:
     """Copies a pre-Phase-3 vault_keys row into vault_connections without
     data loss (same Fernet envelope, same key_enc_secret), then removes the
-    original — all in one transaction. Returns True when it migrated."""
+    original - all in one transaction. Returns True when it migrated."""
     async with engine.begin() as c:
         knew = (await c.execute(select(vault_connections.c.provider).where(vault_connections.c.vault_id == vid))).first()
         krow = (await c.execute(select(vault_keys).where(vault_keys.c.vault_id == vid))).first()

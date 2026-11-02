@@ -1,4 +1,4 @@
-# Plan completion report — P0/P1 acceptance + P2 (28 Oct 2026)
+# Plan completion report - P0/P1 acceptance + P2 (28 Oct 2026)
 
 Branch: `upgrade/plan-gaps` (8 commits, no push). Directive: finish the
 build/architecture plan's P0, P1 and P2 on top of Phases 0–5 (all committed
@@ -7,45 +7,45 @@ on `upgrade/phase-3`). No new dependencies. No secrets. No paid calls.
 ## 1. What changed (files, one line each)
 
 P0/P1 acceptance gaps:
-- `lib/ui/calm_screens.dart` — check-in counts now opt-in
+- `lib/ui/calm_screens.dart` - check-in counts now opt-in
   (`checkin.counts`, default off) per plan 7.11.
-- `lib/ui/trusted_screen.dart` — report extended: This week + All time,
+- `lib/ui/trusted_screen.dart` - report extended: This week + All time,
   quiet-week copy, check-in toggle + gated row.
-- `lib/ui/home_screen.dart` — pre-reader Settings pictogram button (7.9).
-- `lib/ui/progress_screen.dart` — wardrobe tiles wired to real persisted
+- `lib/ui/home_screen.dart` - pre-reader Settings pictogram button (7.9).
+- `lib/ui/progress_screen.dart` - wardrobe tiles wired to real persisted
   looks A/B/C with selection ring (were decorative).
-- `gateway/app/safety.py` — `no_new_content` moved here (dep-free).
-- `gateway/app/routes.py` — imports the guard; behavior unchanged.
-- `gateway/tests/test_wording_units.py` (new) — plan 7.5: 50 cases.
-- `gateway/tests/test_gateway.py` — guard import follows the move.
-- `test/helpers/harness.dart` — `FakeApi` cloud fakes write one ledger
+- `gateway/app/safety.py` - `no_new_content` moved here (dep-free).
+- `gateway/app/routes.py` - imports the guard; behavior unchanged.
+- `gateway/tests/test_wording_units.py` (new) - plan 7.5: 50 cases.
+- `gateway/tests/test_gateway.py` - guard import follows the move.
+- `test/helpers/harness.dart` - `FakeApi` cloud fakes write one ledger
   entry each; `cutStream` flag for mid-stream failure.
-- `test/ledger_test.dart` (new) — 7.10: 100 mixed calls → 100 entries,
+- `test/ledger_test.dart` (new) - 7.10: 100 mixed calls → 100 entries,
   metadata-only; 7.12: mid-stream cut degrades to pocket + resting.
-- `test/regression_test.dart` — 7.7 chips-payload test; 7.10 pause test.
-- `eval/run_eval.py` — full sizes: 40/20/20/50/20 safety/inject/
+- `test/regression_test.dart` - 7.7 chips-payload test; 7.10 pause test.
+- `eval/run_eval.py` - full sizes: 40/20/20/50/20 safety/inject/
   simplify/compose/memory, 20 hi + 20 ml, strategy × 20 pairs.
 
 P2 (plan 12.1):
-- `lib/companion/director.dart` — `scanMode`/`scanMs` persisted settings.
-- `lib/ui/more_screen.dart` — Accessibility: scanning toggle + speed.
-- `lib/ui/express_screen.dart` — board auto-scan (tiles + More + Speak +
+- `lib/companion/director.dart` - `scanMode`/`scanMs` persisted settings.
+- `lib/ui/more_screen.dart` - Accessibility: scanning toggle + speed.
+- `lib/ui/express_screen.dart` - board auto-scan (tiles + More + Speak +
   Clear); urgent row always direct; holds during Speaking view.
-- `lib/sys/share_in.dart` (new) — `milo/share` channel: late + cold-start.
-- `lib/core/providers.dart` — `sharedTextProvider` (consume-once).
-- `lib/ui/understand_screen.dart` — consumes shared text like a lookup.
-- `lib/main.dart` — arms share-in; cold-start routes to Understand.
-- `docs/7_13_NATIVE.md` (new) — exact Android snippets, surface order,
+- `lib/sys/share_in.dart` (new) - `milo/share` channel: late + cold-start.
+- `lib/core/providers.dart` - `sharedTextProvider` (consume-once).
+- `lib/ui/understand_screen.dart` - consumes shared text like a lookup.
+- `lib/main.dart` - arms share-in; cold-start routes to Understand.
+- `docs/7_13_NATIVE.md` (new) - exact Android snippets, surface order,
   headless Core API table; iOS/keyboard/a11y marked pending.
-- `gateway/app/providers/capabilities.py` — `visual_ground` capability.
-- `gateway/app/providers/mock.py` + `mock_adapter.py` — `MockGround`,
+- `gateway/app/providers/capabilities.py` - `visual_ground` capability.
+- `gateway/app/providers/mock.py` + `mock_adapter.py` - `MockGround`,
   adapter passthrough, probe pass.
-- `gateway/app/providers/meta_adapter.py` — `SAM_ENDPOINT_UNVERIFIED`
+- `gateway/app/providers/meta_adapter.py` - `SAM_ENDPOINT_UNVERIFIED`
   (None) + honest refusal + probe skip line.
-- `gateway/tests/test_phase3_units.py` — 9-capability shape + ground test.
-- `test/agent_test.dart` — scan ×2, report ×2, share-in ×2, check-in
+- `gateway/tests/test_phase3_units.py` - 9-capability shape + ground test.
+- `test/agent_test.dart` - scan ×2, report ×2, share-in ×2, check-in
   opt-in update.
-- `test/v2_test.dart` — hi/ml greetings across all hour buckets.
+- `test/v2_test.dart` - hi/ml greetings across all hour buckets.
 
 ## 2. Tests run (real commands, real results)
 
@@ -76,14 +76,14 @@ P1 (all ship): Learn word-builder + story, no timers (code-read ✓);
 calm space + opt-in counts (new, CI); progress + hide flag (pre-existing,
 CI); trusted-adult area, counts-only (reviewed ✓); pre-reader + Settings
 pictogram (new, CI); Muse Image explainers (pre-existing route).
-P2: sync — pre-existing E2EE, unchanged, CI suite owns it; reports —
-built + tested (CI); switch scanning — built + tested (CI); hi/ml —
+P2: sync - pre-existing E2EE, unchanged, CI suite owns it; reports -
+built + tested (CI); switch scanning - built + tested (CI); hi/ml -
 stack verified (greetings/voice/STT/prompts/TTS) + tests (CI), UI-string
-localization needs fluent review; share-in — Dart seam + tests (CI),
-native snippets in docs, UNVERIFIED; widget/keyboard/a11y-service/iOS —
-docs only (no platform dirs, no SDK: genuinely blocked); SAM — mock +
+localization needs fluent review; share-in - Dart seam + tests (CI),
+native snippets in docs, UNVERIFIED; widget/keyboard/a11y-service/iOS -
+docs only (no platform dirs, no SDK: genuinely blocked); SAM - mock +
 capability + honest refusal, tested (ran ✓), live use blocked on
-docs/key; offline STT — blocked (no model assets offline); Rive —
+docs/key; offline STT - blocked (no model assets offline); Rive -
 blocked (no .riv asset; stub + spec exist).
 
 ## 4. UNVERIFIED and why

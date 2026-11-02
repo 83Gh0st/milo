@@ -28,7 +28,7 @@ def make_engine(url: str) -> AsyncEngine:
 class Budget:
     """Daily + monthly deployer spend estimates in USD. Only deployer-path
     turns are metered here; family-keyed turns spend the family's quota.
-    Totals live on a SpendLedger (postgres | Modal Dict | memory — see
+    Totals live on a SpendLedger (postgres | Modal Dict | memory - see
     app/spend.py); the memory ledger is always clamped to the low
     ephemeral ceilings, and ``persistent`` reports which case this is."""
     def __init__(self, ledger, limit: float, monthly_limit: float = 100.0, backend: str = "postgres"):

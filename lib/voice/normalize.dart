@@ -38,7 +38,7 @@ String normalizeForSpeech(String text, String lang, {Map<String, String> lexicon
   }
   // Keep letters (all scripts), marks, numbers, whitespace and sentence
   // punctuation; drop emoji, bullets and decorative symbols.
-  s = s.replaceAll(RegExp('[^\\p{L}\\p{M}\\p{N}\\s.,?!;:\'"()\\-…—–/‘’]', unicode: true), ' ');
+  s = s.replaceAll(RegExp('[^\\p{L}\\p{M}\\p{N}\\s.,?!;:\'"()\\-…–/‘’]', unicode: true), ' ');
   return s.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 

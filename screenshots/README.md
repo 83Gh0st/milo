@@ -4,7 +4,7 @@
 
 `test/screenshots_test.dart` pumps real screens with the standard test fakes
 and saves **widget-tree renders** (PNG, 786x1704) into this directory. They
-show real widgets, real layout, and real brand assets — but no device chrome,
+show real widgets, real layout, and real brand assets - but no device chrome,
 no status bar, and no live backend. Every capture below states its backend;
 anything marked *fixture* or *mock* must never be presented as a live run.
 
@@ -87,4 +87,4 @@ void main() {
 
 Muse Image concept compositions are welcome for slides/socials, but they live
 outside this directory, are never named like captures, and are always labeled
-"concept art — not a screenshot".
+"concept art - not a screenshot".

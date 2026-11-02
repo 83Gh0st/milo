@@ -4,7 +4,7 @@ import '../data/db.dart';
 /// `ai.family_key` setting (`family` = the family's own providers, anything
 /// else = Milo hosted): no migration, no new keys, sync-safe (the setting
 /// syncs with the rest of settings, the keys themselves never touch the
-/// phone — they stay sealed on the server behind the sync vault).
+/// phone - they stay sealed on the server behind the sync vault).
 enum AiChoice { miloHosted, family }
 
 /// Reads the current choice. Defaults to Milo hosted.
@@ -21,8 +21,8 @@ Future<void> setAiChoice(MiloDb db, AiChoice c) =>
 
 /// One honest line per choice for settings surfaces.
 String aiChoiceWords(AiChoice c) => switch (c) {
-      AiChoice.miloHosted => 'Milo hosted — Milo’s server does the thinking. '
+      AiChoice.miloHosted => 'Milo hosted - Milo’s server does the thinking. '
           'Works without sync.',
-      AiChoice.family => 'Family AI — your own provider accounts, billed by '
+      AiChoice.family => 'Family AI - your own provider accounts, billed by '
           'your providers. Needs sync.',
     };

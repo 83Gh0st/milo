@@ -1,7 +1,7 @@
 name: release
 # Tagged + manual releases. The per-push `ci.yml` is untouched: this workflow
 # only runs on version tags (v*) or manual dispatch, and every signing step is
-# conditional — without signing secrets it still verifies formatting, analysis,
+# conditional - without signing secrets it still verifies formatting, analysis,
 # tests, and unsigned builds, and says so in the summary.
 env:
   # Public production endpoint (a URL, not a credential): the fallback API
@@ -130,7 +130,7 @@ jobs:
           if-no-files-found: error
       - run: |
           if [ "$RELEASE_SIGNED" = 'true' ]; then echo '### Android: Play-signed AAB + APK built' >> "$GITHUB_STEP_SUMMARY";
-          else echo '### Android: DEBUG-signed APK/AAB (no signing secrets — fine for testing, not for Play)' >> "$GITHUB_STEP_SUMMARY"; fi
+          else echo '### Android: DEBUG-signed APK/AAB (no signing secrets - fine for testing, not for Play)' >> "$GITHUB_STEP_SUMMARY"; fi
 
   ios-verify:
     # Simulator verification on every release tag: proves the iOS build
@@ -217,7 +217,7 @@ jobs:
           BUNDLE="${BUNDLE_ID:-com.example.milo}"
           # flutter create stamps com.example.milo into the Xcode project; the
           # real bundle id comes from the IOS_BUNDLE_ID secret (documented in
-          # docs/RELEASE.md — set it before the first TestFlight upload).
+          # docs/RELEASE.md - set it before the first TestFlight upload).
           sed -i '' "s/com\.example\.milo/$BUNDLE/g" ios/Runner.xcodeproj/project.pbxproj
           cat > ios/Runner/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>

@@ -15,7 +15,7 @@ money. So the ledger has three backends, resolved explicitly:
   honest ``budget_persistent: false`` health. This is the documented
   conservative alternative, not a silent downgrade.
 
-Totals are estimates (read-modify-write, no cross-request locking — the
+Totals are estimates (read-modify-write, no cross-request locking - the
 same as the historical Postgres version); the hard per-request caps
 (max tokens, timeouts, per-device rate limits) hold regardless of backend.
 """
@@ -75,7 +75,7 @@ class DictSpend:
     """Ledger over a Modal Dict (or a plain dict in tests).
 
     Keys hold running float totals per UTC day. Modal Dicts are touched
-    ONLY through their async API (``get.aio``/``put.aio``) — blocking
+    ONLY through their async API (``get.aio``/``put.aio``) - blocking
     ``mapping[key]`` calls stall the event loop and Modal warns loudly
     about them. Plain dicts (no ``.aio``) use the sync path.
     """

@@ -27,7 +27,7 @@ class ModalAdapter(OpenAICompatAdapter):
         return Capabilities(text_stream=True, json_schema=True)
 
     def _payload_extra(self, model):
-        # Qwen3 hybrid thinking off — but ONLY for Qwen-family ids. The
+        # Qwen3 hybrid thinking off - but ONLY for Qwen-family ids. The
         # default hosted model (Muse Spark) gets a stock OpenAI payload;
         # vendor-specific extras must never leak onto other servers.
         if "qwen" in str(model).lower():

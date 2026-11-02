@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-label="Milo logo: a sprout-topped companion mark with the word milo">
+  <rect x="8" y="8" width="624" height="344" rx="28" fill="#ffffff" stroke="#E4E1D9" stroke-width="2"/>
+  <!-- flat companion mark -->
+  <g>
+    <rect x="315" y="36" width="10" height="30" rx="5" fill="#3FA46F"/>
+    <ellipse cx="299" cy="36" rx="18" ry="10" fill="#46B27A" transform="rotate(-25 299 36)"/>
+    <ellipse cx="341" cy="32" rx="18" ry="10" fill="#46B27A" transform="rotate(25 341 32)"/>
+    <circle cx="320" cy="122" r="62" fill="#7C86F8"/>
+    <ellipse cx="320" cy="152" rx="40" ry="26" fill="#6A76EE" opacity="0.55"/>
+    <ellipse cx="278" cy="142" rx="9" ry="6" fill="#F5A8C0" opacity="0.7"/>
+    <ellipse cx="362" cy="142" rx="9" ry="6" fill="#F5A8C0" opacity="0.7"/>
+    <g transform="translate(296,118)">
+      <g>
+        <animateTransform attributeName="transform" type="scale" values="1 1;1 1;1 0.12;1 1" keyTimes="0;0.9;0.94;1" dur="4.8s" repeatCount="indefinite"/>
+        <circle cx="0" cy="0" r="13" fill="#ffffff"/>
+        <circle cx="0" cy="0" r="6.5" fill="#2B2B3D"/>
+        <circle cx="2.5" cy="-2.5" r="2.2" fill="#ffffff"/>
+      </g>
+    </g>
+    <g transform="translate(344,118)">
+      <g>
+        <animateTransform attributeName="transform" type="scale" values="1 1;1 1;1 0.12;1 1" keyTimes="0;0.9;0.94;1" dur="4.8s" repeatCount="indefinite"/>
+        <circle cx="0" cy="0" r="13" fill="#ffffff"/>
+        <circle cx="0" cy="0" r="6.5" fill="#2B2B3D"/>
+        <circle cx="2.5" cy="-2.5" r="2.2" fill="#ffffff"/>
+      </g>
+    </g>
+    <path d="M300,148 Q320,162 340,148" stroke="#2B2B3D" stroke-width="5" stroke-linecap="round" fill="none"/>
+  </g>
+  <text x="320" y="256" text-anchor="middle" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="68" font-weight="bold" letter-spacing="2" fill="#2B2B3D">milo</text>
+  <text x="320" y="292" text-anchor="middle" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="22" fill="#5B5B72">Understand. Express. Grow.</text>
+  <text x="320" y="320" text-anchor="middle" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="16" fill="#8A8AA3">A little help, when words aren&#8217;t enough.</text>
+</svg>

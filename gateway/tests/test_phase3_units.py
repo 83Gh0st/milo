@@ -159,8 +159,8 @@ def test_adapters_import_without_web_stack():
         import openai  # noqa: F401
         from types import SimpleNamespace
         s = SimpleNamespace(spark_model="muse-spark", voice_model="muse-voice", image_model="muse-image",
-                            model_api_key="x", meta_base_url="https://x.test/v1",
-                            allowed_models={"muse-spark", "muse-voice", "muse-image"})
+                            sam_model="sam-3.1", model_api_key="x", meta_base_url="https://x.test/v1",
+                            allowed_models={"muse-spark", "muse-voice", "muse-image", "sam-3.1"})
         assert registry.get_adapter("meta", s).id == "meta"
     except ImportError:
         import importlib
@@ -249,7 +249,7 @@ def test_meta_catalog_complete_and_honest():
             assert isinstance(f, str) and len(f) > 10
         assert isinstance(c.models, tuple) and c.models and isinstance(c.byok, bool)
     assert live_capabilities() == ("spark",)  # only staging-verified rows claim live
-    assert get_capability("sam").status == "probe" and not get_capability("sam").verified_live
+    assert get_capability("sam").status == "wired" and not get_capability("sam").verified_live  # probe means "no app-path code"; /v1/segment + MetaGround exist, keyed run pending
     try:
         get_capability("muse-fairy")
     except KeyError:

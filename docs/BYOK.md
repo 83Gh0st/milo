@@ -36,10 +36,10 @@ the in-app Test connection or a keyed staging check.
    standard-model retention is still unverified, so Meta still needs the
    acknowledgement. Re-check terms before every release.
 7. A saved key is never shown as working: only a passed Test connection
-   stamps `tested_at`, and the app shows `Tested <date>` vs `Saved — not
+   stamps `tested_at`, and the app shows `Tested <date>` vs `Saved - not
    tested yet`. A family that saved keys but never saved routes still gets
    working turns: the server synthesises defaults from the family's own
-   providers (never the deployer's) — see `sync.py` `vault_ctx_for`.
+   providers (never the deployer's) - see `sync.py` `vault_ctx_for`.
 
 ## Explicit-failure rules (tested in `test_gateway.py`)
 
@@ -52,7 +52,7 @@ the in-app Test connection or a keyed staging check.
   deployer outage; auth errors never fail over to another provider silently.
 - A model whose probe failed a needed capability (e.g. pictures on a
   text-only model) is skipped before any network I/O and surfaces as
-  `unsupported_capability` — Milo says what it cannot do instead of trying.
+  `unsupported_capability` - Milo says what it cannot do instead of trying.
 - Removing the key, turning the switch off, turning sync off, or deleting the
   vault all stop family billing; the app falls back to the shared key or to
   the on-device pocket brain and says so.
@@ -60,7 +60,7 @@ the in-app Test connection or a keyed staging check.
 ## Trust boundary (deliberate design decision)
 
 Family turns are routed **through the gateway**, not direct
-client-to-provider — evaluated against direct calls and chosen because:
+client-to-provider - evaluated against direct calls and chosen because:
 
 - Safety validation, the brain contract, crisis handling, streaming,
   cancellations, and error mapping are implemented once, server-side, and

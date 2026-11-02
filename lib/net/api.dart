@@ -61,7 +61,7 @@ class ConnModel {
   const ConnModel({required this.id, required this.name, this.recommended = false, this.role});
   final String id, name;
   final bool recommended;
-  final String? role; // chat | image | voice — Meta's configured trio only
+  final String? role; // chat | image | voice - Meta's configured trio only
   factory ConnModel.parse(Object? m) {
     if (m is Map) {
       return ConnModel(id: '${m['id']}', name: '${m['name'] ?? m['id']}', recommended: m['recommended'] == true, role: m['role']?.toString());
@@ -89,7 +89,7 @@ String prettyModelId(String id) {
 }
 
 /// User barge-in (or turn change) cancelled an in-flight request: drop
-/// silently — no failure mapping, no fallback, no notice.
+/// silently - no failure mapping, no fallback, no notice.
 class VoiceCancelled implements Exception { const VoiceCancelled(); }
 
 /// One synthesised sentence: sideband metadata + raw PCM16 mono 24 kHz.
@@ -211,7 +211,7 @@ class MiloApi {
 
   /// Generated story, validated twice: the gateway checks the model's JSON,
   /// [Story.parse] checks it again here. [toldBy] is the route the gateway
-  /// actually used ({provider, model}) — the screen names the teller so a
+  /// actually used ({provider, model}) - the screen names the teller so a
   /// family key answering instead of hosted Spark is never a silent swap.
   Future<Story> story({String theme = '', List<String> characters = const [], String setting = '', String length = 'short',
       List<Map<String, String>> pages = const [], String question = '', String mode = 'new', required String presentation, required String lang}) async {

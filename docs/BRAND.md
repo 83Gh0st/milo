@@ -54,7 +54,7 @@ and `ios/Runner/Assets.xcassets` so local builds match CI.
   The debug long-press that opens MiloLab is unchanged.
 - Companion default body is teal; the wardrobe (More → Milo → colour,
   onboarding) keeps periwinkle, pink, mint, and honey as options. Saved
-  colours are untouched — only the default changed.
+  colours are untouched - only the default changed.
 - The legacy Lab renderer (`lib/companion/painter.dart`) is deliberately
   unchanged: it is the before/after comparison baseline.
 

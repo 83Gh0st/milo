@@ -65,7 +65,7 @@ lib/
   audio lifecycle, never animation timers (`VOICE_CHECKLIST.md`).
 - **Ladder** (`full/cloudOff/offline/resting`): one status chip + spoken
   words per state; inference trouble never claims the network is down.
-- **Timeouts:** connect 8 s, send 15 s, receive 30 s — the receive side stays
+- **Timeouts:** connect 8 s, send 15 s, receive 30 s - the receive side stays
   above the gateway's inference deadline with room for error handling.
 
 ## 3. Gateway and provider abstraction
@@ -77,7 +77,7 @@ gateway/app/
   prompts.py     five-layer prompt builder (persona, context, history, document, media note)
   contract.py    brain + UI contracts loaded from contracts/ (single source of truth)
   models.py      request shapes (BrainReq, UnderstandReq, VisualReq, ImageReq, ...)
-  ui_spec.py     UI-spec sanitizer (returns None on unusable specs — never breaks a turn)
+  ui_spec.py     UI-spec sanitizer (returns None on unusable specs - never breaks a turn)
   safety.py      crisis screen, Assembler (streams validated SSE events), PII/URL stripping
   routing.py     capability router: ordered entries, pre-first-byte failover, circuit breakers
   providers/     meta (Model API suite), modal_hosted (Spark Shared Endpoint),
@@ -101,7 +101,7 @@ Primary reasoning: `meta-models/Muse-Spark-Open-816B-A42B` behind a
 Modal-managed Shared Endpoint (OpenAI-compatible chat completions, proxy-token
 auth, server-side only). No weights are deployed by this repo; the endpoint is
 created in the Modal dashboard. The `ModalAdapter` sends a stock OpenAI
-payload (reasoning-cap bumped to 2000 tokens — Spark reasons out loud and the
+payload (reasoning-cap bumped to 2000 tokens - Spark reasons out loud and the
 shared 900-token default truncated live turns mid-JSON).
 
 Staging and production are separate Modal apps (`modal_staging.py`,
@@ -133,7 +133,7 @@ schema, vision checks), activate per capability. Keys are sealed at rest with
 `KEY_ENC_SECRET`, travel per-request in vault headers over TLS, and never
 appear in logs, bundles, analytics, or crash reports. Family turns spend the
 family's quota and skip the deployer budget; there is no deployer fallback on
-family requests. Status shows configured / tested / active separately — a
+family requests. Status shows configured / tested / active separately - a
 saved key alone never reads "connected". Trust model: [`BYOK.md`](BYOK.md).
 
 First-party Meta surface (endpoint, model, creds, cost, honesty status per
@@ -160,7 +160,7 @@ mode, companion, speak, state, root, ops}`. Eleven component types (`text`,
 (`add/update/replace/move/remove/state`), stable ids preserved across turns,
 atomic batches, ≤40 nodes, depth ≤4, flat scalar `ui_context` (≤12 keys).
 Both validators (gateway `ui_spec.py`, client `genui/spec.dart`, parity-tested)
-sanitize every string; anything malformed degrades to classic chat — the turn
+sanitize every string; anything malformed degrades to classic chat - the turn
 never breaks. `image` nodes use the visual-concept allow-list; `genimage`
 nodes carry `{prompt, alt}` for the flow in §5. Full protocol:
 [`GENUI.md`](GENUI.md).
@@ -184,7 +184,7 @@ Timeout chain (whole-completion unless noted): Flutter receive 30 s >
 gateway `INFERENCE_TIMEOUT_S` (staging 20 s, prod 8 s) wrapping provider
 selection + the full token stream > httpx connect 10 s + read/write at the
 deadline. `POST /v1/brain/turn` always returns HTTP 200 with mid-stream
-`error` events on failure — the app maps codes to spoken words
+`error` events on failure - the app maps codes to spoken words
 (`timeout`, `budget_exhausted`, `auth_failed`, `quota`, Spark-specific
 wording for hosted timeouts) and the pocket brain keeps helping. Image turns
 get 60 s; voice sockets 5–15 s per leg. Gateway offline vs inference trouble

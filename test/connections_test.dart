@@ -279,7 +279,7 @@ void main() {
     ]);
     await pumpConn(t, c);
     await settle(t);
-    expect(find.text('Hosted by Milo — Muse Spark', skipOffstage: false), findsOneWidget);
+    expect(find.text('Hosted by Milo - Muse Spark', skipOffstage: false), findsOneWidget);
     expect(find.textContaining('Milo hosted (Muse Spark)', skipOffstage: false), findsOneWidget);
     await dragToBuild(t, find.text('MY API KEYS (BYOK)', skipOffstage: false), find.byType(ListView).first);
     expect(find.text('MY API KEYS (BYOK)', skipOffstage: false), findsOneWidget); // Section renders uppercase

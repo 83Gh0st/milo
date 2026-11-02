@@ -23,7 +23,7 @@ async def _family(app, c, headers):
 
 async def test_family_turns_cannot_reach_deployer_creds(tmp_path):
     """A family route to a provider the family never configured must fail
-    honestly — never silently spend the deployer's key. The injected
+    honestly - never silently spend the deployer's key. The injected
     fake-meta adapter records any invocation on its reasoning mock."""
     app = mk(tmp_path)
     fake_meta = MockAdapter()

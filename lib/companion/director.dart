@@ -260,7 +260,7 @@ class Director extends ChangeNotifier {
 
   /// Short fixed lines worth caching after first synthesis: instant next
   /// time, and playable offline. Mock placeholder audio is never cached.
-  static const kFixedVoiceLines = ['Well done!', 'Try again — you can do it.', 'Take your time. I’m right here.', 'Good morning!', 'Good night.'];
+  static const kFixedVoiceLines = ['Well done!', 'Try again - you can do it.', 'Take your time. I’m right here.', 'Good morning!', 'Good night.'];
 
   /// Downloads the fixed lines for offline use. Returns [done, total];
   /// failures are counted in the total but never throw.
@@ -543,7 +543,7 @@ class Director extends ChangeNotifier {
 
   // L6 reactions (local, no AI, <100 ms). Tapping Milo has one predictable,
   // silent action, matching the "Tap to wave hello" label: while Milo speaks
-  // it barges in to listen; otherwise a blink and a small bounce — never
+  // it barges in to listen; otherwise a blink and a small bounce - never
   // speech, so accidental taps stay silent and returning users are never
   // re-introduced to. Speech belongs to deliberate flows (chat, voice,
   // read-aloud) and the one-time introduction. The mouth moves only with
@@ -642,7 +642,7 @@ class Director extends ChangeNotifier {
 
   /// Neural lip-sync feed: amplitude 0..1 from the audio envelope. Sets the
   /// mouth directly and rides the speech pulse (no viseme flip, no word
-  /// callback — neural engines supply no word timings). Ignored for AAC and
+  /// callback - neural engines supply no word timings). Ignored for AAC and
   /// whenever no speech is active. A non-silent level counts as proof that
   /// real audio started.
   void feedMouth(double level) {
@@ -760,7 +760,7 @@ class Director extends ChangeNotifier {
 
   /// Stops all speech output now. Safe to call when idle, disposed, or
   /// mid-turn; also returns a stuck speaking state to idle (callers that own
-  /// the next state — barge-in, ask, breathing — set it right after).
+  /// the next state - barge-in, ask, breathing - set it right after).
   void cancelSpeech() {
     _gen++;
     _speaking = false;
@@ -807,7 +807,7 @@ class Director extends ChangeNotifier {
     gesture('thinking_hmm', force: true);
     await Future.delayed(const Duration(milliseconds: 3500));
     if (id != _turn || state != CState.thinking) return;
-    _cap('Still thinking — keep waiting, or use offline basics?');
+    _cap('Still thinking - keep waiting, or use offline basics?');
     choices = ['Keep waiting', kOfflineChoice]; notifyListeners();
     speak('This is taking a while. You can keep waiting, or ask me something I know offline.', tone: 'calm');
   }
@@ -936,7 +936,7 @@ class Director extends ChangeNotifier {
   /// callers; taps and launches use the silent [helloMotion] instead. Marked
   /// met only after the line is delivered, so an interrupted intro replays.
   /// First-launch migration for users who onboarded before the met flag
-  /// existed: they are returning users — familiar, silently.
+  /// existed: they are returning users - familiar, silently.
   void adoptReturning(Map<String, String> s) {
     if (s['onboarded'] == '1' && s['met'] != '1') set(() => met = true);
   }

@@ -2,7 +2,7 @@
 
 A spec arrives as the brain turn's ``ui_spec`` object. This module sanitizes
 it (all strings pass through safety.clean, so URLs and PII patterns never
-reach the renderer) and returns a canonical dict — or None when the spec is
+reach the renderer) and returns a canonical dict - or None when the spec is
 unusable. None is not an error: the turn continues with say/actions and the
 client keeps its previous panel (classic chat), so a confused model degrades
 instead of breaking the turn.

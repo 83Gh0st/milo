@@ -1,8 +1,8 @@
-# Phase 0 audit — evidence before change (28 Oct 2026)
+# Phase 0 audit - evidence before change (28 Oct 2026)
 
 Branch: `upgrade/phase-0`. Scope: brief §2 re-verification, original-plan gap map
 (§0.1), connection check, Milo Lab, layout harness. No new dependencies
-(`docs/THIRD_PARTY.md` unchanged — nothing to record).
+(`docs/THIRD_PARTY.md` unchanged - nothing to record).
 
 ## 1. What changed (files, one line each)
 
@@ -21,7 +21,7 @@ Branch: `upgrade/phase-0`. Scope: brief §2 re-verification, original-plan gap m
 - `test/lab_test.dart` (new): `connectionWords` unit tests; Lab widget tests;
   Lab at harness sizes without overflow.
 - `docs/SETUP.md`: §1b Windows `cmd` gateway + 3 phone-connection ways + Docker
-  mock note (compose has no published ports — VPS-oriented).
+  mock note (compose has no published ports - VPS-oriented).
 
 ## 2. Section-2 verification (every item re-read in code)
 
@@ -34,12 +34,12 @@ Do + 40×40 Chip ≈ brief's "~20"; all 5 cited examples exact), L6 ✓
 in `lib/ui`; `test/` = 2 logic files; CI has no layout check).
 
 Character: C1 ✓ (buddy k=0.42 → body ≈55×58, eye ≈7, gaze ±1.9/±1.5,
-breath ±0.9 dp — recomputed, matches), C2 ✓ (ink ovals+dot, straight 3.5
+breath ±0.9 dp - recomputed, matches), C2 ✓ (ink ovals+dot, straight 3.5
 brows, one-path mouth, static side ovals, belly oval only), C3 ✓ (brow
 geometry hand-verified: happy/curious/thinking/playful have inner-ends-low;
 pocket fallback is curious), C4 ✓, C5 ✓ (13 clips, fidget 12–25 s), C6 ✓ (no
-audio dep; chirps "not built"), C7 COUNT DIFFERS — 36 call lines / 40 matches
-across 10 files, not 18 — substance ✓ (zero hooks in shared `widgets.dart` /
+audio dep; chirps "not built"), C7 COUNT DIFFERS - 36 call lines / 40 matches
+across 10 files, not 18 - substance ✓ (zero hooks in shared `widgets.dart` /
 `theme.dart`; no scroll/typing/focus hooks), C8 ✓ (8 contract gestures, 13
 clips), C9 ✓ (`milo_view:37` direct `MiloPainter`).
 
@@ -59,26 +59,26 @@ free TTS").
 
 ## 3. Per-workstream: exists / partial / missing
 
-- Layout: exists — 5 tabs + 10 pushed screens, overlays, banners. Partial —
+- Layout: exists - 5 tabs + 10 pushed screens, overlays, banners. Partial -
   presence boxes (fixed sizes), text scale (replaces OS), left-handed (chat
-  input wrong). Missing — scaffold with reserved space, window classes,
+  input wrong). Missing - scaffold with reserved space, window classes,
   landscape/tablet/fold, widget tests. Change plan (Phase 1):
   `screen.dart` (MiloScaffold), `main.dart` (chrome→status chip, scaler fix,
   L7 fix), all screens (spacers→dock, fixed Milo boxes→MiloStage/Buddy/Avatar).
-- Character: exists — Director engine (springs, 13 clips, fidgets, gaze,
-  drowse, barge-in), 12 faces, CustomPainter. Partial — motion below
-  visibility at shipped sizes, 4 faces share angry brow geometry. Missing —
+- Character: exists - Director engine (springs, 13 clips, fidgets, gaze,
+  drowse, barge-in), 12 faces, CustomPainter. Partial - motion below
+  visibility at shipped sizes, 4 faces share angry brow geometry. Missing -
   renderer interface, LODs, idle library, shared-widget hooks, sounds, logo
   match. Change plan (Phase 2): `companion/v2/`, `emotion.dart` brow fix,
   `director.dart` idle/hooks, `tools/make_sounds.py`, `assets/branding/*`.
-- AI: exists — ledger-first SSE contract, mock+meta adapters, budget/rate
-  guards, single-key BYOK, pocket brain. Partial — provider hardcoded,
-  one key. Missing — registry, discovery/probe, routing/failover, connections
+- AI: exists - ledger-first SSE contract, mock+meta adapters, budget/rate
+  guards, single-key BYOK, pocket brain. Partial - provider hardcoded,
+  one key. Missing - registry, discovery/probe, routing/failover, connections
   UI, data policies. Change plan (Phase 3): `gateway/app/providers/*`,
   `vault_connections`, `app/cli.py`, `trusted_screen.dart` connections.
-- Voice: exists — platform TTS + presets + voice picker, word-pulse mouth,
-  cloud STT with live levels. Partial — read-aloud highlight (callback
-  dependent). Missing — neural TTS, `/v1/speak`, envelope lip-sync,
+- Voice: exists - platform TTS + presets + voice picker, word-pulse mouth,
+  cloud STT with live levels. Partial - read-aloud highlight (callback
+  dependent). Missing - neural TTS, `/v1/speak`, envelope lip-sync,
   barge-in ≤150 ms proof. Change plan (Phase 4): bake-off, `VoiceOutput`
   split, gateway speak, turn-taking machine.
 - Original plan (§0.1) gaps → phases: crop box → Phase 5 or cut (needs
@@ -94,7 +94,7 @@ free TTS").
   network to install). Full gateway suite UNVERIFIED here.
 - `cd gateway; python -m pytest tests/test_contract_units.py --noconftest
   -p no:cacheprovider -o addopts='' -q -W ignore` → **6 passed in 0.04s**.
-- `flutter analyze`, `flutter test`: NOT RUN — no Flutter SDK and no network
+- `flutter analyze`, `flutter test`: NOT RUN - no Flutter SDK and no network
   in this environment. New Dart code verified by review only; CI runs both
   when the human pushes (brief forbids pushing from here).
 
@@ -103,18 +103,18 @@ free TTS").
 - Audit written: yes (this file). Lab runs / connection on phone / baselines
   saved: UNVERIFIED (need SDK + phone + human `--update-goldens` run).
 - No behaviour change elsewhere: by construction (additive UI; `motionGain`
-  1.0 = identical `amp`; Lab `kDebugMode`-only) — review-verified, CI pending.
+  1.0 = identical `amp`; Lab `kDebugMode`-only) - review-verified, CI pending.
 - C1 dp (analytic, Lab will show live): stage(200h)→body≈90, buddy→body 55×58
   eye 7.1 gaze ±1.9 breath ±0.9, chip(40)→body ≈17. Matches brief.
 - Vendor/doc rule: no new vendor claims. Riverpod `overrideWith` /
-  `overrideWithValue` used from knowledge in tests only — isolated, CI
+  `overrideWithValue` used from knowledge in tests only - isolated, CI
   confirms. Compose/Docker statements verified against repo files, 28 Oct.
 
 ## 6. UNVERIFIED and why
 
 Flutter analyze/test, Lab visuals, connection row on a phone, mock-over-Docker
 (one-liner in SETUP §1b), full-screen goldens (additionally blocked on a
-MiloDb test seam — `MiloDb._` is private, so screens touching `dbProvider`
+MiloDb test seam - `MiloDb._` is private, so screens touching `dbProvider`
 cannot pump in tests; Phase 1 needs a `DbPort` seam), L7 last-writer logging.
 
 ## 7. Found but not fixed (out of phase)

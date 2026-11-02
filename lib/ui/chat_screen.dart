@@ -89,7 +89,7 @@ class _ChatState extends ConsumerState<ChatScreen> {
 
 /// Honest words for a failed picture creation, by cause. Pure: unit-tested.
 /// Blocked prompts, missing picture access (BYOK Meta key), offline, and
-/// plain outages each say their thing — never a silent spinner.
+/// plain outages each say their thing - never a silent spinner.
 String genImageErrorWords(ApiError e) {
   final err = e.detail is Map ? (e.detail as Map)['error'] : null;
   if (err == 'prompt_not_allowed') return 'I can only draw kind pictures for kids. What else shall we draw?';

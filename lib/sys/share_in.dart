@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 
 /// P2 share-in target (plan 7.13): the first system surface after the hackathon.
 /// Android delivers ACTION_SEND text here; Understand picks it up once, like a
-/// lookup word. Until the native side lands (platform dirs are CI-generated —
+/// lookup word. Until the native side lands (platform dirs are CI-generated -
 /// see docs/7_13_NATIVE.md), the channel never fires and this file is inert.
 const _ch = MethodChannel('milo/share');
 bool _armed = false;

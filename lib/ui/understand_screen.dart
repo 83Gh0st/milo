@@ -305,7 +305,10 @@ class _PhotoSegmentsState extends ConsumerState<PhotoSegments> {
       if (err.isNotEmpty) Text(err, style: const TextStyle(color: T.coral)),
       if (searched && regions.isEmpty && err.isEmpty) const Text('Nothing found. Try another word.', style: TextStyle(color: T.mute)),
       if (regions.isNotEmpty) ...[
-        SegmentOverlay(imageBytes: widget.image, imageAspect: aspect, regions: regions, selectedId: sel, onRegionTap: (id) => setState(() => sel = id)),
+        // Cap below half the viewport: full-width aspect boxes overflow short
+        // screens and dwarf wide ones; phones keep their natural size.
+        Center(child: ConstrainedBox(constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.45),
+            child: SegmentOverlay(imageBytes: widget.image, imageAspect: aspect, regions: regions, selectedId: sel, onRegionTap: (id) => setState(() => sel = id)))),
         const SizedBox(height: 8),
         BigButton(label == null ? 'Tap an outlined box' : 'Explain “$label”', label == null ? null : () => widget.onExplain(label)),
       ],

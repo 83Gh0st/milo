@@ -187,7 +187,7 @@ def _strip_parse(buf: str) -> dict:
 
 async def collect(st, msgs, schema, effort, timeout, cap: str, ctx=None, metered: bool = True, max_tokens=None) -> tuple:
     """Collect one structured object. Returns (data, route) where route is
-    {"provider","model"} actually used — callers surface it so the app can say
+    {"provider","model"} actually used - callers surface it so the app can say
     who told the story instead of silently switching."""
     def _strat(entry, probed):
         if entry.strategy != "auto" and entry.strategy != "lines":
@@ -224,7 +224,7 @@ async def collect(st, msgs, schema, effort, timeout, cap: str, ctx=None, metered
         pass
     # One repair attempt through the same route: ask for ONLY fixed JSON.
     # Anything else failing (timeout, provider error, still-bad JSON) stays an
-    # honest 502 — no retry loops, no silent substitution, both tries metered.
+    # honest 502 - no retry loops, no silent substitution, both tries metered.
     try:
         fixed, route = await _once(msgs + [{"role": "user", "content": "Your last reply was not valid JSON. Return ONLY the corrected JSON object, no prose, no fences:\n" + buf[:2000]}])
     except HTTPException:

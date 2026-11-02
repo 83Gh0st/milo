@@ -30,7 +30,7 @@ VOICE_PROFILES = {
 
 def envelope(pcm: bytes, rate: int = RATE, hz: int = ENVELOPE_HZ) -> list[float]:
     """RMS amplitude per window, normalised so the loudest window is 1.0.
-    Silence (or empty input) yields all zeros — the mouth stays shut."""
+    Silence (or empty input) yields all zeros - the mouth stays shut."""
     if len(pcm) < 2:
         return []
     n = len(pcm) // 2
@@ -126,7 +126,7 @@ class MockSpeakEngine(SpeakEngine):
 class PiperSpeakEngine(SpeakEngine):
     """Local Piper TTS (open source, no key, no network): the sensible dev
     default when the binary + a voice model are installed. Each voice file
-    carries its own licence — record it before release. CLI shape is the
+    carries its own licence - record it before release. CLI shape is the
     standard `piper --model X --output_file Y` (UNVERIFIED here: no binary
     on this machine; first run with Piper installed confirms)."""
     id = "piper"
@@ -164,7 +164,7 @@ class PiperSpeakEngine(SpeakEngine):
 
 class OpenAISpeakEngine(SpeakEngine):
     """Hosted OpenAI-compatible TTS (family key or deployer key). Request
-    shape is a first hypothesis (UNVERIFIED: no network 28 Oct 2026) —
+    shape is a first hypothesis (UNVERIFIED: no network 28 Oct 2026) -
     isolated here; the first keyed run confirms or corrects it."""
     id = "openai"
 
@@ -205,7 +205,7 @@ def resolve_engine(settings, tts_entries: list | None = None, creds: dict | None
     """Picks the TTS engine. Vault tts routes come first (family credentials
     for hosted engines); then the deployer key; then local Piper; then the
     mock placeholder in dev only. Raises ProviderError(code 503) with
-    no_voice_engine when nothing honest is available — the APP then falls
+    no_voice_engine when nothing honest is available - the APP then falls
     back to platform TTS, never silence."""
     from .providers.base import ProviderError
     entries, creds = tts_entries or [], creds or {}

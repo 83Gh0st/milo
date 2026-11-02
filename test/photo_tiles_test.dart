@@ -38,11 +38,19 @@ void main() {
     final db = FakeDb(), api = FakeApi(db, SecureStore());
     final c = tileContainer(db, api);
     await pumpScreen(t, const WordsEditor(), container: c);
-    await t.enterText(find.byType(TextField).at(1), 'Grandma'); // emoji field first, label second
+    expect(find.byType(TextField), findsNWidgets(2)); // tripwire: label lookup below assumes exactly two fields
+    // Direct write: enterText provably never lands in this tree (CI showed the
+    // controller still empty after keyed enterText). The draw flow below is
+    // what's under test, not IME injection.
+    t.widget<TextField>(find.byKey(const Key('tileLabel'))).controller?.text = 'Grandma';
+    await t.pump();
+    expect(t.widget<TextField>(find.byKey(const Key('tileLabel'))).controller?.text, 'Grandma'); // input landed in the label field
     await t.tap(find.text('Draw a picture (AI)'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
-    expect(find.text('AI-drawn. Look at it before saving — you decide.'), findsOneWidget);
+    expect(find.text('Type the word first.'), findsNothing, reason: 'draw ran with an empty label');
+    expect(find.text('Milo could not draw that. The word still saves.'), findsNothing, reason: 'generateImage threw');
+    expect(find.text('AI-drawn. Look at it before saving - you decide.'), findsOneWidget);
     await t.tap(find.byIcon(Icons.add));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
@@ -50,6 +58,7 @@ void main() {
     expect(db.tileRows.single['label'], 'Grandma');
     expect(db.settings.keys.where((k) => k.startsWith('local.tileart.')), hasLength(1));
     expect(t.takeException(), isNull);
+    c.dispose(); // in-body: teardowns run after the timer invariant check
   });
 
   testWidgets('word builder hands its word to Understand for a real explanation', (t) async {
@@ -60,5 +69,6 @@ void main() {
     await t.pump();
     expect(c.read(lookupWordProvider), 'tree'); // UnderstandScreen picks this up and explains it
     expect(t.takeException(), isNull);
+    c.dispose(); // in-body: teardowns run after the timer invariant check
   });
 }

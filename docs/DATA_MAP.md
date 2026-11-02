@@ -44,7 +44,7 @@ no crash reporting, no analytics in `lib/` (searched).
 - Remote rows pass a column whitelist (`kCols`) with `profile_id` forced local.
 
 Known limits (by design, not defects): no per-device revocation under the
-shared secret — to remove a device, turn sync off (deletes the vault), turn it
+shared secret - to remove a device, turn sync off (deletes the vault), turn it
 back on (new secret), and re-enrol the kept devices; a lost secret means the
 cloud copy is unopenable; record counts/sizes/write times are visible to the
 server. Cross-device E2EE still needs a two-client runtime check (Stage C).
@@ -58,7 +58,7 @@ server. Cross-device E2EE still needs a two-client runtime check (Stage C).
 - Device loss: local data is behind device lock + SQLCipher; revoke cloud
   access via the rotation procedure above from a kept device.
 - Backups: excluded via `allowBackup=false` (Android) and
-  `isExcludedFromBackup` (iOS) — verify on generated platforms (Stage A/C).
+  `isExcludedFromBackup` (iOS) - verify on generated platforms (Stage A/C).
 
 ## Still needs a device
 

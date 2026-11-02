@@ -6,7 +6,7 @@
     MODEL_API_KEY=... python probe_sam.py clip.mp4 --concept "ping pong ball"
 
 Exit 0 prints a JSON summary when the endpoint completes (even with zero
-records — "no match" is a valid answer). Exit 2 on auth/refusal/error with
+records - "no match" is a valid answer). Exit 2 on auth/refusal/error with
 the sanitized upstream message. No key is ever printed.
 
 Request shape follows Meta's own cookbook (07_sam/01_api_basics, fetched

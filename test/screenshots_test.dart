@@ -1,6 +1,6 @@
 // Real UI captures for the hackathon submission: pumps actual screens with
 // the standard fakes and saves widget-tree PNGs to screenshots/. These are
-// tester renders (no device chrome, no status bar) — honest widget captures,
+// tester renders (no device chrome, no status bar) - honest widget captures,
 // labeled as such in screenshots/README.md. Device captures remain manual;
 // the runbook + driver sketch live in that README.
 // Runs in CI (needs loopback, like all flutter tests); writes are local only.
@@ -51,7 +51,7 @@ Future<void> capture(WidgetTester t, ProviderContainer c, Widget screen, String 
   // quadrupled raster + PNG-encode cost for no gallery benefit).
   // runAsync: toImage/toByteData are REAL engine async; awaiting them inside
   // fake async completes but wedges the NEXT pumpWidget (10-minute CI
-  // timeout after capture 1 — bisected locally, fixed by runAsync).
+  // timeout after capture 1 - bisected locally, fixed by runAsync).
   final im = await t.runAsync(() => boundary.toImage(pixelRatio: 1.0)) as ui.Image;
   final raw = (await t.runAsync(() => im.toByteData(format: ui.ImageByteFormat.rawRgba)))!;
   im.dispose(); // release the engine-side image: 11 captures must not pile up

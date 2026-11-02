@@ -72,7 +72,7 @@ class _WEState extends ConsumerState<WordsEditor> {
       final tiles = s.data ?? [];
       return ListView(padding: const EdgeInsets.all(16), children: [
         const Section('Add a tile'),
-        Row(children: [SizedBox(width: 70, child: TextField(controller: emoji, style: const TextStyle(fontSize: 28))), const SizedBox(width: 8), Expanded(child: TextField(controller: label, decoration: const InputDecoration(hintText: 'Word, e.g. Grandma'))),
+        Row(children: [SizedBox(width: 70, child: TextField(controller: emoji, style: const TextStyle(fontSize: 28))), const SizedBox(width: 8), Expanded(child: TextField(key: const Key('tileLabel'), controller: label, decoration: const InputDecoration(hintText: 'Word, e.g. Grandma'))),
           IconButton.filled(onPressed: () async { if (label.text.trim().isEmpty) return; await db.addTile(emoji.text.trim().isEmpty ? '⭐' : emoji.text.trim(), label.text.trim(), art: art); label.clear(); art = null; setState(() {}); }, icon: const Icon(Icons.add))]),
         const SizedBox(height: 8),
         Row(children: [
@@ -83,7 +83,7 @@ class _WEState extends ConsumerState<WordsEditor> {
               : BigButton(art == null ? 'Draw a picture (AI)' : 'Draw again', _draw, kind: BK.soft)),
         ]),
         if (artErr.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(artErr, style: const TextStyle(color: T.coral))),
-        if (art != null) const Padding(padding: EdgeInsets.only(top: 4), child: Text('AI-drawn. Look at it before saving — you decide.', style: TextStyle(fontSize: 12, color: T.mute))),
+        if (art != null) const Padding(padding: EdgeInsets.only(top: 4), child: Text('AI-drawn. Look at it before saving - you decide.', style: TextStyle(fontSize: 12, color: T.mute))),
         const Section('Your tiles'),
         for (final t in tiles) Card(child: ListTile(leading: _thumb(t['art'], '${t['emoji']}'), title: Text('${t['label']}'), trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () async { await db.deleteTile(t['id'] as String); setState(() {}); }))),
         const SizedBox(height: 10),
@@ -125,7 +125,7 @@ class WeeklySummary extends ConsumerWidget {
         _SwitchRow('Show progress to the child', on, (v) async { await db.putFlag('progress.enabled', v); (context as Element).markNeedsBuild(); }),
         _SwitchRow('Count mood check-ins', checkins, (v) async { await db.putFlag('checkin.counts', v); (context as Element).markNeedsBuild(); }),
         const Section('This week'),
-        if (w.values.every((n) => n == 0)) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('A quiet week. Milo never keeps score — these counts only show what was used.', style: TextStyle(fontSize: 15)))),
+        if (w.values.every((n) => n == 0)) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('A quiet week. Milo never keeps score - these counts only show what was used.', style: TextStyle(fontSize: 15)))),
         ...rows(w),
         const Section('All time so far'),
         ...rows(all)]);
@@ -136,7 +136,7 @@ class WeeklySummary extends ConsumerWidget {
 class _SwitchRow extends StatelessWidget { const _SwitchRow(this.t, this.v, this.f); final String t; final bool v; final void Function(bool) f; @override Widget build(BuildContext c) => Card(child: SwitchListTile(title: Text(t), value: v, onChanged: f)); }
 
 /// Phase 3 AI connections (trusted adults only): the family picks which AI
-/// Milo thinks with — Meta, OpenAI, Anthropic, or a custom/local endpoint.
+/// Milo thinks with - Meta, OpenAI, Anthropic, or a custom/local endpoint.
 /// Keys are sent once over TLS, stored encrypted on the Milo server, and never
 /// kept on this phone. Needs sync on: the sync vault is the family identity.
 /// Honest limit: a ChatGPT/Claude/Meta *app* login is not API access; the
@@ -166,7 +166,7 @@ const kProviderCapsNote = {
 
 String connWords(Object e) {
   if (e is! ApiError) return 'Something went wrong.';
-  const m = {'offline': 'No connection to the Milo server.', 'timeout': 'That took too long.', 'rate_limited': 'Too many tries — wait a minute.',
+  const m = {'offline': 'No connection to the Milo server.', 'timeout': 'That took too long.', 'rate_limited': 'Too many tries - wait a minute.',
     'policy_ack_required': 'Please confirm the data note first.', 'key_too_short': 'That key looks too short.', 'key_required': 'A key is needed for this provider.',
     'bad_base_url': 'That address is not allowed.', 'base_url_required': 'Custom needs an address.', 'model_not_allowed': 'That model is not allowed.',
     'model_required': 'Pick a model first.', 'no_connection': 'Connect this provider first.', 'no_connections': 'Connect a provider first.',
@@ -269,7 +269,7 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
       for (final c in _list) (value: '${c['provider']}/${c['default_model']}', label: label('${c['provider']}', '${c['default_model']}'))];
     String? valid(String? v) => v != null && opts.any((o) => o.value == v) ? v : null;
     return MiloScreen(title: 'AI connections', body: ListView(padding: const EdgeInsets.all(16), children: [
-      const Text('Milo can think with your own AI account instead of the shared one. Use is billed to your account by your provider. A key is sent once over an encrypted connection, stored encrypted on the Milo server, and never kept on this phone. A ChatGPT or Claude app login is not enough — you need an API key from your provider.', style: TextStyle(fontSize: 15)),
+      const Text('Milo can think with your own AI account instead of the shared one. Use is billed to your account by your provider. A key is sent once over an encrypted connection, stored encrypted on the Milo server, and never kept on this phone. A ChatGPT or Claude app login is not enough - you need an API key from your provider.', style: TextStyle(fontSize: 15)),
       const SizedBox(height: 12),
       if (syncOn == false) ...[const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Turn on sync first, in Data and privacy. The sync vault identifies your family.', style: TextStyle(fontSize: 16)))),
         BigButton('Back', () => Navigator.pop(context), kind: BK.soft)]
@@ -287,7 +287,7 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
         for (final (id, name) in kConnProviders)
           Card(child: ListTile(leading: Icon(_conn(id) == null ? Icons.key_off : Icons.key, color: T.pri),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(_conn(id) == null ? 'Not connected' : 'Key ${_conn(id)!['hint']} · ${_conn(id)!['default_model']}\n${(() { final t = testedOn(_conn(id)!['caps']); return t == null ? 'Saved — not tested yet' : 'Tested $t'; })()}'),
+              subtitle: Text(_conn(id) == null ? 'Not connected' : 'Key ${_conn(id)!['hint']} · ${_conn(id)!['default_model']}\n${(() { final t = testedOn(_conn(id)!['caps']); return t == null ? 'Saved - not tested yet' : 'Tested $t'; })()}'),
               trailing: const Icon(Icons.chevron_right), onTap: () => _open(id))),
         const Section('Use for'),
         for (final (cap, capLabel) in kRouteCaps) Card(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -308,7 +308,7 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
 }
 
 /// Read-only status of the Milo-hosted path: which gateway provider build is
-/// answering and whether its budget is spent. Display only — it never claims
+/// answering and whether its budget is spent. Display only - it never claims
 /// AI works; a real turn or Test connection proves that.
 class _HostedStatus extends ConsumerWidget {
   const _HostedStatus();
@@ -317,10 +317,10 @@ class _HostedStatus extends ConsumerWidget {
     final check = ref.watch(connectionCheckProvider);
     Widget line(String s) => Text(s, style: const TextStyle(fontSize: 13, color: T.mute));
     return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Hosted by Milo — Muse Spark', style: TextStyle(fontWeight: FontWeight.w700)),
+      const Text('Hosted by Milo - Muse Spark', style: TextStyle(fontWeight: FontWeight.w700)),
       const SizedBox(height: 4),
       ...check.when(
-        data: (s) => [line(s.provider == null ? 'Unreachable right now.' : s.provider == 'modal' ? 'Answering via Milo hosted (Muse Spark).${s.budgetOk == true ? '' : ' Daily budget used — resting.'}' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used — resting.'}')],
+        data: (s) => [line(s.provider == null ? 'Unreachable right now.' : s.provider == 'modal' ? 'Answering via Milo hosted (Muse Spark).${s.budgetOk == true ? '' : ' Daily budget used - resting.'}' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used - resting.'}')],
         loading: () => [line('Checking…')],
         error: (_, __) => [line('Unreachable right now.')],
       ),
@@ -451,7 +451,7 @@ String dictLabel(String id) => switch (id) { 'meta' => 'Meta', 'openai' => 'Open
 
 /// Model picker: friendly names first, technical ids second. Shows the
 /// recommended pick, the current selection, verified test results (from the
-/// saved probe caps — never assumed), and a refresh action. Failures and
+/// saved probe caps - never assumed), and a refresh action. Failures and
 /// empty lists keep manual entry under Advanced; nothing is substituted.
 class _ModelDialog extends StatefulWidget {
   const _ModelDialog({required this.api, required this.vid, required this.vkey, required this.provider, required this.currentId, this.caps});

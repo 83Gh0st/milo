@@ -4,7 +4,7 @@ import 'renderer.dart';
 
 /// Future Rive renderer adapter (spec 2F). STUB: throws until a real,
 /// properly licensed `.riv` asset exists. Do NOT add the `rive` dependency
-/// until then. State-machine inputs map 1:1 to [DirectorFrame] channels —
+/// until then. State-machine inputs map 1:1 to [DirectorFrame] channels -
 /// see `docs/CHARACTER_RIG_SPEC.md`.
 class RiveRenderer extends MiloRenderer {
   const RiveRenderer();
