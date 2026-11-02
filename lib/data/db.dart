@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'secure_store.dart';
@@ -58,6 +60,7 @@ class MiloDb {
     if (!k.startsWith('local.')) await touch('settings', k);
   }
   Future<void> putFlag(String k, bool v) => put(k, v ? '1' : '0');
+  Future<void> del(String k) async { await db.delete('settings', where: 'key=?', whereArgs: [k]); }
   Future<Map<String, String>> allSettings() async => {for (final r in await db.query('settings')) r['key'] as String: (r['value'] ?? '') as String};
 
   // ---- support profile ----
@@ -110,12 +113,22 @@ class MiloDb {
   Future<void> cachePut(String h, String strategy, String lang, String json) => db.insert('explanation_cache',
       {'content_hash': h, 'strategy': strategy, 'language': lang, 'payload_json': json, 'created_at': now()}, conflictAlgorithm: ConflictAlgorithm.replace);
   Future<List<Map<String, Object?>>> tiles() => db.query('board_items', orderBy: 'position');
-  Future<void> addTile(String emoji, String label) async {
+  /// Custom board tile. [art] (an AI-drawn picture) lives under a local-only
+  /// setting so pictures stay on this phone: the synced board row is
+  /// unchanged (emoji + label only). Returns the tile id.
+  Future<String> addTile(String emoji, String label, {Uint8List? art}) async {
     final id = newId(), t = now();
     await db.insert('board_items', {'id': id, 'profile_id': kProfile, 'position': t ~/ 1000, 'label': label, 'emoji': emoji, 'spoken_text': label, 'is_core': 0, 'updated_at': t});
+    if (art != null && art.isNotEmpty) await put('local.tileart.$id', base64Encode(art));
     await touch('board_items', id);
+    return id;
   }
-  Future<void> deleteTile(String id) async { await db.delete('board_items', where: 'id=?', whereArgs: [id]); await touch('board_items', id, deleted: true); }
+  Future<Uint8List?> tileArt(String id) async {
+    final v = await get('local.tileart.$id');
+    if (v == null) return null;
+    try { return base64Decode(v); } catch (_) { return null; }
+  }
+  Future<void> deleteTile(String id) async { await db.delete('board_items', where: 'id=?', whereArgs: [id]); await del('local.tileart.$id'); await touch('board_items', id, deleted: true); }
 
   // ---- saved documents (plan 8.1): rows exist only if the person chose to save ----
   Future<String> addDocument(String title, String text) async {

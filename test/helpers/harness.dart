@@ -198,6 +198,48 @@ class FakeApi extends MiloApi {
     await _ledg('/v1/visual', 'picture', 'one picture word');
     return Uint8List(8);
   }
+
+  // ---- Story time fake: one canned tale; failStory simulates no connection ----
+  bool failStory = false;
+  String fakeStoryTitle = 'The Brave Little Boat';
+  @override
+  Future<Story> story({String theme = '', List<String> characters = const [], String setting = '', String length = 'short',
+      List<Map<String, String>> pages = const [], String question = '', String mode = 'new', required String presentation, required String lang}) async {
+    await _ledg('/v1/story', 'story', 'a story idea');
+    if (failStory) throw ApiError('offline');
+    if (mode == 'continue' || mode == 'ending') {
+      return Story(title: '', pages: [StoryPage(mode == 'ending' ? 'Home' : 'More', mode == 'ending' ? 'And they all lived happily.' : 'Then something new happened.')],
+          toldBy: const {'provider': 'mock', 'model': 'fake-story'});
+    }
+    return Story(title: fakeStoryTitle, pages: const [StoryPage('One', 'Fake page one.'), StoryPage('Two', 'Fake page two.')],
+        toldBy: const {'provider': 'mock', 'model': 'fake-story'});
+  }
+
+  @override
+  Future<String> storyAnswer({required List<Map<String, String>> pages, required String question, required String presentation, required String lang}) async {
+    await _ledg('/v1/story', 'story', 'a question about the story');
+    if (failStory) throw ApiError('offline');
+    return 'Fake answer.';
+  }
+
+  @override
+  Future<Uint8List> generateImage(String prompt) async {
+    await _ledg('/v1/image', 'picture', 'a picture idea');
+    if (failStory) throw ApiError('offline');
+    return Uint8List(8);
+  }
+
+  // ---- Photo grounding fake: two canned boxes for whatever was asked ----
+  bool failSegment = false;
+  @override
+  Future<List<Map<String, dynamic>>> segment(Uint8List image, String phrase) async {
+    await _ledg('/v1/segment', 'segment', 'one photo + one noun phrase');
+    if (failSegment) throw ApiError('offline');
+    return [
+      {'id': 'r1', 'label': phrase, 'box': [0.1, 0.2, 0.4, 0.5], 'object_id': '0'},
+      {'id': 'r2', 'label': phrase, 'box': [0.5, 0.2, 0.9, 0.6], 'object_id': '1'},
+    ];
+  }
 }
 
 /// Standard app-graph overrides for pumping real screens. The director is the

@@ -89,11 +89,12 @@ META_CAPABILITIES = (
         byok=True, request="image data URL or uploaded MP4 + one noun phrase",
         response="streamed segmentation grammar (parse ONLY with meta_sam_parser)",
         cost="per 1k images/frames (check dashboard)", latency="streamed; video is minutes-scale",
-        offline="photo + Understand explanation (no masks); masks need the API",
+        offline="photo + Understand explanation (no boxes); boxes need the API",
         retention="media leaves the device per request; no Milo-side retention",
-        status="probe", verified_live=False,
-        notes="App-path code intentionally absent until probe_sam.py validates the wire "
-              "format against the live API. Overlay renderer exists (SegmentOverlay)."),
+        status="wired", verified_live=False,
+        notes="Boxes path wired in /v1/segment from Meta's cookbook wire format; "
+              "verified_live flips when probe_sam.py passes with a real key. "
+              "Video + masks deferred. Overlay renderer: SegmentOverlay."),
     MetaCapability(
         id="glimmer", models=("muse-glimmer:30b",),
         endpoint="operator Ollama/llama.cpp/LM Studio (OpenAI-compatible :11434/v1)",

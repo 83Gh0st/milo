@@ -5,18 +5,44 @@ from ..config import Settings, assert_model_allowed
 from .base import ProviderError, Usage
 
 
-class MetaReasoning:
+class MetaModels:
+    """Entitlement check via GET /v1/models (docs /docs/models). Cheap: proves
+    which model ids this key may call, without spending a generation."""
     def __init__(self, s: Settings):
         self.s = s
-        assert_model_allowed(s, s.spark_model)
+        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=15, max_retries=0)
+
+    async def list_ids(self, api_key=None) -> list:
+        client, family = self.client, bool(api_key and api_key != self.s.model_api_key)
+        if family:
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=15, max_retries=0)
+        try:
+            page = await client.models.list()
+            return sorted({m.id for m in page.data if getattr(m, "id", "")})
+        except APITimeoutError:
+            raise ProviderError("timeout", 504)
+        except APIStatusError as e:
+            if family and e.status_code in (401, 403):
+                raise ProviderError("family_key_rejected", 502)
+            raise ProviderError("auth_failed" if e.status_code in (401, 403) else "provider_error", 503)
+        except APIConnectionError:
+            raise ProviderError("unreachable", 503)
+
+
+class MetaReasoning:
+    def __init__(self, s: Settings, model: str | None = None):
+        self.s = s
+        self.model = model or s.spark_model
+        if self.model not in (s.spark_model, getattr(s, "wonder_model", None)):
+            raise ProviderError("model_not_found", 502)
         self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=30, max_retries=1)
 
     async def stream(self, messages, *, schema=None, effort="low", max_tokens=900, api_key=None):
-        assert_model_allowed(self.s, self.s.spark_model)
+        assert_model_allowed(self.s, self.model)
         client, family = self.client, bool(api_key and api_key != self.s.model_api_key)
         if family:  # BYOK: this turn is billed to the family's key, never constructed with the deployer key
             client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=30, max_retries=1)
-        kw = dict(model=self.s.spark_model, messages=messages, stream=True, max_completion_tokens=max_tokens,
+        kw = dict(model=self.model, messages=messages, stream=True, max_completion_tokens=max_tokens,
                   reasoning_effort=effort, stream_options={"include_usage": True})
         if schema:
             kw["response_format"] = {"type": "json_schema", "json_schema": {"name": "milo_turn", "schema": schema}}
@@ -57,6 +83,108 @@ class MetaImage:
             return base64.b64decode(r.data[0].b64_json)
         except (APIStatusError, APIConnectionError, APITimeoutError, TypeError, IndexError):
             raise ProviderError("image_failed", 503)
+
+
+def image_size(raw: bytes):
+    """Width/height from PNG or JPEG bytes, stdlib only (PIL stays out of the
+    image so SAM can't drag in native deps). None when unparseable."""
+    if raw[:8] == b"\x89PNG\r\n\x1a\n" and len(raw) >= 24:
+        w, h = int.from_bytes(raw[16:20], "big"), int.from_bytes(raw[20:24], "big")
+        return (w, h) if w and h else None
+    if raw[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(raw):
+            if raw[i] != 0xFF:
+                i += 1
+                continue
+            m = raw[i + 1]
+            if m == 0xFF:  # fill byte
+                i += 1
+                continue
+            if m in (0xC0, 0xC1, 0xC2, 0xC3):  # SOF: height then width, big-endian
+                h, w = int.from_bytes(raw[i + 5:i + 7], "big"), int.from_bytes(raw[i + 7:i + 9], "big")
+                return (w, h) if w and h else None
+            if m in (0xD8, 0xD9) or 0xD0 <= m <= 0xD7 or m == 0x01:
+                i += 2
+                continue
+            if m == 0xDA:  # SOS: compressed data follows, no more headers
+                return None
+            i += 2 + int.from_bytes(raw[i + 2:i + 4], "big")
+    return None
+
+
+def norm_boxes(records, w: int, h: int, limit: int = 20) -> list:
+    """Parser box records (source-media coords) -> normalized overlay boxes.
+    Pure: unit-tested without the API. Masks ignored (the overlay draws
+    boxes); degenerate/off-frame records dropped, never clamped into lies."""
+    out = []
+    for r in records or []:
+        if getattr(r, "kind", "") != "box":
+            continue
+        try:
+            l, t, rr, b = float(r.left) / w, float(r.top) / h, float(r.right) / w, float(r.bottom) / h
+        except (TypeError, ValueError, ZeroDivisionError):
+            continue
+        if not all(-0.05 < v < 1.05 for v in (l, t, rr, b)) or rr - l < 0.02 or b - t < 0.02:
+            continue
+        cl, ct, cr, cb = min(max(l, 0.0), 1.0), min(max(t, 0.0), 1.0), min(max(rr, 0.0), 1.0), min(max(b, 0.0), 1.0)
+        out.append({"x": round(cl, 4), "y": round(ct, 4), "w": round(cr - cl, 4), "h": round(cb - ct, 4),
+                    "object_id": str(getattr(r, "object_id", "") or "")})
+        if len(out) >= limit:
+            break
+    return out
+
+
+class MetaGround:
+    """SAM 3.1 visual grounding over the Responses API, exactly per Meta's
+    cookbook (07_sam/01_api_basics): one noun phrase + image data URL,
+    streamed, parsed ONLY with meta_sam_parser. Boxes only; video deferred
+    (minutes-scale, needs the Files upload flow). Live-unverified until
+    scripts/probe_sam.py passes with a real key."""
+
+    def __init__(self, s: Settings):
+        self.s = s
+        assert_model_allowed(s, s.sam_model)
+        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=60, max_retries=1)
+
+    async def ground(self, image_b64: str, phrase: str, api_key=None) -> dict:
+        try:
+            from meta_sam_parser import image_segmentation_format, parse_responses_stream
+        except ImportError:
+            raise ProviderError("sam_unavailable", 501)
+        try:
+            raw = base64.b64decode(image_b64, validate=True)
+        except Exception:
+            raise ProviderError("bad_image", 422)
+        dims = image_size(raw)
+        if dims is None:
+            raise ProviderError("bad_image", 422)
+        w, h = dims
+        mime = "image/png" if raw[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg"
+        client, family = self.client, bool(api_key and api_key != self.s.model_api_key)
+        if family:  # BYOK: billed to the family's key
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=60, max_retries=1)
+        try:
+            stream = await client.responses.create(model=self.s.sam_model, stream=True, input=[{
+                "type": "message", "role": "user", "content": [
+                    {"type": "input_text", "text": phrase.strip()},
+                    {"type": "input_image", "image_url": f"data:{mime};base64,{image_b64}"}]}])
+            result = await parse_responses_stream(stream, image_segmentation_format()).final_result()
+        except APITimeoutError:
+            raise ProviderError("timeout", 504)
+        except APIStatusError as e:
+            if family and e.status_code in (401, 403):
+                raise ProviderError("family_key_rejected", 502)
+            raise ProviderError("auth_failed" if e.status_code in (401, 403) else "provider_error", 503)
+        except APIConnectionError:
+            raise ProviderError("unreachable", 503)
+        except Exception as e:
+            if type(e).__module__.startswith("meta_sam_parser"):
+                raise ProviderError("bad_grounding", 502)  # the model spoke unparseable grammar
+            raise ProviderError("provider_error", 503)
+        if getattr(getattr(result, "outcome", None), "status", "") != "completed":
+            raise ProviderError("bad_grounding", 502)
+        return {"boxes": norm_boxes(getattr(result, "records", []), w, h), "model": self.s.sam_model}
 
 
 class _MetaVoiceSession:

@@ -14,7 +14,7 @@ class Capabilities:
     tts: bool = False
     image_gen: bool = False
     realtime: bool = False
-    visual_ground: bool = False  # SAM-style "point at the words" boxes (P2; mock only until docs verified)
+    visual_ground: bool = False  # SAM 3.1 boxes: implemented from Meta's cookbook, live-unverified until probe_sam.py passes with a key
 
     def as_dict(self) -> dict:
         return {k: getattr(self, k) for k in (

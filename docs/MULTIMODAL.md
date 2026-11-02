@@ -98,14 +98,17 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
 
 ## 6b. Extended Meta capabilities (registry: `meta_catalog.py`)
 
-- **SAM 3.1 (`sam-3.1`, probe-only).** Image (data URL) and video (Files API
-  `purpose=user_data`) segmentation over the Model API Responses stream,
-  parsed only with `meta_sam_parser` — never hand-parsed. Run
-  `MODEL_API_KEY=... python gateway/scripts/probe_sam.py photo.jpg --concept heart`
-  (exit 0 + JSON summary = verified). The Flutter `SegmentOverlay` renders
-  validated boxes + labels + tap-to-explain hooks from probe-shaped data; the
-  gateway route lands only after a green probe. Until then, tapping objects
-  explains via the verified Understand path (photo + text), not masks.
+- **SAM 3.1 (`sam-3.1`, wired, live-unverified).** `POST /v1/segment` takes
+  one photo + one noun phrase and returns normalized boxes, implemented from
+  Meta's cookbook wire format (Responses API stream, parsed ONLY with
+  `meta_sam_parser` — the gateway never hand-parses SAM text). The Understand
+  photo flow offers "Find things in this photo" when cloud AI is on; tapping
+  a box explains that object against the same photo via the Understand path.
+  Verify live with `MODEL_API_KEY=... python gateway/scripts/probe_sam.py
+  photo.jpg --concept heart` (exit 0 + JSON = the endpoint works) and then
+  `python gateway/scripts/live_probe.py --photo photo.jpg` (end-to-end
+  through the gateway). Video tracking and mask rasters are deferred: the
+  overlay draws boxes, which is what "point at the words" needs.
 - **Muse Wonder 1.0 (allowlisted, unrouted).** Preview agentic reasoner, 1M
   context, effort to `max`, $4/$20 per M tokens. The id is in
   `allowed_models`; set `SPARK_MODEL=muse-wonder-1.0` deliberately for hard
@@ -132,9 +135,40 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
 | Hosted reasoning (Spark) | Modal proxy token (server secret) | Modal inference | text out only |
 | Pictures (Muse Image) | Meta Model API key (deployer secret or BYOK vault) | $0.01/image | sub-2K, no captioning; community notes on strict violence filter |
 | Voice input (Transcribe) | Meta Model API key (deployer secret or BYOK vault) | $0.18/hr audio | transcription only; typed fallback always available |
-| Segmentation (SAM 3.1) | Meta Model API key | per 1k images/frames | probe-only until verified |
+| Segmentation (SAM 3.1) | Meta Model API key (deployer secret or BYOK vault) | priced per 1k images (metered $0.01/call until dashboard confirms) | wired, live-unverified |
 | Complex reasoning (Wonder) | Meta Model API key | $4/$20 per M tokens | allowlisted, unrouted |
 | Local (Glimmer 30B) | none (own hardware) | ~24 GB VRAM / Mac | via Custom endpoint |
 | BYOK text/vision | Family provider key (vault) | family's own | per vendor |
 
 No PostgreSQL required for any of this; no new Modal deployment needed.
+
+## 7. Capability evidence matrix (honest status, 2026-11-02)
+
+Columns: implemented in code, unit-tested, mocked-provider tested, live-tested
+against the real endpoint, integrated in the Flutter UI, verified on a real
+device. "Staged" live results below are from the staging gateway runs; nothing
+here claims production verification.
+
+| Capability | Impl | Unit | Mock | Live | UI | Device |
+|---|---|---|---|---|---|---|
+| Hosted reasoning (Spark Open via Modal) | yes | yes | yes | yes (staging ladder: real turns, `done.provider=modal`) | yes (chat) | needs run |
+| Structured GenUI (`ui_spec`) | yes | yes | yes | yes (staging: valid `ui_spec` events) | yes | needs run |
+| Story generation (`/v1/story` + StoryTime) | yes | yes | yes | no — run `live_probe.py` after deploy | yes | no |
+| Image understanding (`/v1/understand` + photo) | yes | yes | yes | partial (staging ladder ok; needs `--photo` run) | yes | no |
+| Image generation (`/v1/image`, Muse Image) | yes | yes | yes | no — run `live_probe.py` after deploy | yes (story art, tile art, chat) | no |
+| Segmentation (`/v1/segment`, SAM 3.1 boxes) | yes | yes | yes | no — run `probe_sam.py`, then `live_probe.py --photo` | yes (Find things panel) | no |
+| Voice transcription (Transcribe) | yes | yes | yes | no — on-device mic check only | yes | no |
+| Spoken output (platform TTS + neural `/v1/speak`) | yes | yes | yes | TTS yes (device); neural no | yes | partial |
+| Custom board tiles with AI pictures | yes | yes | yes | no (uses `/v1/image`; same live gate) | yes (WordsEditor + board) | no |
+| Word explanations (lookup → Understand) | yes | yes | yes | same gate as reasoning | yes (WordBuilder) | no |
+| Wonder long-form routing | yes | yes | yes | no — needs key + deliberate route | no (route exists, no UI toggle) | no |
+| Glimmer local | manual path only | n/a | via Custom endpoint | operator-dependent | via Custom endpoint | n/a |
+| Tools / web grounding | declined | n/a | n/a | n/a | n/a | n/a |
+
+Live gates, in order: (1) redeploy staging with this code; (2) `python
+gateway/scripts/live_probe.py --photo pic.jpg` from any machine; (3)
+`MODEL_API_KEY=... python gateway/scripts/probe_sam.py pic.jpg --concept
+<object>` if the segment step fails (isolates Meta API vs gateway); (4)
+install the CI-built APK and walk the phone checklist (`docs/PHONE_CHECKLIST.md`).
+Stages 1–3 + 5–7 of the Meta capability plan are implemented; Stage 4 (keyed
+verification) is scripted above and awaits credentials + a staging deploy.

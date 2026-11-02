@@ -58,6 +58,106 @@ async def test_understand_text_and_image_rules(client):
     assert (await client.post("/v1/understand", json={**BR, "image_b64": jpg}, headers=h)).status_code == 200
 
 
+async def test_collect_repairs_once_then_fails_honest(client, monkeypatch):
+    from app.providers.base import ProviderError, Usage
+    calls = []
+    async def scripted(cap, routes, creds, messages, **kw):
+        calls.append(messages)
+        n = len(calls)
+        async def gen():
+            yield Usage()
+            yield '{"steps": oops' if n == 1 else '{"steps": [{"emoji": "a", "text": "one"}, {"emoji": "b", "text": "two"}, {"emoji": "c", "text": "three"}]}'
+        return ("mock", "mock", "json_schema", gen())
+    monkeypatch.setattr(client.app.state.router, "select_and_stream", scripted)
+    h = await token(client)
+    r = await client.post("/v1/plan", json={"goal": "get dressed", "presentation": "playful"}, headers=h)
+    assert r.status_code == 200 and len(r.json()["steps"]) == 3 and len(calls) == 2  # broken, then repaired
+    assert "not valid JSON" in calls[1][-1]["content"]  # repair reuses the same route with a fix-only prompt
+
+    async def broken(cap, routes, creds, messages, **kw):
+        async def gen():
+            yield Usage()
+            yield "still not json{{"
+        return ("mock", "mock", "json_schema", gen())
+    monkeypatch.setattr(client.app.state.router, "select_and_stream", broken)
+    r = await client.post("/v1/plan", json={"goal": "get dressed", "presentation": "playful"}, headers=h)
+    assert r.status_code == 502 and r.json() == {"error": "bad_model_output"}  # no retry loop, honest failure
+
+    async def down(cap, routes, creds, messages, **kw):
+        raise ProviderError("unreachable", 503)
+    monkeypatch.setattr(client.app.state.router, "select_and_stream", down)
+    r = await client.post("/v1/plan", json={"goal": "get dressed", "presentation": "playful"}, headers=h)
+    assert r.status_code == 503 and r.json() == {"error": "unreachable"}  # transport errors keep their code; repair is for bad JSON only
+
+
+async def test_story_modes_validation_and_attribution(client, monkeypatch):
+    from app.providers.base import Usage
+    seen = {}
+
+    async def scripted(cap, routes, creds, messages, **kw):
+        seen["cap"], seen["msgs"] = cap, messages
+        body = scripted.body
+        async def gen():
+            yield Usage()
+            yield body
+        return ("meta", "muse-spark-1.3", "json_schema", gen())
+    monkeypatch.setattr(client.app.state.router, "select_and_stream", scripted)
+    h = await token(client)
+    scripted.body = '{"title": "Pip", "pages": [{"heading": "One", "text": "Pip the duck waddled out."}, {"heading": "Two", "text": "The pond was warm."}]}'
+    r = await client.post("/v1/story", json={"theme": "ducks", "characters": ["Pip"], "length": "short"}, headers=h)
+    assert r.status_code == 200 and r.json()["title"] == "Pip" and len(r.json()["pages"]) == 2
+    assert r.json()["told_by"] == {"provider": "meta", "model": "muse-spark-1.3"} and seen["cap"] == "story"
+    assert "Pip" in seen["msgs"][-1]["content"] and "tale " in seen["msgs"][-1]["content"]  # seed nudges freshness
+    scripted.body = '{"pages": [{"heading": "Three", "text": "Home for supper."}]}'
+    r = await client.post("/v1/story", json={"mode": "continue", "pages": [{"heading": "One", "text": "Pip the duck waddled out."}]}, headers=h)
+    assert r.status_code == 200 and r.json()["pages"][0]["heading"] == "Three"
+    scripted.body = '{"answer": "Pip is a duck."}'
+    r = await client.post("/v1/story", json={"mode": "answer", "pages": [{"heading": "One", "text": "Pip the duck waddled out."}], "question": "Who is Pip?"}, headers=h)
+    assert r.status_code == 200 and r.json()["answer"] == "Pip is a duck."
+    assert (await client.post("/v1/story", json={"mode": "continue", "pages": []}, headers=h)).status_code == 422
+    assert (await client.post("/v1/story", json={"mode": "answer", "pages": [{"heading": "One", "text": "Pip waddled."}]}, headers=h)).status_code == 422
+    assert (await client.post("/v1/story", json={"theme": "x" * 500}, headers=h)).status_code == 422
+    scripted.body = "not json{{"
+    assert (await client.post("/v1/story", json={"theme": "ducks"}, headers=h)).status_code == 502  # repair also fails: honest 502
+
+
+def test_story_token_caps_fit_reasoning_models():
+    from app.routes import _STORY_LEN
+    for length, (pages, toks, timeout) in _STORY_LEN.items():
+        assert toks >= 2000, length  # reasoning preambles (~1-2k tokens) precede the story; smaller caps truncate mid-JSON into 502s
+
+
+def test_brain_turn_tokens_fit_reasoning():
+    from app.routes import _BRAIN_MAX_TOKENS
+    assert _BRAIN_MAX_TOKENS >= 4000  # thinking traces (~2k tokens) precede the turn JSON; smaller caps truncate into turns with missing say fields
+
+
+async def test_segment_flow_validation_and_regions(client, monkeypatch):
+    import base64
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100).decode()  # magic + padding: route checks magic only
+    seen = {}
+
+    async def fake_ground(routes, creds, image_b64, phrase, timeout=60, caps_map=None):
+        seen["phrase"] = phrase
+        return ("meta", "sam-3.1", {"boxes": [
+            {"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.3, "object_id": "0"},
+            {"x": 0.5, "y": 0.5, "w": 0.001, "h": 0.001},  # degenerate: dropped
+            {"x": "nope", "y": 0, "w": 1, "h": 1},  # non-numeric: dropped
+        ], "model": "sam-3.1"})
+    monkeypatch.setattr(client.app.state.router, "ground_image", fake_ground)
+    h = await token(client)
+    r = await client.post("/v1/segment", json={"image_b64": png, "phrase": "heart"}, headers=h)
+    assert r.status_code == 200 and seen["phrase"] == "heart"
+    regs = r.json()["regions"]
+    assert len(regs) == 1 and regs[0]["id"] == "r1" and regs[0]["label"] == "heart"
+    assert regs[0]["box"] == [0.1, 0.2, 0.4, 0.5] and regs[0]["object_id"] == "0"
+    assert r.json()["model"] == "sam-3.1"
+    assert (await client.post("/v1/segment", json={"image_b64": png, "phrase": "x"}, headers=h)).status_code == 422
+    assert (await client.post("/v1/segment", json={"image_b64": "%%%not-base64%%%", "phrase": "heart"}, headers=h)).status_code == 422
+    gif = base64.b64encode(b"GIF89a" + b"\x00" * 100).decode()
+    assert (await client.post("/v1/segment", json={"image_b64": gif, "phrase": "heart"}, headers=h)).status_code == 422
+
+
 async def test_plan_compose_visual(client):
     h = await token(client)
     p = (await client.post("/v1/plan", json={"goal": "get ready for school", "presentation": "playful"}, headers=h)).json()

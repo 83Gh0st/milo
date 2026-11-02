@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,21 +34,62 @@ class TrustedScreen extends ConsumerWidget {
 class WordsEditor extends ConsumerStatefulWidget { const WordsEditor({super.key}); @override ConsumerState<WordsEditor> createState() => _WEState(); }
 class _WEState extends ConsumerState<WordsEditor> {
   final emoji = TextEditingController(text: '⭐'), label = TextEditingController();
+  Uint8List? art;
+  bool artBusy = false;
+  String artErr = '';
+  @override
+  void dispose() { emoji.dispose(); label.dispose(); super.dispose(); }
+
+  Future<List<Map<String, Object?>>> _all() async {
+    final db = ref.read(dbProvider);
+    final tiles = await db.tiles();
+    for (final t in tiles) { t['art'] = await db.tileArt(t['id'] as String); }
+    return tiles;
+  }
+
+  Future<void> _draw() async {
+    if (label.text.trim().isEmpty) { setState(() => artErr = 'Type the word first.'); return; }
+    if (artBusy) return;
+    setState(() { artBusy = true; artErr = ''; });
+    try {
+      final pic = await ref.read(apiProvider).generateImage('A simple flat friendly AAC symbol for: ${label.text.trim()}');
+      if (pic.lengthInBytes > 2000000) throw ApiError('too_large');
+      if (mounted) setState(() => art = pic);
+    } catch (e) {
+      if (mounted) setState(() => artErr = e is ApiError && e.code == 'offline' ? 'Drawing needs the internet. The word still saves.' : 'Milo could not draw that. The word still saves.');
+    } finally { if (mounted) setState(() => artBusy = false); }
+  }
+
+  Widget _thumb(Object? bytes, String em) => bytes is Uint8List
+      ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.memory(bytes, width: 44, height: 44, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Text(em, style: const TextStyle(fontSize: 26))))
+      : Text(em, style: const TextStyle(fontSize: 26));
+
   @override
   Widget build(BuildContext context) {
     final db = ref.read(dbProvider);
-    return MiloScreen(title: 'Edit board', body: FutureBuilder(future: db.tiles(), builder: (_, s) {
+    return MiloScreen(title: 'Edit board', body: FutureBuilder(future: _all(), builder: (_, s) {
       final tiles = s.data ?? [];
       return ListView(padding: const EdgeInsets.all(16), children: [
         const Section('Add a tile'),
         Row(children: [SizedBox(width: 70, child: TextField(controller: emoji, style: const TextStyle(fontSize: 28))), const SizedBox(width: 8), Expanded(child: TextField(controller: label, decoration: const InputDecoration(hintText: 'Word, e.g. Grandma'))),
-          IconButton.filled(onPressed: () async { if (label.text.trim().isEmpty) return; await db.addTile(emoji.text.trim().isEmpty ? '⭐' : emoji.text.trim(), label.text.trim()); label.clear(); setState(() {}); }, icon: const Icon(Icons.add))]),
+          IconButton.filled(onPressed: () async { if (label.text.trim().isEmpty) return; await db.addTile(emoji.text.trim().isEmpty ? '⭐' : emoji.text.trim(), label.text.trim(), art: art); label.clear(); art = null; setState(() {}); }, icon: const Icon(Icons.add))]),
+        const SizedBox(height: 8),
+        Row(children: [
+          if (art != null) ...[_thumb(art, '⭐'), const SizedBox(width: 8),
+            IconButton(tooltip: 'Remove picture', icon: const Icon(Icons.close), onPressed: () => setState(() => art = null))],
+          Expanded(child: artBusy
+              ? const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator())
+              : BigButton(art == null ? 'Draw a picture (AI)' : 'Draw again', _draw, kind: BK.soft)),
+        ]),
+        if (artErr.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(artErr, style: const TextStyle(color: T.coral))),
+        if (art != null) const Padding(padding: EdgeInsets.only(top: 4), child: Text('AI-drawn. Look at it before saving — you decide.', style: TextStyle(fontSize: 12, color: T.mute))),
         const Section('Your tiles'),
-        for (final t in tiles) Card(child: ListTile(leading: Text('${t['emoji']}', style: const TextStyle(fontSize: 26)), title: Text('${t['label']}'), trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () async { await db.deleteTile(t['id'] as String); setState(() {}); }))),
+        for (final t in tiles) Card(child: ListTile(leading: _thumb(t['art'], '${t['emoji']}'), title: Text('${t['label']}'), trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () async { await db.deleteTile(t['id'] as String); setState(() {}); }))),
         const SizedBox(height: 10),
         Row(children: [Expanded(child: BigButton('Export', () => Clipboard.setData(ClipboardData(text: jsonEncode([for (final t in tiles) {'emoji': t['emoji'], 'label': t['label']}]))), kind: BK.soft)), const SizedBox(width: 10),
           Expanded(child: BigButton('Paste board', () async { final d = await Clipboard.getData('text/plain'); try { for (final t in jsonDecode(d?.text ?? '[]') as List) { await db.addTile('${t['emoji']}', '${t['label']}'); } setState(() {}); } catch (_) {} }, kind: BK.outline))]),
-        const Padding(padding: EdgeInsets.all(12), child: Text('Tile positions never change unless you change them. Photo tiles are planned.', style: TextStyle(fontSize: 12, color: T.mute))),
+        const Padding(padding: EdgeInsets.all(12), child: Text('Tile positions never change unless you change them. Pictures stay on this phone and are never synced or exported.', style: TextStyle(fontSize: 12, color: T.mute))),
       ]);
     }));
   }
@@ -101,7 +143,17 @@ class _SwitchRow extends StatelessWidget { const _SwitchRow(this.t, this.v, this
 /// family needs its own API key, billed to its own account.
 const kConnProviders = [('meta', 'Meta (recommended)'), ('openai', 'OpenAI'), ('anthropic', 'Anthropic'), ('custom', 'Custom or local')];
 const kRouteCaps = [('brain', 'Thinking + chat'), ('understand', 'Reading help'), ('visual', 'Pictures'), ('stt', 'Voice in')];
-const kCheckNames = {'chat': 'Chat', 'json_schema': 'Structured replies', 'vision': 'Pictures', 'audio_in': 'Voice in', 'tts': 'Voice out'};
+const kCheckNames = {
+  'chat': 'Chat',
+  'json_schema': 'Structured replies',
+  'vision': 'Pictures',
+  'audio_in': 'Voice in',
+  'tts': 'Voice out',
+  'image_entitled': 'Makes pictures',
+  'voice_entitled': 'Hears voice',
+  'sam_entitled': 'Outlines objects',
+  'wonder_entitled': 'Long stories',
+};
 const kRoleLabels = {'chat': 'Thinking', 'image': 'Pictures', 'voice': 'Voice'};
 /// What Milo itself can do through each BYOK provider (adapter-level, not
 /// vendor marketing: only Meta's adapter implements pictures and voice).

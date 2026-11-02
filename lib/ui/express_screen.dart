@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/providers.dart';
@@ -18,6 +20,7 @@ class _EState extends ConsumerState<ExpressScreen> {
   int tab = 0;
   List<String> strip = [], recent = [];
   List<List<String>> custom = [];
+  Map<String, Uint8List> customArt = {}; // tile id -> AI-drawn picture (this phone only)
   String symCat = 'People';
   final kb = TextEditingController();
   Timer? _scanT; // switch/scanning access (plan P2): highlight auto-advances, any tap selects
@@ -31,7 +34,9 @@ class _EState extends ConsumerState<ExpressScreen> {
   Future<void> _load() async {
     final db = ref.read(dbProvider);
     final t = await db.tiles(), r = await db.recentPhrases();
-    if (mounted) setState(() { custom = [for (final x in t) ['${x['emoji']}', '${x['label']}']]; recent = r; });
+    final art = <String, Uint8List>{};
+    for (final x in t) { final b = await db.tileArt(x['id'] as String); if (b != null) art[x['id'] as String] = b; }
+    if (mounted) setState(() { custom = [for (final x in t) ['${x['emoji']}', '${x['label']}', '${x['id']}']]; customArt = art; recent = r; });
   }
   void _add(String w) => setState(() { strip.add(w); kb.text = strip.join(' '); if (!ref.read(directorProvider).speaking) ref.read(directorProvider).gesture('nod', force: true); });
 
@@ -42,7 +47,8 @@ class _EState extends ConsumerState<ExpressScreen> {
     _load();
   }
 
-  void _moreSheet() => showModalBottomSheet(context: context, builder: (_) => ListView(padding: const EdgeInsets.all(16), children: [Wrap(spacing: 8, runSpacing: 8, children: [for (final w in _more) ActionChip(label: Text(w, style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(w); })]), const Divider(), Wrap(spacing: 8, runSpacing: 8, children: [for (final c in custom) ActionChip(avatar: Text(c[0]), label: Text(c[1], style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(c[1]); })])]));
+  void _moreSheet() => showModalBottomSheet(context: context, builder: (_) => ListView(padding: const EdgeInsets.all(16), children: [Wrap(spacing: 8, runSpacing: 8, children: [for (final w in _more) ActionChip(label: Text(w, style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(w); })]), const Divider(), Wrap(spacing: 8, runSpacing: 8, children: [for (final c in custom) ActionChip(avatar: customArt[c[2]] == null ? Text(c[0]) : ClipOval(child: Image.memory(customArt[c[2]]!, width: 28, height: 28, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Text(c[0]))), label: Text(c[1], style: const TextStyle(fontSize: 18)), onPressed: () { Navigator.pop(context); _add(c[1]); })])]));
+// (avatar art: AI-drawn pictures for custom tiles; emoji stays the fallback)
   List<String> _predict() {
     final w = kb.text.split(' ').last.toLowerCase();
     if (w.isEmpty) return ['shop', 'park', 'doctor'];

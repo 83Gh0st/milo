@@ -401,7 +401,7 @@ def test_visual_ground_mock_shape_meta_honest():
     assert g["model"] == "mock" and len(g["boxes"]) == 1
     b = g["boxes"][0]
     assert b["label"] == "the red ball" and all(0.0 <= b[k] <= 1.0 for k in ("x", "y", "w", "h"))
-    assert meta_mod.SAM_ENDPOINT_UNVERIFIED is None
+    assert meta_mod.SAM_KEYED_PROBE_PENDING is True
     # MetaAdapter.__init__ needs the openai package; ground() refuses before
     # touching self, so the unbound call proves the honest refusal anywhere.
     with pytest.raises(ProviderError) as e:
