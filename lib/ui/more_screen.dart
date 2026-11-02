@@ -102,6 +102,10 @@ class MiloSettingsScreen extends ConsumerWidget {
       _toggle('Quiet presence', d.quiet, (v) => d.set(() => d.quiet = v), sub: 'Milo only breathes and blinks'),
       _toggle('Touch reactions', d.reactions, (v) => d.set(() => d.reactions = v)),
       _toggle('Greetings', d.greetings, (v) => d.set(() => d.greetings = v)),
+      Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: OutlinedButton.icon(
+              onPressed: () { d.set(() => d.met = false); d.greet(); }, icon: const Icon(Icons.replay), label: const Text('Replay introduction'))),
     ]));
   }
 }

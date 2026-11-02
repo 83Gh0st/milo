@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.responses import StreamingResponse
 from starlette.testclient import TestClient
 from conftest import events, mk
+from app.providers.base import ProviderError
 from app.providers.mock import PNG
 
 seen: dict = {}
@@ -28,6 +29,13 @@ async def chat(req: Request):
 async def img(req: Request):
     seen["img"] = await req.json()
     return {"data": [{"b64_json": base64.b64encode(PNG).decode()}]}
+
+
+@fake.get("/v1/models")
+async def models():
+    seen["models_auth"] = True
+    ids = ("muse-spark-1.3", "muse-voice-transcribe-1.0", "muse-image-1.0", "muse-wonder-1.0", "sam-3.1")
+    return {"object": "list", "data": [{"id": m, "created": 1, "object": "model", "owned_by": "meta"} for m in ids]}
 
 
 @fake.websocket("/v1/asr/realtime")
@@ -102,3 +110,27 @@ def test_voice_uses_documented_handshake_with_zero_retention(tmp_path, meta_serv
         assert hs["model"] == "muse-voice-transcribe-1.0" and hs["zdrOverride"] is True and hs["languageBias"] == ["Malayalam"]
         time.sleep(0.2)
         assert seen.get("ended")
+
+
+async def test_meta_entitlements_and_wonder_routing(meta_server):
+    from app.config import Settings
+    from app.providers.meta_adapter import MetaAdapter
+    from app.providers.openai_compat import Creds
+    s = Settings(env="dev", provider="meta", jwt_secret="x" * 40, database_url="sqlite+aiosqlite:///:memory:",
+                 model_api_key="test-key", meta_base_url=f"http://127.0.0.1:{meta_server}/v1",
+                 meta_asr_url=f"ws://127.0.0.1:{meta_server}/v1/asr/realtime")
+    a = MetaAdapter(s)
+    fam = Creds(f"http://127.0.0.1:{meta_server}/v1", "family-key")
+    p = await a.probe(fam, "muse-image-1.0")  # non-chat member: list check only, no generation spend
+    assert p.ok and p.checks["image_entitled"] == "pass" and p.checks["sam_entitled"] == "pass"
+    assert "chat" not in p.checks and seen.get("models_auth") is True
+    q = await a.probe(fam)  # spark: live chat checks + all entitlements in one call
+    assert q.ok and q.checks["chat"] == "pass" and q.checks["wonder_entitled"] == "pass"
+    seen.pop("chat", None)
+    async for _ in a.stream([{"role": "user", "content": "hi"}], creds=fam, model="muse-wonder-1.0", max_tokens=8):
+        pass
+    assert seen["chat"]["model"] == "muse-wonder-1.0"  # Wonder routes; never the default
+    with pytest.raises(ProviderError) as e:
+        async for _ in a.stream([{"role": "user", "content": "hi"}], model="gpt-4o"):
+            pass
+    assert e.value.code == "model_not_found"

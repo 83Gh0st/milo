@@ -10,7 +10,9 @@ import '../contracts/brain_contract.dart';
 import '../core/payload.dart';
 import '../core/providers.dart';
 import '../media/photo.dart';
+import '../net/api.dart';
 import 'screen.dart';
+import 'segment_overlay.dart';
 import 'theme.dart';
 
 /// Approximate syllable split for the word popup (heuristic, English only).
@@ -29,7 +31,7 @@ String syllables(String word) {
   return out.toString();
 }
 
-enum _S { bring, photo, reading, style, reader, check }
+enum _S { bring, photo, find, reading, style, reader, check }
 
 /// Understand (wireframes 3.1 to 3.6): bring something, Milo reads it, choose how, reading view, quick check.
 class UnderstandScreen extends ConsumerStatefulWidget { const UnderstandScreen({super.key}); @override ConsumerState<UnderstandScreen> createState() => _UState(); }
@@ -132,7 +134,19 @@ class _UState extends ConsumerState<UnderstandScreen> {
     await ref.read(dbProvider).progress('read');
   }
 
-  VoidCallback? get _back => switch (step) { _S.bring => null, _S.photo => () => setState(() => step = _S.bring), _S.reading => () => setState(() => step = _S.bring), _S.style => () => setState(() => step = _S.reading), _S.reader => () => setState(() => step = _S.style), _S.check => () => setState(() => step = _S.reader) };
+  VoidCallback? get _back => switch (step) { _S.bring => null, _S.photo => () => setState(() => step = _S.bring), _S.find => () => setState(() => step = _S.photo), _S.reading => () => setState(() => step = _S.bring), _S.style => () => setState(() => step = _S.reading), _S.reader => () => setState(() => step = _S.style), _S.check => () => setState(() => step = _S.reader) };
+
+  /// Region tap from the grounding panel: ask about the label against the
+  /// same photo, then land on the reading step where answers appear.
+  void _explainRegion(String label) {
+    final d = ref.read(directorProvider);
+    ref.read(chipsProvider.notifier).put(ChipItem('document', 'You’re asking about this photo', ''));
+    c.text = 'What is the $label in my photo?';
+    _prep();
+    cur = -1;
+    setState(() => step = _S.reading);
+    ref.read(routerProvider).explain(d, c.text, strategy: 'default', imageB64: _image == null ? null : base64Encode(_image!));
+  }
 
   /// First allow-listed concept in the vocabulary or text (vocabulary first).
   /// Returns null when nothing may be pictured, so no request is ever made.
@@ -152,7 +166,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
   @override
   Widget build(BuildContext context) {
     final d = ref.read(directorProvider), db = ref.read(dbProvider), u = ref.watch(understandProvider), cloud = ref.watch(ladderProvider) == Ladder.full, visuals = ref.watch(visualProvider);
-    final title = switch (step) { _S.bring => 'Bring something to Milo', _S.photo => 'Crop to the text', _S.reading => 'Milo is reading your text', _S.style => 'How would you like it?', _S.reader => (words.take(3).join(' ')), _S.check => 'Quick check' };
+    final title = switch (step) { _S.bring => 'Bring something to Milo', _S.photo => 'Crop to the text', _S.find => 'Find things in the photo', _S.reading => 'Milo is reading your text', _S.style => 'How would you like it?', _S.reader => (words.take(3).join(' ')), _S.check => 'Quick check' };
     Widget body;
     switch (step) {
       case _S.bring:
@@ -175,7 +189,14 @@ class _UState extends ConsumerState<UnderstandScreen> {
         body = Container(color: const Color(0xFF454B66), child: Column(children: [
           Expanded(child: Padding(padding: const EdgeInsets.all(20), child: _image == null ? const SizedBox() : Container(decoration: BoxDecoration(border: Border.all(color: T.amber, width: 3)), child: Image.memory(_image!, fit: BoxFit.contain)))),
           Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF2B3050), borderRadius: BorderRadius.circular(16)), child: const Text('Resized, EXIF and location removed on this phone', style: TextStyle(color: Colors.white, fontSize: 12))),
-          Padding(padding: const EdgeInsets.all(18), child: Row(children: [Expanded(child: BigButton('Retake', () => _photo(ImageSource.camera), kind: BK.outline)), const SizedBox(width: 12), Expanded(child: BigButton('Use photo', () { _remember(); setState(() => step = _S.reading); if (cloud) { _explain('default'); } }))]))]));
+          Padding(padding: const EdgeInsets.all(18), child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Row(children: [Expanded(child: BigButton('Retake', () => _photo(ImageSource.camera), kind: BK.outline)), const SizedBox(width: 12), Expanded(child: BigButton('Use photo', () { _remember(); setState(() => step = _S.reading); if (cloud) { _explain('default'); } }))]),
+            if (cloud) ...[const SizedBox(height: 10), BigButton('Find things in this photo', () => setState(() => step = _S.find), kind: BK.soft)],
+          ]))]));
+      case _S.find:
+        body = _image == null
+            ? const Center(child: Text('No photo. Go back and take one.'))
+            : ListView(padding: const EdgeInsets.all(16), children: [PhotoSegments(image: _image!, onExplain: _explainRegion)]);
       case _S.reading:
         body = ListView(padding: const EdgeInsets.all(16), children: [
           const MiloStage(),
@@ -221,6 +242,74 @@ class _UState extends ConsumerState<UnderstandScreen> {
           BigButton('Next', () { d.celebrate(); setState(() { step = _S.bring; picked = null; }); })]);
     }
     return MiloScreen(title: title, kind: 'understand', onBack: _back, bg: step == _S.photo ? const Color(0xFF454B66) : null, body: body);
+  }
+}
+
+/// Grounding panel (SAM 3.1 via /v1/segment): name one thing, every match gets
+/// outlined, tapping a box explains it against the same photo. Regions pass
+/// through validateRegions (the client-side gate); the photo aspect resolves
+/// from the bytes with a 4:3 fallback for undecodable input.
+class PhotoSegments extends ConsumerStatefulWidget {
+  const PhotoSegments({super.key, required this.image, required this.onExplain});
+  final Uint8List image;
+  final void Function(String label) onExplain;
+  @override
+  ConsumerState<PhotoSegments> createState() => _PhotoSegmentsState();
+}
+
+class _PhotoSegmentsState extends ConsumerState<PhotoSegments> {
+  final phrase = TextEditingController();
+  List<SegRegion> regions = [];
+  String? sel;
+  bool busy = false, searched = false;
+  String err = '';
+  double aspect = 4 / 3;
+  @override
+  void initState() {
+    super.initState();
+    decodeImageFromList(widget.image).then((info) {
+      if (mounted && info.width > 0 && info.height > 0) setState(() => aspect = info.width / info.height);
+    }).catchError((_) {});
+  }
+
+  @override
+  void dispose() { phrase.dispose(); super.dispose(); }
+
+  Future<void> _find() async {
+    if (phrase.text.trim().length < 2 || busy) return;
+    setState(() { busy = true; err = ''; sel = null; searched = false; });
+    try {
+      final found = validateRegions(await ref.read(apiProvider).segment(widget.image, phrase.text.trim()));
+      if (mounted) setState(() { regions = found; searched = true; });
+    } catch (e) {
+      if (mounted) setState(() => err = e is ApiError && (e.code == 'offline' || e.code == 'timeout')
+          ? 'Finding things needs the internet. Your photo is still here.'
+          : 'Milo could not outline that. Please try another word.');
+    } finally { if (mounted) setState(() => busy = false); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = regions.where((r) => r.id == sel).firstOrNull?.label;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const Text('Name one thing to find', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 6),
+      Row(children: [
+        Expanded(child: TextField(controller: phrase, textCapitalization: TextCapitalization.none, onSubmitted: (_) => _find(),
+            decoration: const InputDecoration(hintText: 'e.g. heart', border: OutlineInputBorder(), isDense: true))),
+        const SizedBox(width: 8),
+        FilledButton(onPressed: busy ? null : _find, child: const Text('Find')),
+      ]),
+      const SizedBox(height: 10),
+      if (busy) const Padding(padding: EdgeInsets.all(20), child: LinearProgressIndicator()),
+      if (err.isNotEmpty) Text(err, style: const TextStyle(color: T.coral)),
+      if (searched && regions.isEmpty && err.isEmpty) const Text('Nothing found. Try another word.', style: TextStyle(color: T.mute)),
+      if (regions.isNotEmpty) ...[
+        SegmentOverlay(imageBytes: widget.image, imageAspect: aspect, regions: regions, selectedId: sel, onRegionTap: (id) => setState(() => sel = id)),
+        const SizedBox(height: 8),
+        BigButton(label == null ? 'Tap an outlined box' : 'Explain “$label”', label == null ? null : () => widget.onExplain(label)),
+      ],
+    ]);
   }
 }
 

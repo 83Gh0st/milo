@@ -111,7 +111,18 @@ class AnthropicAdapter:
         yield usage
 
     async def discover_models(self, creds):
-        return []  # no documented list-models API assumed; the CLI/app let you type the id
+        # Documented GET /v1/models (same auth headers as messages). Shape per
+        # the published API; keyed listing is exercised by the family's own
+        # Find models (no vendor key here to live-verify against).
+        try:
+            status, data = await self._http.get_json(creds.base_url + "/v1/models", self._headers(creds.api_key))
+        except TimeoutError:
+            raise ProviderError(TIMEOUT, 504)
+        except (ConnectionError, OSError):
+            raise ProviderError(UNREACHABLE, 503)
+        if status != 200:
+            raise_for_status(self.id, status, json.dumps(data)[:300])
+        return sorted({m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")}) or []
 
     async def probe(self, creds, model):
         checks, t0, ttfb = {}, time.monotonic(), -1

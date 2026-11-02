@@ -7,7 +7,7 @@ from typing import Protocol, runtime_checkable
 
 STRATEGIES = ("json_schema", "tool_schema", "lines")
 CAPABILITIES_NEEDED = {"brain": "text_stream", "understand": "text_stream", "plan": "text_stream",
-                       "compose": "text_stream", "visual": "image_gen", "stt": "audio_in", "tts": "tts"}
+                       "compose": "text_stream", "story": "text_stream", "visual": "image_gen", "segment": "visual_ground", "stt": "audio_in", "tts": "tts"}
 
 
 @dataclass(frozen=True)

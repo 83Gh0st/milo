@@ -149,27 +149,90 @@ void main() {
       d.dispose();
     });
 
-    test('rapid taps: first tap speaks, the rest are motion only',
+    test('taps never speak: first and repeated taps are motion only',
         () async {
       final p = OkPlatform();
       final d = speakingDirector(p);
-      d.tapMilo();
-      // The greeting speaks, then the caption hold settles: wait for the
-      // turn to finish rather than assuming a fixed 50 ms.
-      final t0 = DateTime.now();
-      while (d.speaking &&
-          DateTime.now().difference(t0) < const Duration(seconds: 5)) {
-        await Future.delayed(const Duration(milliseconds: 25));
+      for (var i = 0; i < 5; i++) {
+        d.tapMilo(); // blink + bounce only; accidental taps stay silent
       }
-      expect(p.spoken, isNotEmpty); // the advertised action: Milo says hi
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(p.spoken, isEmpty);
       expect(d.speaking, isFalse);
+      expect(d.state, CState.idle);
+      d.dispose();
+    });
+
+    test('introduction plays once, then taps and relaunches stay silent',
+        () async {
+      final p = OkPlatform();
+      final d = speakingDirector(p);
+      await d.greet(); // the genuine first introduction
+      expect(p.spoken, isNotEmpty);
+      expect(d.met, isTrue);
       final n = p.spoken.length;
-      for (var i = 0; i < 4; i++) {
-        d.tapMilo(); // debounced: bounce and blink, never stacked speech
+      await d.greet(); // second call: silent no-op
+      expect(p.spoken.length, n);
+      for (var i = 0; i < 3; i++) {
+        d.tapMilo(); // taps after introduction never reintroduce
       }
       await Future.delayed(const Duration(milliseconds: 50));
       expect(p.spoken.length, n);
-      expect(d.state, CState.idle);
+      final back = speakingDirector(p)..loadSettings(d.toSettings()); // relaunch
+      expect(back.met, isTrue);
+      await back.greet();
+      expect(p.spoken.length, n);
+      expect(back.toSettings()['met'], '1'); // local persistence, no network
+      d.dispose();
+      back.dispose();
+    });
+
+    test('quiet mode: greet stays silent and unmet', () async {
+      final p = OkPlatform();
+      final d = speakingDirector(p);
+      d.quiet = true;
+      await d.greet();
+      expect(p.spoken, isEmpty);
+      expect(d.met, isFalse); // deferred until it can actually be heard
+      d.dispose();
+    });
+
+    test('returning users predate the met flag: familiar, silently', () async {
+      final d = Director();
+      d.adoptReturning({'onboarded': '1'}); // onboarded long ago, no flag
+      expect(d.met, isTrue);
+      final fresh = Director();
+      fresh.adoptReturning({}); // never onboarded: introduction still ahead
+      expect(fresh.met, isFalse);
+      d.dispose();
+      fresh.dispose();
+    });
+
+    test('provider-adjacent settings writes preserve familiarity', () async {
+      final d = speakingDirector(OkPlatform());
+      await d.greet();
+      expect(d.met, isTrue);
+      final s = Map<String, String>.from(d.toSettings());
+      s['voice'] = 'Calm'; // an unrelated settings change (a key/route/provider edit lands the same way)
+      final back = Director()..loadSettings(s); // next launch reads the full map
+      expect(back.met, isTrue);
+      d.dispose();
+      back.dispose();
+    });
+
+    test('reset replays the introduction exactly once', () async {
+      final p = OkPlatform();
+      final d = speakingDirector(p);
+      await d.greet();
+      expect(p.spoken, isNotEmpty);
+      final n = p.spoken.length;
+      d.set(() => d.met = false); // the Replay introduction action
+      await d.greet();
+      expect(p.spoken.length, greaterThan(n)); // deliberate replay speaks
+      expect(d.met, isTrue);
+      final n2 = p.spoken.length;
+      await d.greet();
+      expect(p.spoken.length, n2); // and only once
       d.dispose();
     });
 

@@ -200,7 +200,10 @@ class FakeTransport:
 
     async def get_json(self, url, headers, timeout=15):
         self.gets.append(url)
-        return self.script.pop(0)
+        item = self.script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
 
 
 def oai_chunk(text=None, usage=None):
@@ -327,7 +330,17 @@ def test_anthropic_quota_and_empty_discovery():
     with pytest.raises(ProviderError) as e:
         run(_collect(a.stream([{"role": "user", "content": "hi"}], creds=Creds("https://a", "k"), model="c")))
     assert e.value.code == "quota"
-    assert run(AnthropicAdapter(transport=FakeTransport([])).discover_models(Creds("https://a", "k"))) == []
+    a = AnthropicAdapter(transport=FakeTransport([(200, {"data": [{"id": "claude-x", "display_name": "Claude X"}, {"id": "claude-a"}, {}]})]))
+    assert run(a.discover_models(Creds("https://a", "k"))) == ["claude-a", "claude-x"]
+    assert a._http.gets == ["https://a/v1/models"]
+    a = AnthropicAdapter(transport=FakeTransport([(401, {"error": {"message": "bad key"}})]))
+    with pytest.raises(ProviderError) as e:
+        run(a.discover_models(Creds("https://a", "k")))
+    assert e.value.code == "auth_failed"
+    a = AnthropicAdapter(transport=FakeTransport([ConnectionError()]))
+    with pytest.raises(ProviderError) as e:
+        run(a.discover_models(Creds("https://a", "k")))
+    assert e.value.code == "unreachable"
 
 
 # ---------- probes ----------
@@ -388,7 +401,7 @@ def test_visual_ground_mock_shape_meta_honest():
     assert g["model"] == "mock" and len(g["boxes"]) == 1
     b = g["boxes"][0]
     assert b["label"] == "the red ball" and all(0.0 <= b[k] <= 1.0 for k in ("x", "y", "w", "h"))
-    assert meta_mod.SAM_ENDPOINT_UNVERIFIED is None
+    assert meta_mod.SAM_KEYED_PROBE_PENDING is True
     # MetaAdapter.__init__ needs the openai package; ground() refuses before
     # touching self, so the unbound call proves the honest refusal anywhere.
     with pytest.raises(ProviderError) as e:

@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     spark_model: str = "muse-spark-1.3"
     voice_model: str = "muse-voice-transcribe-1.0"
     image_model: str = "muse-image-1.0"
-    wonder_model: str = "muse-wonder-1.0"  # allowlisted, unrouted: set SPARK_MODEL to this id deliberately (see meta_catalog)
+    wonder_model: str = "muse-wonder-1.0"  # long-form only (stories/plan), explicit route; never default turns
+    sam_model: str = "sam-3.1"  # entitlement-checked; app path gated on a keyed probe_sam.py run
     brain_mode: str = "json"               # json | lines
     jwt_secret: str = ""
     key_enc_secret: str = ""             # encrypts family BYOK keys at rest; required (>=32 chars) in prod
@@ -37,6 +38,7 @@ class Settings(BaseSettings):
     price_cached_in: float = 0.15
     price_out: float = 4.25
     price_image: float = 0.01
+    price_segment: float = 0.01  # one SAM grounding call; Meta prices per 1k images — recheck on the dashboard
     price_voice_hour: float = 0.18
     max_body_bytes: int = 3_000_000
     max_image_bytes: int = 2_000_000
@@ -52,7 +54,7 @@ class Settings(BaseSettings):
 
     @property
     def allowed_models(self) -> set[str]:
-        return {self.spark_model, self.voice_model, self.image_model, self.wonder_model}
+        return {self.spark_model, self.voice_model, self.image_model, self.wonder_model, self.sam_model}
 
 
 def assert_model_allowed(s: Settings, model: str) -> None:

@@ -1,5 +1,6 @@
 """Provider capabilities and probe results. Dependency-free (stdlib only) so
 unit tests can import it without the web stack."""
+import re
 from dataclasses import dataclass, field
 
 
@@ -13,7 +14,7 @@ class Capabilities:
     tts: bool = False
     image_gen: bool = False
     realtime: bool = False
-    visual_ground: bool = False  # SAM-style "point at the words" boxes (P2; mock only until docs verified)
+    visual_ground: bool = False  # SAM 3.1 boxes: implemented from Meta's cookbook, live-unverified until probe_sam.py passes with a key
 
     def as_dict(self) -> dict:
         return {k: getattr(self, k) for k in (
@@ -47,3 +48,25 @@ DECLARED = {
 
 DISPLAY_NAMES = {"meta": "Meta", "openai": "OpenAI", "anthropic": "Anthropic", "custom": "Custom / local",
                  "modal": "Milo hosted", "mock": "Mock (offline demo)"}
+
+_ACRONYMS = {"gpt", "tts", "stt", "api", "xl", "xs", "os"}
+
+
+def friendly_model_name(model_id: str) -> str:
+    """Parent-readable label for a model id. No curated vendor list to go
+    stale: last path segment, separators to spaces, gentle casing that
+    preserves existing capitals (4o stays 4o) and version dots (1.3)."""
+    seg = (model_id or "").split("/")[-1].strip()
+    if not seg:
+        return "Unknown model"
+    out = []
+    for w in re.split(r"[-_]+", seg):
+        if not w:
+            continue
+        if w != w.lower() or w.replace(".", "").isdigit():
+            out.append(w)  # Muse, Open, 816B, 1.3 untouched
+        elif w in _ACRONYMS:
+            out.append(w.upper())
+        else:
+            out.append(w[:1].upper() + w[1:])
+    return " ".join(out) or "Unknown model"

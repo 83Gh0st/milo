@@ -82,12 +82,38 @@ class ComposeReq(BaseModel):
     lang: str = Field(default="English", max_length=30)
 
 
+StoryMode = Literal["new", "continue", "ending", "answer"]
+StoryLen = Literal["short", "medium", "long"]
+
+
+class StoryPage(BaseModel):
+    heading: str = Field(default="", max_length=80)
+    text: str = Field(default="", max_length=2000)
+
+
+class StoryReq(BaseModel):
+    mode: StoryMode = "new"
+    theme: str = Field(default="", max_length=80)
+    characters: list[str] = Field(default=[], max_length=4)
+    setting: str = Field(default="", max_length=80)
+    length: StoryLen = "short"
+    pages: list[StoryPage] = Field(default=[], max_length=10)  # prior pages for continue/ending/answer
+    question: str = Field(default="", max_length=200)
+    presentation: Pres = "friendly"
+    lang: str = Field(default="English", max_length=30)
+
+
 class VisualReq(BaseModel):
     concept: str = Field(max_length=30)
 
 
 class ImageReq(BaseModel):
     prompt: str = Field(min_length=2, max_length=300)
+
+
+class SegmentReq(BaseModel):
+    image_b64: str = Field(min_length=100, max_length=7_000_000)  # ~5 MB decoded, under max_body_bytes
+    phrase: str = Field(min_length=2, max_length=60)  # one short noun phrase ("heart", "red boat")
 
 
 class SpeakReq(BaseModel):

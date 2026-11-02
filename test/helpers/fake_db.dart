@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:milo/data/db.dart';
 import 'package:milo/data/secure_store.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
@@ -29,6 +32,8 @@ class FakeDb implements MiloDb {
   Future<void> put(String k, String v) async => settings[k] = v;
   @override
   Future<void> putFlag(String k, bool v) async => settings[k] = v ? '1' : '0';
+  @override
+  Future<void> del(String k) async => settings.remove(k);
   @override
   Future<Map<String, String>> allSettings() async => Map.of(settings);
   @override
@@ -69,9 +74,20 @@ class FakeDb implements MiloDb {
   @override
   Future<List<Map<String, Object?>>> tiles() async => List.of(tileRows);
   @override
-  Future<void> addTile(String emoji, String label) async => tileRows.add({'id': '${++_id}', 'label': label, 'emoji': emoji, 'spoken_text': label, 'is_core': 0, 'position': _id});
+  Future<String> addTile(String emoji, String label, {Uint8List? art}) async {
+    final id = '${++_id}';
+    tileRows.add({'id': id, 'label': label, 'emoji': emoji, 'spoken_text': label, 'is_core': 0, 'position': _id});
+    if (art != null && art.isNotEmpty) settings['local.tileart.$id'] = base64Encode(art);
+    return id;
+  }
   @override
-  Future<void> deleteTile(String id) async => tileRows.removeWhere((t) => t['id'] == id);
+  Future<Uint8List?> tileArt(String id) async {
+    final v = settings['local.tileart.$id'];
+    if (v == null) return null;
+    try { return base64Decode(v); } catch (_) { return null; }
+  }
+  @override
+  Future<void> deleteTile(String id) async { tileRows.removeWhere((t) => t['id'] == id); settings.remove('local.tileart.$id'); }
   @override
   Future<String> addDocument(String title, String text) async {
     final id = '${++_id}';

@@ -149,6 +149,37 @@ class Router:
             self._circuit(provider, model).record_fail()
         raise last_err
 
+    async def ground_image(self, routes, creds_map, image_b64, phrase, timeout=60, caps_map=None):
+        """SAM-style grounding: (provider, model, {"boxes", "model"}). Entries
+        without a ground method are skipped; boxes arrive normalized 0..1."""
+        last_err = ProviderError("unsupported_capability", 502)
+        for e in self._entries("segment", routes):
+            provider, model = e.provider, e.model
+            if caps_map is not None and not (caps_map.get((provider, model)) or {}).get("visual_ground", True):
+                continue
+            adapter = self.adapters.get(provider)
+            if adapter is None or not hasattr(adapter, "ground"):
+                continue
+            if self._circuit(provider, model).is_open():
+                last_err = ProviderError("provider_error", 503)
+                continue
+            self.last_route = (provider, model)
+            try:
+                async with _timeout(timeout):
+                    out = await adapter.ground(image_b64, phrase, creds=(creds_map or {}).get(provider), model=model)
+                self._circuit(provider, model).record_ok()
+                return provider, model, out
+            except TimeoutError:
+                last_err = ProviderError("timeout", 504)
+            except ProviderError as e:
+                last_err = e
+                if e.code not in FAILOVER_CODES:
+                    raise
+            except Exception:
+                last_err = ProviderError("provider_error", 503)
+            self._circuit(provider, model).record_fail()
+        raise last_err
+
     async def open_voice(self, routes, creds_map, language_bias=None, keywords=None, timeout=15, caps_map=None):
         last_err = ProviderError("unsupported_capability", 502)
         for e in self._entries("stt", routes):

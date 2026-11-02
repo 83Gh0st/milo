@@ -51,8 +51,9 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
         from .providers.mock import MockImage, MockReasoning, MockVoice
         app.state.reasoning, app.state.image, app.state.voice = reasoning or MockReasoning(), image or MockImage(), voice or MockVoice()
     else:
-        from .providers.meta import MetaImage, MetaReasoning, MetaVoice
+        from .providers.meta import MetaGround, MetaImage, MetaReasoning, MetaVoice
         app.state.reasoning, app.state.image, app.state.voice = reasoning or MetaReasoning(s), image or MetaImage(s), voice or MetaVoice(s)
+        app.state.ground = MetaGround(s)
     from .providers.meta_adapter import MetaAdapter
     from .providers.mock_adapter import MockAdapter
     from .providers.openai_compat import Creds
@@ -63,7 +64,7 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
     elif s.provider == "mock":
         home = MockAdapter(reasoning=app.state.reasoning, image=app.state.image, voice=app.state.voice)
     else:
-        home = MetaAdapter(s, reasoning=app.state.reasoning, image=app.state.image, voice=app.state.voice)
+        home = MetaAdapter(s, reasoning=app.state.reasoning, image=app.state.image, voice=app.state.voice, ground=app.state.ground)
     adapters = {s.provider: home}
     for pid in ("openai", "anthropic", "custom"):
         adapters[pid] = get_adapter(pid)
@@ -75,18 +76,20 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
     app.state.adapters = adapters
     if s.provider == "mock":
         one = [RouteEntry("mock", "mock")]
-        app.state.default_routes = {c: list(one) for c in ("brain", "understand", "plan", "compose", "visual", "stt", "tts")}
+        app.state.default_routes = {c: list(one) for c in ("brain", "understand", "plan", "compose", "story", "visual", "segment", "stt", "tts")}
     else:
         app.state.default_routes = {"brain": [RouteEntry("meta", s.spark_model)], "understand": [RouteEntry("meta", s.spark_model)],
                                     "plan": [RouteEntry("meta", s.spark_model)], "compose": [RouteEntry("meta", s.spark_model)],
-                                    "visual": [RouteEntry("meta", s.image_model)], "stt": [RouteEntry("meta", s.voice_model)], "tts": []}
+                                    "story": [RouteEntry("meta", s.spark_model)],
+                                    "visual": [RouteEntry("meta", s.image_model)], "segment": [RouteEntry("meta", s.sam_model)],
+                                    "stt": [RouteEntry("meta", s.voice_model)], "tts": []}
     if s.reasoning_provider == "modal" and modal_ready:
         # Hosted Muse Spark serves the text capabilities; image/voice stay on the
         # suite. Fallback to the suite entry is configurable: staging sets
         # MODAL_FALLBACK=false so hosted outages fail loudly instead of
         # silently testing the suite.
         first = [RouteEntry("modal", s.modal_model)]
-        for cap in ("brain", "understand", "plan", "compose"):
+        for cap in ("brain", "understand", "plan", "compose", "story"):
             suite = app.state.default_routes.get(cap) or []
             app.state.default_routes[cap] = first + (suite if s.modal_fallback else [])
     app.state.router = Router(adapters, app.state.default_routes)

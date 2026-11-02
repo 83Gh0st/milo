@@ -40,6 +40,26 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: pip install 'modal==1.6.3'
+      # Safe auth diagnostics: never prints secret values — only presence,
+      # length (a number), the public ak-/as- prefix shape shared by every
+      # Modal token, and whitespace detection. Catches empty secrets,
+      # swapped id/secret, and padded pastes before `modal` fails cryptically.
+      - name: Validate Modal auth shape (safe)
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          fail=0
+          for v in MODAL_TOKEN_ID MODAL_TOKEN_SECRET; do
+            val="${!v}"
+            if [ -z "$val" ]; then echo "::error::$v is empty or missing (repo Settings → Secrets → Actions → $v)"; fail=1; continue; fi
+            nospace="$(printf '%s' "$val" | tr -d '[:space:]')"
+            if [ "${#nospace}" != "${#val}" ]; then echo "::error::$v contains whitespace (re-paste the exact value, no trailing newline)"; fail=1; continue; fi
+            echo "$v: present, length ${#val}"
+          done
+          case "$MODAL_TOKEN_ID" in ak-*) echo 'token-id prefix ok (ak-)';; *) echo '::warning::MODAL_TOKEN_ID does not start with ak- — wrong value pasted, or swapped with the secret (starts with as-). See docs/MODAL.md §8.1.';; esac
+          case "$MODAL_TOKEN_SECRET" in as-*) echo 'token-secret prefix ok (as-)';; *) echo '::warning::MODAL_TOKEN_SECRET does not start with as- — wrong value pasted, or swapped with the id (starts with ak-). See docs/MODAL.md §8.1.';; esac
+          exit $fail
       - name: Refuse unconfirmed production deploys
         if: ${{ inputs.target == 'gateway-prod' && inputs.confirm_prod != 'DEPLOY-PROD' }}
         run: |

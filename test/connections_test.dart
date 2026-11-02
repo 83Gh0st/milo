@@ -181,14 +181,17 @@ void main() {
       await t.pump();
       expect(find.text(row, skipOffstage: false).last, findsOneWidget);
     }
-    await t.ensureVisible(find.text('Find', skipOffstage: false).first);
+    await t.ensureVisible(find.text('Choose', skipOffstage: false).first);
     await t.pump();
-    await t.tap(find.text('Find'));
+    await t.tap(find.text('Choose'));
     await settle(t);
     expect(find.text('Pick a model'), findsOneWidget);
-    await t.tap(find.text('fake-model-b'));
+    expect(find.textContaining('Recommended', skipOffstage: false), findsWidgets); // badge on fake-model-a
+    expect(find.textContaining('Not tested yet', skipOffstage: false), findsWidgets); // honest: no probe data
+    await t.tap(find.text('Fake Model B'));
     await settle(t);
-    expect(find.text('fake-model-b'), findsOneWidget); // model field filled, dialog closed
+    expect(find.text('Fake Model B'), findsOneWidget); // card shows the friendly name
+    expect(find.text('fake-model-b'), findsWidgets); // card shows the id; dialog closed
 
     api.failProbe = true;
     await t.ensureVisible(find.text('Test connection', skipOffstage: false).first);
@@ -282,5 +285,53 @@ void main() {
     expect(find.text('MY API KEYS (BYOK)', skipOffstage: false), findsOneWidget); // Section renders uppercase
     expect(t.takeException(), isNull);
     c.dispose();
+  });
+
+  testWidgets('model picker refreshes, fails usefully, and keeps manual entry', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model-a', 'policy': {}});
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c);
+    await dragToBuild(t, find.text('OpenAI', skipOffstage: false), find.byType(ListView).first);
+    await t.tap(find.text('OpenAI'));
+    await settle(t);
+    await t.ensureVisible(find.text('Choose', skipOffstage: false).first);
+    await t.tap(find.text('Choose'));
+    await settle(t);
+    expect(find.text('Live list from OpenAI.'), findsOneWidget);
+    await t.tap(find.byTooltip('Refresh'));
+    await settle(t);
+    expect(find.text('Fake Model A'), findsWidgets); // still there after refresh
+    await t.tap(find.text('Cancel'));
+    await settle(t);
+    api.failModels = true;
+    await t.tap(find.text('Choose'));
+    await settle(t);
+    expect(find.text('Try again'), findsOneWidget); // useful error, dialog stays usable
+    expect(find.text('Or type the model ID under Advanced.'), findsOneWidget);
+    await t.tap(find.text('Cancel'));
+    await settle(t);
+    await t.ensureVisible(find.text('Advanced: type a model ID', skipOffstage: false));
+    await t.tap(find.text('Advanced: type a model ID'));
+    await settle(t);
+    await t.enterText(find.byType(TextField).last, 'typed-model-id');
+    await settle(t);
+    expect(find.text('Typed Model Id'), findsOneWidget); // card tracks manual typing
+    expect(t.takeException(), isNull);
+    c.dispose();
+  });
+
+  test('prettyModelId mirrors the server rules', () {
+    expect(prettyModelId('gpt-4o-mini'), 'GPT 4o Mini');
+    expect(prettyModelId('meta-models/Muse-Spark-Open-816B-A42B'), 'Muse Spark Open 816B A42B');
+    expect(prettyModelId(''), 'Unknown model');
+  });
+
+  test('ConnModel.parse tolerates legacy string items', () {
+    expect(ConnModel.parse('gpt-4o-mini').name, 'GPT 4o Mini');
+    final m = ConnModel.parse({'id': 'a', 'name': 'A', 'recommended': true, 'role': 'chat'});
+    expect(m.recommended, isTrue);
+    expect(m.role, 'chat');
   });
 }

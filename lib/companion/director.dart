@@ -150,6 +150,7 @@ class Director extends ChangeNotifier {
   double _presetRate = .475, _paceRate = 1;
   String lang = 'en';
   bool ttsReady = true, greetings = true, offlineForced = false;
+  bool met = false; // the spoken introduction played (persisted). Taps and launches never replay it.
   double voiceSpeed = 1.0;
   VoiceEngineMode voiceEngine = VoiceEngineMode.auto; // online-voice setting (platform until a real sink ships)
   bool clearSpeech = false; // dyslexic-reader option: slightly slower, extra-careful delivery
@@ -172,7 +173,6 @@ class Director extends ChangeNotifier {
   // speech
   bool _speaking = false, _aac = false, _gotP = false;
   bool _speechStarted = false; // set by the first real audio signal (platform started/word event or neural envelope); the mouth never moves before it
-  double _lastGreetTap = -99; // character-tap greeting debounce (clock time)
   int _gen = 0, _turn = 0;
   List<RegExpMatch> _words = [];
   void Function(int)? _onWord;
@@ -541,10 +541,13 @@ class Director extends ChangeNotifier {
   void pointerAt(Offset global) { markActive(); touch = _norm(global); touchUntil = clock + 2.5; }
   void lookAtGlobal(Offset global, {double secs = 1.2}) { content = _norm(global); contentUntil = clock + secs; }
 
-  // L6 reactions (local, no AI, <100 ms). Tapping Milo has one predictable
-  // action, matching the "Tap to say hi" label: while Milo speaks it barges
-  // in to listen; otherwise Milo says hi (debounced: rapid taps only bounce
-  // and blink, never stack speech). The mouth moves only with real TTS audio.
+  // L6 reactions (local, no AI, <100 ms). Tapping Milo has one predictable,
+  // silent action, matching the "Tap to wave hello" label: while Milo speaks
+  // it barges in to listen; otherwise a blink and a small bounce — never
+  // speech, so accidental taps stay silent and returning users are never
+  // re-introduced to. Speech belongs to deliberate flows (chat, voice,
+  // read-aloud) and the one-time introduction. The mouth moves only with
+  // real TTS audio.
   void tapMilo() {
     markActive();
     if (_speaking && !_aac) { // barge-in
@@ -560,11 +563,15 @@ class Director extends ChangeNotifier {
     _nb = clock; // blink
     if (profile == Profile.discreet) return; // eyes only
     sq.v -= 2.2; // small bounce; no mouth movement without speech
-    if (state == CState.listening || state == CState.endpointing || state == CState.thinking) return; // never hijack a live turn
-    if (clock - _lastGreetTap < 4) return; // debounced: motion only
-    _lastGreetTap = clock;
-    _cap(greetingFor(profile, lang, DateTime.now(), daysTogether, screenKind));
-    unawaited(speak(caption, tone: 'warm'));
+  }
+
+  /// Silent hello for app launches: a small wave, no speech. Presence is
+  /// acknowledged; familiarity is assumed, never announced.
+  void helloMotion() {
+    markActive();
+    if (!reactions || _aac || profile == Profile.discreet) return;
+    gesture('wave');
+    emote('happy', i: .6, hold: 2);
   }
   void petMilo() {
     markActive();
@@ -868,7 +875,7 @@ class Director extends ChangeNotifier {
     quiet = s['quiet'] == '1'; reactions = s['reactions'] != '0'; voiceOn = s['voiceOn'] != '0'; forceReduce = s['reduce'] == '1';
     paceSecs = int.tryParse(s['pace'] ?? '') ?? 3; preReader = s['prereader'] == '1'; lang = s['lang'] ?? 'en';
     highContrast = s['hc'] == '1'; haptics = s['haptics'] != '0'; captions = s['captions'] != '0'; textScale = double.tryParse(s['tscale'] ?? '') ?? 1.0;
-    lineSpacing = double.tryParse(s['lspace'] ?? '') ?? 1.5; font = s['font'] ?? 'Lexend'; breakNudgeMin = int.tryParse(s['breaknudge'] ?? '') ?? 0; greetings = s['greetings'] != '0'; voiceSpeed = double.tryParse(s['vspeed'] ?? '') ?? 1.0; offlineForced = s['offline.forced'] == '1'; ignoreTaps = s['ignoretaps'] == '1'; leftHanded = s['lefthand'] == '1'; ttsVoice = s['tts.voice'] ?? ''; ttsLocale = s['tts.locale'] ?? '';
+    lineSpacing = double.tryParse(s['lspace'] ?? '') ?? 1.5; font = s['font'] ?? 'Lexend'; breakNudgeMin = int.tryParse(s['breaknudge'] ?? '') ?? 0; greetings = s['greetings'] != '0'; voiceSpeed = double.tryParse(s['vspeed'] ?? '') ?? 1.0; offlineForced = s['offline.forced'] == '1'; ignoreTaps = s['ignoretaps'] == '1'; leftHanded = s['lefthand'] == '1'; ttsVoice = s['tts.voice'] ?? ''; ttsLocale = s['tts.locale'] ?? ''; met = s['met'] == '1';
     presence = presenceOverride ?? _auto();
     look = MiloLook.values.where((l) => l.name == s['look']).firstOrNull ?? MiloLook.a;
     moodBase = (double.tryParse(s['mood'] ?? '') ?? 0).clamp(-.3, .3).toDouble();
@@ -886,7 +893,7 @@ class Director extends ChangeNotifier {
   Map<String, String> toSettings() => {'profile': profile.name, 'presence': presenceOverride?.name ?? 'auto', 'voice': voiceStyle, 'color': '${color.toARGB32()}',
     'quiet': quiet ? '1' : '0', 'reactions': reactions ? '1' : '0', 'voiceOn': voiceOn ? '1' : '0', 'reduce': forceReduce ? '1' : '0', 'pace': '$paceSecs', 'prereader': preReader ? '1' : '0', 'lang': lang, 'hc': highContrast ? '1' : '0', 'haptics': haptics ? '1' : '0', 'captions': captions ? '1' : '0', 'tscale': '$textScale', 'lspace': '$lineSpacing', 'font': font, 'breaknudge': '$breakNudgeMin', 'greetings': greetings ? '1' : '0', 'vspeed': '$voiceSpeed', 'offline.forced': offlineForced ? '1' : '0', 'ignoretaps': ignoreTaps ? '1' : '0', 'lefthand': leftHanded ? '1' : '0', 'tts.voice': ttsVoice, 'tts.locale': ttsLocale, 'local.peeked': peeked.join(','),
     'look': look.name, 'mood': '$moodBase', 'install.day': '${DateTime.now().difference(DateTime(2026, 1, 1)).inDays - daysTogether}', 'sound': soundOn ? '1' : '0', 'svol': '$soundVol',
-    'vengine': voiceEngine.name, 'clear': clearSpeech ? '1' : '0', 'scan': scanMode ? '1' : '0', 'scanms': '$scanMs'};
+    'vengine': voiceEngine.name, 'clear': clearSpeech ? '1' : '0', 'scan': scanMode ? '1' : '0', 'scanms': '$scanMs', 'met': met ? '1' : '0'};
 
   /// Body first (emotion + gesture), then words, sentence by sentence.
   Future<void> perform(BrainTurn t) async {
@@ -924,8 +931,19 @@ class Director extends ChangeNotifier {
     });
   }
 
+  /// The spoken introduction, played once per lifetime (persisted [met]).
+  /// First onboarding completion and the settings replay action are the only
+  /// callers; taps and launches use the silent [helloMotion] instead. Marked
+  /// met only after the line is delivered, so an interrupted intro replays.
+  /// First-launch migration for users who onboarded before the met flag
+  /// existed: they are returning users — familiar, silently.
+  void adoptReturning(Map<String, String> s) {
+    if (s['onboarded'] == '1' && s['met'] != '1') set(() => met = true);
+  }
+
   Future<void> greet() async {
     if (quiet || !greetings) return;
+    if (met) return;
     final c = kProfiles[profile]!;
     _set(CState.greeting);
     if (c.gesture != 'none') gesture(c.gesture, force: true);
@@ -934,6 +952,7 @@ class Director extends ChangeNotifier {
     _cap(line);
     await speak(line, tone: 'warm');
     _set(CState.idle);
+    set(() => met = true);
   }
 
   /// Celebration scaled to the person's presentation profile (doc 5.4).

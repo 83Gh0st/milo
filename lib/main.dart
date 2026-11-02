@@ -122,7 +122,7 @@ class _ShellState extends ConsumerState<Shell> with SingleTickerProviderStateMix
     final indexed = IndexedStack(index: tab, children: [for (var i = 0; i < 5; i++) ProviderScope(overrides: [miloScopeProvider.overrideWithValue(i)], child: MiloScaffold(title: titles[i], kind: kinds[i], body: tabs[i]))]);
     void setTab(int i) => ref.read(tabProvider.notifier).state = i;
     return Listener(
-      onPointerDown: (e) { d.pointerAt(e.position); if (_first) { _first = false; d.greet(); } }, // eyes look where you touch
+      onPointerDown: (e) { d.pointerAt(e.position); if (_first) { _first = false; d.helloMotion(); } }, // eyes look where you touch; launches never speak
       onPointerMove: (e) => d.pointerAt(e.position),
       child: Scaffold(
         bottomNavigationBar: railMode ? null : NavigationBar(selectedIndex: tab, labelBehavior: hideLabels ? NavigationDestinationLabelBehavior.onlyShowSelected : NavigationDestinationLabelBehavior.alwaysShow, onDestinationSelected: setTab, destinations: [for (final x in dests) NavigationDestination(icon: Icon(x.$1), selectedIcon: Icon(x.$2), label: x.$3)]),

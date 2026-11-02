@@ -28,11 +28,18 @@ loopback to the developer's machine).
 - CI's APK check build bakes the staging gateway URL and a verification step
   fails the job if `api.example.com` is present or the staging host is absent —
   the `milo-android-apk` artifact is a usable staging client.
-- The iOS simulator check still uses `--dart-define=API_BASE=https://api.example.com`
-  (a placeholder — that build only proves compilation, never distributed).
-- `release.yml` uses the `MILO_API_BASE` repository secret when set, else the
-  `api_base` manual-dispatch input, else the compiled-in default. Set
-  `MILO_API_BASE` to your `https://…modal.run` URL (see `docs/MODAL.md` §4).
+- The CI iOS simulator check uses the `MILO_API_BASE` secret when set, else
+  the compiled-in default (that build only proves compilation, never
+  distributed).
+- `release.yml` resolves API_BASE as `api_base` dispatch input, else the
+  `MILO_API_BASE` repository secret, else the production-gateway default
+  baked into the workflow (a public URL, not a credential) — release
+  artifacts can never silently ship the emulator-only compiled-in default
+  (`http://10.0.2.2:8000`). Set `MILO_API_BASE` to point a release at a
+  different gateway (e.g. staging) without editing the workflow. A
+  verification step fails the job if the built APK/AAB/IPA lacks the
+  expected host or contains the `api.example.com` placeholder; it reports
+  only which source was used, never URL values from secrets.
 - No credentials ever go in `--dart-define`. Provider keys travel only through
   the PIN-gated AI-connections flow (TLS once, sealed server-side).
 
@@ -77,11 +84,15 @@ Outputs: `build\app\outputs\flutter-apk\app-release.apk`,
 > and upload step runs on the macOS GitHub Actions runners below (or a local
 > Mac). The simulator check (§4.3) needs no secrets and no paid membership.
 
-> Plugin integration: this Flutter resolves iOS plugins via Swift Package
-> Manager — there is intentionally no `ios/Podfile`, and the workflows do
-> not run `pod install`. If a plugin ever lacks SPM support, regenerate the
-> CocoaPods shell with `FLUTTER_SWIFT_PACKAGE_MANAGER=false flutter create
-> --platforms=ios .` (then re-apply the Info.plist + icon work from git).
+> Plugin integration: full CocoaPods mode. Five plugins still lack SPM
+> support (`flutter_tts`, `google_mlkit_commons`,
+> `google_mlkit_text_recognition`, `sensors_plus`, `sqflite_sqlcipher`),
+> and the default hybrid SPM+Pods setup fails to link ("Framework
+> 'Pods_Runner' not found") — so the repo commits `ios/Podfile` (platform
+> 15.5, ML Kit's floor), the workflows set
+> `FLUTTER_SWIFT_PACKAGE_MANAGER=false` (the flag, not Podfile presence,
+> selects the mode in flutter_tools), and every iOS job runs an explicit
+> `cd ios && pod install`. `IPHONEOS_DEPLOYMENT_TARGET` is 15.5 to match.
 
 ### Requirements (Apple)
 

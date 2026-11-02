@@ -37,7 +37,7 @@ class MiloView extends ConsumerWidget {
       final useLod = lod ?? lodForSize(sz);
       Offset n(Offset p) => Offset((p.dx / sz.width * 2 - 1).clamp(-1.0, 1.0).toDouble(), (p.dy / sz.height * 2 - 1).clamp(-1.0, 1.0).toDouble());
       return Semantics(
-        label: 'Milo, your AI companion. Tap to say hi.',
+        label: 'Milo, your AI companion. Tap to wave hello.',
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (t) {

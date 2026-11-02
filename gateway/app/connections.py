@@ -113,7 +113,19 @@ async def list_models(provider: str, request: Request, vid: str = Depends(vault_
     except ProviderError as e:
         log.info("discover failed", extra={"kind": "connections", "prov": provider, "err": e.code})
         raise HTTPException(e.status, {"error": e.code})
-    return {"models": models}
+    from .providers.capabilities import friendly_model_name
+    items = []
+    for mid in models:
+        role, rec = None, False
+        if provider == "meta":  # configured trio: roles are certain, from our own config
+            if mid == s.spark_model:
+                role, rec = "chat", True
+            elif mid == s.image_model:
+                role = "image"
+            elif mid == s.voice_model:
+                role = "voice"
+        items.append({"id": mid, "name": friendly_model_name(mid), "recommended": rec, "role": role})
+    return {"models": items, "source": "live" if provider in ("openai", "anthropic", "custom") else "configured"}
 
 
 @router.post("/{provider}/test")

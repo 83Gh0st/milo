@@ -2,7 +2,8 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.1
-openai==1.58.1
+openai==1.66.0  # >=1.66: Responses API (client.responses) for SAM 3.1 grounding
+meta-sam-parser==0.0.5  # Meta's official SAM wire-grammar reader (dependency-free); the gateway never parses SAM text itself
 websockets==14.1
 PyJWT==2.10.1
 cryptography==44.0.0

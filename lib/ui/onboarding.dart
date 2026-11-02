@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../companion/director.dart';
@@ -36,6 +38,11 @@ class _OState extends ConsumerState<Onboarding> {
     await db.logConsent('ai_disclosure', 'acknowledged', 'user'); // "Milo is an AI", said in plain words
     if (who == 'child') await db.put('local.child', '1');
     await db.put('onboarded', skipped ? '0' : '1');
+    if (skipped) {
+      d.set(() => d.met = true); // skipped the tour: no ambush speech, and never replays
+    } else if (!d.met) {
+      unawaited(d.greet()); // the genuine first introduction, spoken once over the transition
+    }
     d.set(() { d.lang = lang; d.voiceStyle = voice; d.color = col; d.preReader = readAloud; });
     d.setProfile(who == 'child' ? Profile.playful : Profile.friendly);
     d.applyVoice();

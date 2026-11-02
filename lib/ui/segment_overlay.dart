@@ -47,6 +47,7 @@ class SegmentOverlay extends StatelessWidget {
   final String? semanticLabel;
   @override
   Widget build(BuildContext context) => Semantics(
+      container: true,
       label: semanticLabel ?? 'Photo with ${regions.length} outlined objects',
       image: true,
       child: AspectRatio(
@@ -68,6 +69,7 @@ class SegmentOverlay extends StatelessWidget {
                                   onTap: onRegionTap == null ? null : () => onRegionTap!(r.id),
                                   behavior: HitTestBehavior.opaque,
                                   child: Semantics(
+                                      container: true, // explicit node: without this the label merges upward and is neither findable nor focusable
                                       button: true,
                                       label: 'Explain ${r.label}',
                                       child: Container(

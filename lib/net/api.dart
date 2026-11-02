@@ -13,6 +13,81 @@ import '../data/secure_store.dart';
 class CloudDisabled implements Exception {}
 class ApiError implements Exception { final String code; final Map<String, dynamic>? detail; ApiError(this.code, [this.detail]); @override String toString() => 'ApiError($code)'; }
 
+class StoryPage {
+  const StoryPage(this.heading, this.text);
+  final String heading, text;
+  Map<String, String> toJson() => {'heading': heading, 'text': text};
+}
+
+/// A generated tale. [Story.parse] is the second validation gate (the gateway
+/// is the first): wrong shapes throw ApiError('bad_story') instead of showing
+/// half a tale. Empty [toldBy] means the server predates attribution.
+class Story {
+  const Story({required this.title, required this.pages, this.toldBy = const {'provider': '', 'model': ''}});
+  final String title;
+  final List<StoryPage> pages;
+  final Map<String, String> toldBy;
+  factory Story.parse(Map<String, dynamic> j) {
+    final ps = j['pages'];
+    if (ps is! List || ps.isEmpty || ps.length > 9) throw ApiError('bad_story');
+    final out = <StoryPage>[];
+    for (final p in ps) {
+      if (p is! Map) throw ApiError('bad_story');
+      final text = '${p['text'] ?? ''}'.trim();
+      if (text.isEmpty || text.length > 2000) throw ApiError('bad_story');
+      out.add(StoryPage('${p['heading'] ?? ''}'.trim(), text));
+    }
+    final tb = j['told_by'];
+    return Story(title: '${j['title'] ?? ''}'.trim(), pages: out,
+        toldBy: tb is Map ? {'provider': '${tb['provider'] ?? ''}', 'model': '${tb['model'] ?? ''}'} : const {'provider': '', 'model': ''});
+  }
+}
+
+/// The teller's name for the story screen: honest about hosted vs family key,
+/// without making a child read model ids.
+String toldByLabel(Map<String, String> tb) {
+  final p = tb['provider'] ?? '', m = tb['model'] ?? '';
+  if (p == 'modal') return 'Milo-hosted Spark';
+  if (p == 'meta') return m.contains('wonder') ? 'Muse Wonder' : 'Muse Spark';
+  if (p == 'mock') return 'Practice storyteller';
+  if (p.isEmpty) return 'Milo';
+  return 'Your $p key';
+}
+
+/// One discovered model. The server is the source of truth for names;
+/// [prettyModelId] mirrors its rules for ids the server never described
+/// (saved-before-discovery selections shown offline).
+class ConnModel {
+  const ConnModel({required this.id, required this.name, this.recommended = false, this.role});
+  final String id, name;
+  final bool recommended;
+  final String? role; // chat | image | voice — Meta's configured trio only
+  factory ConnModel.parse(Object? m) {
+    if (m is Map) {
+      return ConnModel(id: '${m['id']}', name: '${m['name'] ?? m['id']}', recommended: m['recommended'] == true, role: m['role']?.toString());
+    }
+    return ConnModel(id: '$m', name: prettyModelId('$m')); // legacy string items
+  }
+}
+
+String prettyModelId(String id) {
+  final seg = id.split('/').last.trim();
+  if (seg.isEmpty) return 'Unknown model';
+  const acr = {'gpt', 'tts', 'stt', 'api', 'xl', 'xs', 'os'};
+  final out = <String>[];
+  for (final w in seg.split(RegExp('[-_]+'))) {
+    if (w.isEmpty) continue;
+    if (w != w.toLowerCase() || RegExp(r'^[0-9.]+$').hasMatch(w)) {
+      out.add(w);
+    } else if (acr.contains(w)) {
+      out.add(w.toUpperCase());
+    } else {
+      out.add(w[0].toUpperCase() + w.substring(1));
+    }
+  }
+  return out.isEmpty ? 'Unknown model' : out.join(' ');
+}
+
 /// User barge-in (or turn change) cancelled an in-flight request: drop
 /// silently — no failure mapping, no fallback, no notice.
 class VoiceCancelled implements Exception { const VoiceCancelled(); }
@@ -85,11 +160,11 @@ class MiloApi {
     await db.ledger(endpoint, kind, summary ?? summarizeBody(body), utf8.encode(jsonEncode(body)).length, body['name'] != null, false);
   }
 
-  Future<Response<T>> _send<T>(String method, String path, {Object? body, ResponseType? rt, Map<String, String> extra = const {}, CancelToken? cancelToken}) async {
+  Future<Response<T>> _send<T>(String method, String path, {Object? body, ResponseType? rt, Map<String, String> extra = const {}, CancelToken? cancelToken, Duration? receive}) async {
     final vault = await vaultAuth?.call() ?? const <String, String>{};
     for (var attempt = 0;; attempt++) {
       try {
-        return await _dio.request<T>(path, data: body, options: Options(method: method, responseType: rt, headers: {'Authorization': 'Bearer ${await token(force: attempt > 0)}', ...vault, ...extra}), cancelToken: cancelToken);
+        return await _dio.request<T>(path, data: body, options: Options(method: method, responseType: rt, receiveTimeout: receive, headers: {'Authorization': 'Bearer ${await token(force: attempt > 0)}', ...vault, ...extra}), cancelToken: cancelToken);
       } on DioException catch (e) {
         if (e.type == DioExceptionType.cancel) throw const VoiceCancelled();
         if (e.response?.statusCode == 401 && attempt == 0) continue;
@@ -132,6 +207,43 @@ class MiloApi {
     await _ledger('/v1/compose', 'compose', body);
     final r = await _send<Map<String, dynamic>>('POST', '/v1/compose', body: body);
     return [for (final o in r.data!['options'] as List) '$o'];
+  }
+
+  /// Generated story, validated twice: the gateway checks the model's JSON,
+  /// [Story.parse] checks it again here. [toldBy] is the route the gateway
+  /// actually used ({provider, model}) — the screen names the teller so a
+  /// family key answering instead of hosted Spark is never a silent swap.
+  Future<Story> story({String theme = '', List<String> characters = const [], String setting = '', String length = 'short',
+      List<Map<String, String>> pages = const [], String question = '', String mode = 'new', required String presentation, required String lang}) async {
+    final body = {'mode': mode, 'theme': theme, 'characters': characters, 'setting': setting, 'length': length,
+      'pages': pages, 'question': question, 'presentation': presentation, 'lang': kLangNames[lang] ?? 'English'};
+    await _ledger('/v1/story', 'story', body);
+    // 90 s: a long tale may take the gateway up to 60 s; the default 30 s
+    // receive deadline would misreport a slow story as 'offline'.
+    final r = await _send<Map<String, dynamic>>('POST', '/v1/story', body: body, receive: const Duration(seconds: 90));
+    return Story.parse(r.data!);
+  }
+
+  /// One short answer about the story on screen. Small reply, small deadline.
+  Future<String> storyAnswer({required List<Map<String, String>> pages, required String question, required String presentation, required String lang}) async {
+    final body = {'mode': 'answer', 'pages': pages, 'question': question, 'presentation': presentation, 'lang': kLangNames[lang] ?? 'English'};
+    await _ledger('/v1/story', 'story', body);
+    final r = await _send<Map<String, dynamic>>('POST', '/v1/story', body: body, receive: const Duration(seconds: 45));
+    final a = '${r.data!['answer'] ?? ''}'.trim();
+    if (a.isEmpty || a.length > 2000) throw ApiError('bad_story');
+    return a;
+  }
+
+  /// Visual grounding (SAM 3.1 via the gateway): outline every [phrase] in the
+  /// photo. Returns raw region maps for [validateRegions] (the client-side
+  /// gate); empty list = "nothing found", still success. Explicit tap only.
+  Future<List<Map<String, dynamic>>> segment(Uint8List image, String phrase) async {
+    final body = {'image_b64': base64Encode(image), 'phrase': phrase};
+    await _ledger('/v1/segment', 'segment', body);
+    final r = await _send<Map<String, dynamic>>('POST', '/v1/segment', body: body, receive: const Duration(seconds: 90));
+    final regs = r.data!['regions'];
+    if (regs is! List) throw ApiError('bad_grounding');
+    return [for (final e in regs) if (e is Map) Map<String, dynamic>.from(e)];
   }
 
   Future<Uint8List> visual(String concept) async {
@@ -215,8 +327,10 @@ class MiloApi {
   }
   Future<Map<String, dynamic>> testConnection(String vid, String key, String provider, {String model = ''}) async =>
       (await _send<Map<String, dynamic>>('POST', '/v1/connections/$provider/test', body: {'model': model}, extra: _vh(vid, key))).data!;
-  Future<List<String>> connectionModels(String vid, String key, String provider) async =>
-      [for (final m in (await _send<Map<String, dynamic>>('GET', '/v1/connections/$provider/models', extra: _vh(vid, key))).data!['models'] as List) '$m'];
+  Future<({List<ConnModel> models, String source})> connectionModels(String vid, String key, String provider) async {
+    final d = (await _send<Map<String, dynamic>>('GET', '/v1/connections/$provider/models', extra: _vh(vid, key))).data!;
+    return (models: [for (final m in d['models'] as List) ConnModel.parse(m)], source: '${d['source'] ?? 'live'}');
+  }
   Future<Map<String, dynamic>> putRoutes(String vid, String key, Map<String, List<Map<String, String>>> routes) async =>
       (await _send<Map<String, dynamic>>('PUT', '/v1/connections/routes', body: {'routes': routes}, extra: _vh(vid, key))).data!;
   Future<void> deleteConnection(String vid, String key, String provider) async {
