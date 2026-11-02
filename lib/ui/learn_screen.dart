@@ -79,7 +79,9 @@ class _WBState extends ConsumerState<WordBuilder> {
   @override
   Widget build(BuildContext context) {
     final d = ref.read(directorProvider), target = all[w].$1, done = filled == target.length;
-    return MiloScreen(title: 'Word builder', kind: 'learn', body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
+    // Scrollable: the fixed column overflowed 360x640 (a real phone size) by
+    // ~100 px. No Spacer inside (unbounded height forbids flex).
+    return MiloScreen(title: 'Word builder', kind: 'learn', body: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(children: [
       Container(height: 150, width: 170, decoration: BoxDecoration(color: T.mintSoft, borderRadius: BorderRadius.circular(22)), alignment: Alignment.center, child: Text(all[w].$2, style: const TextStyle(fontSize: 72))),
       const SizedBox(height: 22),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (var i = 0; i < target.length; i++) Container(margin: const EdgeInsets.all(4), width: 56, height: 62, alignment: Alignment.center, decoration: BoxDecoration(color: i < filled ? T.priSoft : Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: T.pri, width: 2)), child: Text(i < filled ? target[i].toUpperCase() : '', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)))]),
@@ -88,7 +90,7 @@ class _WBState extends ConsumerState<WordBuilder> {
       IconButton(iconSize: 36, tooltip: 'Hear the word', onPressed: () => d.speak(target), icon: const Icon(Icons.volume_up, color: T.pri)),
       TextButton.icon(icon: const Icon(Icons.auto_awesome, size: 18), label: Text('What does “$target” mean?', style: const TextStyle(fontSize: 15)),
           onPressed: () { ref.read(lookupWordProvider.notifier).state = target; openScreen('understand'); }),
-      const Spacer(),
+      const SizedBox(height: 18),
       Row(children: [Expanded(child: BigButton('Hint', () { final n = target[filled < target.length ? filled : 0]; final i = letters.indexWhere((l) => l == n) ; if (i >= 0) { setState(() => tilt = -1); d.speak('Try the letter $n'); } }, kind: BK.soft)), const SizedBox(width: 12),
         Expanded(child: BigButton(done ? 'Next word' : 'Check', done ? () async { d.celebrate(); await ref.read(dbProvider).progress('word'); _next(); } : () => d.speak(filled == 0 ? 'Let us start with the first sound.' : 'Nearly there.')))]),
       const SizedBox(height: 8), const Text('No timer. No lives. Unlimited hints.', style: TextStyle(fontSize: 12, color: T.mute)), const SizedBox(height: 90),

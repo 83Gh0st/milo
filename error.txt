@@ -1,48 +1,14 @@
-Run flutter test --reporter expanded 2>&1 | tee flutter_test.log; test ${PIPESTATUS[0]} -eq 0
-00:00 +0: loading /home/runner/work/milo/milo/test/voice_test.dart
-00:00 +0: /home/runner/work/milo/milo/test/voice_test.dart: normalize abbreviations, digits, numbers, emoji
-00:00 +1: /home/runner/work/milo/milo/test/voice_test.dart: normalize native digits map to latin, other scripts survive
-00:00 +2: /home/runner/work/milo/milo/test/voice_test.dart: normalize Milo keeps its name; lexicon is a hook, not a guess
-00:00 +3: /home/runner/work/milo/milo/test/voice_test.dart: normalize splitSentences chunks long sentences with word offsets
-00:00 +4: /home/runner/work/milo/milo/test/voice_test.dart: router auto with a silent sink stays on platform; offline forces platform
-00:00 +5: /home/runner/work/milo/milo/test/voice_test.dart: router online mode uses neural and prefetches; read-aloud stays platform
-00:00 +6: /home/runner/work/milo/milo/test/voice_test.dart: router fetches start eagerly while earlier sentences play
-00:00 +7: /home/runner/work/milo/milo/test/voice_test.dart: router fetch failure mid-turn: platform finishes, one notice, no repeats
-00:00 +8: /home/runner/work/milo/milo/test/voice_test.dart: router play failure after audio started: skip ahead, never repeat
-00:00 +9: /home/runner/work/milo/milo/test/voice_test.dart: router barge-in cancels everything with no notice and no stuck state
-00:00 +10: /home/runner/work/milo/milo/test/voice_test.dart: router 100 interruptions: never overlapping audio, never stuck
-00:00 +11: /home/runner/work/milo/milo/test/voice_test.dart: router voice identity is stable and independent of the brain
-00:00 +12: /home/runner/work/milo/milo/test/voice_test.dart: neural cache second play is served from cache; mock audio is never cached
-00:00 +13: /home/runner/work/milo/milo/test/voice_test.dart: director speech bare director speaks headless and settles to idle
-00:00 +14: /home/runner/work/milo/milo/test/voice_test.dart: director speech endpointing: partials hold listening, a pause endpoints
-00:00 +15: /home/runner/work/milo/milo/test/voice_test.dart: director speech mouth follows the envelope and shuts in silence
-00:01 +15 -1: /home/runner/work/milo/milo/test/voice_test.dart: director speech mouth follows the envelope and shuts in silence [E]
-  Expected: a value greater than <0.3>
-    Actual: <0.0>
-     Which: is not a value greater than <0.3>
-  
-  package:matcher                                     expect
-  package:flutter_test/src/widget_tester.dart 473:18  expect
-  test/voice_test.dart 268:7                          main.<fn>.<fn>
-  
-00:01 +15 -1: /home/runner/work/milo/milo/test/voice_test.dart: director speech listening with a dead server self-exits instead of sticking
-00:01 +16 -1: /home/runner/work/milo/milo/test/voice_test.dart: director speech aac board speech starts promptly (regression: <200 ms to first audio)
-00:01 +17 -1: /home/runner/work/milo/milo/test/voice_test.dart: director speech voice settings round-trip through persistence
-00:01 +18 -1: loading /home/runner/work/milo/milo/test/ai_choice_test.dart
-00:03 +18 -1: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice defaults to Milo hosted
-00:03 +19 -1: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice round-trips through the family flag the router reads
-00:03 +20 -1: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice choice words name both options honestly
-00:03 +21 -1: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice switching providers never migrates, deletes, or exposes memory
-00:03 +22 -1: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice routing: family attaches vault auth, hosted sends none
-00:03 +23 -1: loading /home/runner/work/milo/milo/test/connections_test.dart
-00:04 +23 -1: /home/runner/work/milo/milo/test/connections_test.dart: sync off shows the gate, sync on shows the four provider tiles
+9 +34: /home/runner/work/milo/milo/test/photo_tiles_test.dart: tile art round-trips locally and dies with its tile
+00:09 +35: /home/runner/work/milo/milo/test/photo_tiles_test.dart: grown-up draws, reviews, then saves a picture tile
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
 Expected: exactly one matching candidate
-  Actual: _TextWidgetFinder:<Found 0 widgets with text "OpenAI": []>
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "AI-drawn. Look at it before saving — you
+decide.": []>
    Which: means none were found but one was expected
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:88:7)
+#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/photo_tiles_test.dart:45:5)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -50,25 +16,231 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/connections_test.dart line 88
+  file:///home/runner/work/milo/milo/test/photo_tiles_test.dart line 45
 The test description was:
-  sync off shows the gate, sync on shows the four provider tiles
+  grown-up draws, reviews, then saves a picture tile
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:04 +23 -2: /home/runner/work/milo/milo/test/connections_test.dart: sync off shows the gate, sync on shows the four provider tiles [E]
+00:11 +35 -1: /home/runner/work/milo/milo/test/photo_tiles_test.dart: grown-up draws, reviews, then saves a picture tile [E]
   Test failed. See exception logs above.
-  The test description was: sync off shows the gate, sync on shows the four provider tiles
+  The test description was: grown-up draws, reviews, then saves a picture tile
   
-00:04 +23 -2: /home/runner/work/milo/milo/test/connections_test.dart: empty vault at 360x640 scale 2.0: everything reachable, save is honest
-00:05 +24 -2: /home/runner/work/milo/milo/test/connections_test.dart: ack flow: refusal surfaces the checkbox, ack saves the key
+00:11 +35 -1: /home/runner/work/milo/milo/test/photo_tiles_test.dart: word builder hands its word to Understand for a real explanation
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: null
+  Actual: FlutterError:<A RenderFlex overflowed by 100 pixels on the bottom.>
+
+When the exception was thrown, this was the stack:
+#4      pumpScreen (file:///home/runner/work/milo/milo/test/helpers/harness.dart:288:3)
+<asynchronous suspension>
+#5      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/photo_tiles_test.dart:58:5)
+<asynchronous suspension>
+#6      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#7      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/milo/milo/test/helpers/harness.dart line 288
+The test description was:
+  word builder hands its word to Understand for a real explanation
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:11 +35 -2: /home/runner/work/milo/milo/test/photo_tiles_test.dart: word builder hands its word to Understand for a real explanation [E]
+  Test failed. See exception logs above.
+  The test description was: word builder hands its word to Understand for a real explanation
+  
+00:11 +35 -2: loading /home/runner/work/milo/milo/test/photo_segments_test.dart
+00:12 +35 -2: /home/runner/work/milo/milo/test/photo_segments_test.dart: find outlines matches; tapping a box explains it
+══╡ EXCEPTION CAUGHT BY RENDERING LIBRARY ╞═════════════════════════════════════════════════════════
+The following assertion was thrown during layout:
+A RenderFlex overflowed by 154 pixels on the bottom.
+
+The relevant error-causing widget was:
+  Column Column:file:///home/runner/work/milo/milo/lib/ui/understand_screen.dart:294:12
+
+The overflowing RenderFlex has an orientation of Axis.vertical.
+The edge of the RenderFlex that is overflowing has been marked in the rendering with a yellow and
+black striped pattern. This is usually caused by the contents being too big for the RenderFlex.
+Consider applying a flex factor (e.g. using an Expanded widget) to force the children of the
+RenderFlex to fit within the available space instead of being sized to their natural size.
+This is considered an error condition because it indicates that there is content that cannot be
+seen. If the content is legitimately bigger than the available space, consider clipping it with a
+ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
+like a ListView.
+The specific RenderFlex in question is: RenderFlex#29eed relayoutBoundary=up1 OVERFLOWING:
+  needs compositing
+  creator: Column ← PhotoSegments ← KeyedSubtree-[GlobalKey#c9973] ← _BodyBuilder ← MediaQuery ←
+    LayoutId-[<_ScaffoldSlot.body>] ← CustomMultiChildLayout ← _ActionsScope ← Actions ← Builder ←
+    DefaultTextStyle ← AnimatedDefaultTextStyle ← ⋯
+  parentData: offset=Offset(0.0, 0.0); id=_ScaffoldSlot.body (can use size)
+  constraints: BoxConstraints(0.0<=w<=800.0, 0.0<=h<=600.0)
+  size: Size(800.0, 600.0)
+  direction: vertical
+  mainAxisAlignment: start
+  mainAxisSize: max
+  crossAxisAlignment: stretch
+  verticalDirection: down
+  spacing: 0.0
+◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "Explain “heart”": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/photo_segments_test.dart:38:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/milo/milo/test/photo_segments_test.dart line 38
+The test description was:
+  find outlines matches; tapping a box explains it
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (2) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:14 +35 -3: /home/runner/work/milo/milo/test/photo_segments_test.dart: find outlines matches; tapping a box explains it [E]
+  Test failed. See exception logs above.
+  The test description was: find outlines matches; tapping a box explains it
+  
+00:14 +35 -3: /home/runner/work/milo/milo/test/photo_segments_test.dart: short phrases never ask; offline msg keeps the photo
+00:14 +36 -3: loading /home/runner/work/milo/milo/test/regression_test.dart
+00:15 +36 -3: /home/runner/work/milo/milo/test/regression_test.dart: contract keeps highlight/show_image/set_timer and drops bad ones
+00:15 +37 -3: /home/runner/work/milo/milo/test/regression_test.dart: offline preference and a11y toggles round-trip through settings
+00:15 +38 -3: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain timeout message exists and memory is not "coming next"
+00:15 +39 -3: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain key message points a grown-up at AI connections
+00:15 +40 -3: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain is honest about video and audio files
+00:15 +41 -3: /home/runner/work/milo/milo/test/regression_test.dart: picture failures speak their cause, never a silent spinner
+00:15 +42 -3: /home/runner/work/milo/milo/test/regression_test.dart: generated-picture keys dedupe identical prompts only
+00:15 +43 -3: /home/runner/work/milo/milo/test/regression_test.dart: intro veil timing stays inside the 1.5-2 s spec
+00:15 +44 -3: /home/runner/work/milo/milo/test/regression_test.dart: cloud failure mapping names Spark timeouts, never the network
+00:15 +45 -3: /home/runner/work/milo/milo/test/regression_test.dart: sync banner mapping never leaks content
+00:15 +46 -3: /home/runner/work/milo/milo/test/regression_test.dart: untouched idle drifts drowsy and wakes on activity
+00:15 +47 -3: /home/runner/work/milo/milo/test/regression_test.dart: voice ranking prefers saved choice, then language, then warm fallback
+00:15 +48 -3: /home/runner/work/milo/milo/test/regression_test.dart: delivery tone fits the feeling, never excited by default
+00:15 +49 -3: /home/runner/work/milo/milo/test/regression_test.dart: TTS voice choice round-trips through settings
+00:15 +50 -3: /home/runner/work/milo/milo/test/regression_test.dart: mic amplitude is 0 for silence and rises with signal
+00:15 +51 -3: /home/runner/work/milo/milo/test/regression_test.dart: learn-words JSON validation keeps good entries and drops the rest
+00:15 +52 -3: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chips sent exactly; removal drops from the very next request
+00:15 +53 -3: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chip text truncates at 3000, message at 800
+00:15 +54 -3: /home/runner/work/milo/milo/test/regression_test.dart: scan settings round-trip through settings
+00:15 +55 -3: /home/runner/work/milo/milo/test/regression_test.dart: memory pause blocks writes, resume restores (plan 7.10) paused: proposals discarded, request context empty
+00:15 +56 -3: loading /home/runner/work/milo/milo/test/v2_test.dart
+00:16 +56 -3: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule no valence>=0 face has inner brow ends lower than outer ends
+00:16 +57 -3: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule concerned raises the inner ends; curious raises one brow
+00:16 +58 -3: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry character fills its box in every LOD (>= 85%)
+00:16 +59 -3: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry motion gain clamps to [1, 2.5]
+00:16 +60 -3: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry gaze travel reads on screen in every LOD
+00:16 +61 -3: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry breath moves the chest >= 2 dp
+00:16 +62 -3: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry mouth shapes cover all nine
+00:16 +63 -3: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry LOD follows box size; colourways derive from one base
+00:16 +64 -3: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry Rive stub throws until a real asset exists
+00:16 +65 -3: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions idle library has 20 behaviours; gaze subset is clip-free
+00:16 +66 -3: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions reactions are synchronous, rate-limited and presence-aware
+00:16 +67 -3: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions hub swallows handler errors; bad sounds are ignored
+00:16 +68 -3: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions sound gates: quiet/aac/chip/hidden stay silent
+00:16 +69 -3: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions ten idle seconds always show visible non-blink motion
+00:16 +70 -3: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder greetings are deterministic, pooled and guilt-free
+00:16 +71 -3: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder ladder choices route locally; contract gestures all exist as clips
+00:16 +72 -3: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder settings round-trip the new fields
+00:16 +73 -3: loading /home/runner/work/milo/milo/test/segment_test.dart
+00:17 +73 -3: /home/runner/work/milo/milo/test/segment_test.dart: validateRegions clamps, drops degenerate, caps count
+00:17 +74 -3: /home/runner/work/milo/milo/test/segment_test.dart: overlay draws tappable labeled regions over the photo
+00:17 +75 -3: loading /home/runner/work/milo/milo/test/intro_lifecycle_test.dart
+00:18 +75 -3: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: fresh companion is unmet; hello motion never speaks
+00:18 +76 -3: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: skipped onboarding marks met silently
+00:19 +77 -3: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: full onboarding speaks the introduction once
+00:20 +78 -3: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: Replay introduction speaks exactly once more
+00:21 +79 -3: loading /home/runner/work/milo/milo/test/story_test.dart
+00:22 +79 -3: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) accepts a good tale with attribution
+00:22 +80 -3: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) rejects wrong shapes instead of showing half a tale
+00:22 +81 -3: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) predates-attribution payloads still open
+00:22 +82 -3: /home/runner/work/milo/milo/test/story_test.dart: toldByLabel names the teller without model ids
+00:22 +83 -3: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes
+
+Warning: A call to tap() with finder "Found 1 widget with text "Ask about it": [
+  Text("Ask about it", textAlign: center, dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
+]" derived an Offset (Offset(400.3, 614.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+Indeed, Offset(400.3, 614.0) is outside the bounds of the root of the render tree, Size(800.0, 600.0).
+The finder corresponds to this RenderBox: RenderParagraph#754a0 relayoutBoundary=up20
+The hit test result at that offset is: HitTestResult(HitTestEntry<HitTestTarget>#ec7c0(_ReusableRenderView#42e23), HitTestEntry<HitTestTarget>#6dabc(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/story_test.dart:123:15)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following StateError was thrown running a test:
 Bad state: No element
+
 When the exception was thrown, this was the stack:
-#0      Iterable.single (dart:core/iterable.dart:694:25)
-#1      WidgetController.element (package:flutter_test/src/controller.dart:888:30)
-#2      WidgetController.ensureVisible (package:flutter_test/src/controller.dart:2389:32)
-#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:124:13)
+#0      Iterable.last (dart:core/iterable.dart:679:7)
+#1      _LastFinderMixin.filter (package:flutter_test/src/finders.dart:1410:28)
+#3      ExpandIterator.moveNext (dart:_internal/iterable.dart:507:21)
+#4      SetBase.addAll (dart:collection/set.dart:58:23)
+#5      _Set.addAll (dart:_compact_hash:1162:11)
+#6      new LinkedHashSet.of (dart:collection/linked_hash_set.dart:193:27)
+#7      Iterable.toSet (dart:core/iterable.dart:532:21)
+#8      _DescendantFinderMixin.allCandidates (package:flutter_test/src/finders.dart:1782:10)
+#9      FinderBase.evaluate (package:flutter_test/src/finders.dart:1030:76)
+#10     WidgetController.state (package:flutter_test/src/controller.dart:932:31)
+#11     WidgetTester.showKeyboard.<anonymous closure> (package:flutter_test/src/widget_tester.dart:1125:42)
+#14     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#15     WidgetTester.showKeyboard (package:flutter_test/src/widget_tester.dart:1124:27)
+#16     WidgetTester.enterText.<anonymous closure> (package:flutter_test/src/widget_tester.dart:1160:13)
+#19     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#20     WidgetTester.enterText (package:flutter_test/src/widget_tester.dart:1159:27)
+#21     main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/story_test.dart:125:15)
+<asynchronous suspension>
+#22     testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#23     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 6 frames from dart:async, dart:async-patch, and package:stack_trace)
+
+The test description was:
+  generates, pages, continues, asks, saves and finishes
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:24 +83 -4: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes [E]
+  Test failed. See exception logs above.
+  The test description was: generates, pages, continues, asks, saves and finishes
+  
+00:24 +83 -4: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen saved tales reopen and delete; new ask stays fresh-capable
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+The finder "Found 0 widgets with text "Save": []" (used in a call to "tap()") could not find any
+matching widgets.
+
+When the exception was thrown, this was the stack:
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/story_test.dart:149:15)
 <asynchronous suspension>
 #4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -76,105 +248,308 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 The test description was:
-  ack flow: refusal surfaces the checkbox, ack saves the key
+  saved tales reopen and delete; new ask stays fresh-capable
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:05 +24 -3: /home/runner/work/milo/milo/test/connections_test.dart: ack flow: refusal surfaces the checkbox, ack saves the key [E]
+00:24 +83 -5: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen saved tales reopen and delete; new ask stays fresh-capable [E]
   Test failed. See exception logs above.
-  The test description was: ack flow: refusal surfaces the checkbox, ack saves the key
+  The test description was: saved tales reopen and delete; new ask stays fresh-capable
   
-00:05 +24 -3: /home/runner/work/milo/milo/test/connections_test.dart: test checklist shows pass and fail honestly; models picker fills the field
+00:24 +83 -5: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen no connection shows a plain message, not a repeated tale
+Pending timers:
+Timer (duration: 0:01:30.000000, periodic: true), created:
+#0      new FakeTimer._ (package:fake_async/fake_async.dart:342:62)
+#1      FakeAsync._createTimer (package:fake_async/fake_async.dart:260:29)
+#2      FakeAsync.run.<anonymous closure> (package:fake_async/fake_async.dart:187:15)
+#5      new LadderNotifier (package:milo/core/providers.dart:82:16)
+#6      ladderProvider.<anonymous closure> (package:milo/core/providers.dart:101:79)
+#7      StateNotifierProvider._create (package:riverpod/src/state_notifier_provider/base.dart:119:21)
+#8      StateNotifierProviderElement.create.<anonymous closure> (package:riverpod/src/state_notifier_provider/base.dart:172:64)
+#9      Result.guard (package:riverpod/src/result.dart:21:28)
+#10     StateNotifierProviderElement.create (package:riverpod/src/state_notifier_provider/base.dart:172:43)
+#11     ProviderElementBase.buildState (package:riverpod/src/framework/element.dart:426:7)
+#12     ProviderElementBase.mount (package:riverpod/src/framework/element.dart:228:5)
+#13     _StateReader._create (package:riverpod/src/framework/container.dart:47:11)
+#14     _StateReader.getElement (package:riverpod/src/framework/container.dart:35:52)
+#15     ProviderContainer.readProviderElement.<anonymous closure> (package:riverpod/src/framework/container.dart:440:40)
+#16     ProviderContainer.readProviderElement (package:riverpod/src/framework/container.dart:475:8)
+#17     ProviderBase.addListener (package:riverpod/src/framework/provider_base.dart:79:26)
+#18     ProviderContainer.listen (package:riverpod/src/framework/container.dart:280:21)
+#19     ConsumerStatefulElement.watch.<anonymous closure> (package:flutter_riverpod/src/consumer.dart:564:25)
+#20     _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:631:23)
+#21     ConsumerStatefulElement.watch (package:flutter_riverpod/src/consumer.dart:557:26)
+#22     StatusChip.build (package:milo/ui/scaffold.dart:109:24)
+#23     _ConsumerState.build (package:flutter_riverpod/src/consumer.dart:476:19)
+#24     StatefulElement.build (package:flutter/src/widgets/framework.dart:5944:27)
+#25     ConsumerStatefulElement.build (package:flutter_riverpod/src/consumer.dart:539:20)
+#26     ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5830:15)
+#27     StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#28     Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#29     ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5812:5)
+#30     StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5986:11)
+#31     ComponentElement.mount (package:flutter/src/widgets/framework.dart:5806:5)
+#32     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#33     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#34     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+#35     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#36     Element.updateChild (package:flutter/src/widgets/framework.dart:4072:18)
+#37     _LayoutBuilderElement._rebuildWithConstraints.updateChildCallback (package:flutter/src/widgets/layout_builder.dart:247:18)
+#38     BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3114:19)
+#39     _LayoutBuilderElement._rebuildWithConstraints (package:flutter/src/widgets/layout_builder.dart:270:12)
+#40     RenderAbstractLayoutBuilderMixin.layoutCallback (package:flutter/src/widgets/layout_builder.dart:333:38)
+#41     RenderObjectWithLayoutCallbackMixin.runLayoutCallback.<anonymous closure> (package:flutter/src/rendering/object.dart:4313:33)
+#42     RenderObject.invokeLayoutCallback.<anonymous closure> (package:flutter/src/rendering/object.dart:3042:17)
+#43     PipelineOwner._enableMutationsToDirtySubtrees (package:flutter/src/rendering/object.dart:1223:15)
+#44     RenderObject.invokeLayoutCallback (package:flutter/src/rendering/object.dart:3041:14)
+#45     RenderObjectWithLayoutCallbackMixin.runLayoutCallback (package:flutter/src/rendering/object.dart:4313:5)
+#46     _RenderLayoutBuilder.performLayout (package:flutter/src/widgets/layout_builder.dart:447:5)
+#47     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#48     RenderConstrainedBox.performLayout (package:flutter/src/rendering/proxy_box.dart:296:14)
+#49     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#50     RenderPadding.performLayout (package:flutter/src/rendering/shifted_box.dart:262:12)
+#51     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#52     ChildLayoutHelper.layoutChild (package:flutter/src/rendering/layout_helper.dart:62:11)
+#53     RenderFlex._computeSizes (package:flutter/src/rendering/flex.dart:1237:28)
+#54     RenderFlex.performLayout (package:flutter/src/rendering/flex.dart:1329:32)
+#55     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#56     ChildLayoutHelper.layoutChild (package:flutter/src/rendering/layout_helper.dart:62:11)
+#57     RenderFlex._computeSizes (package:flutter/src/rendering/flex.dart:1275:26)
+#58     RenderFlex.performLayout (package:flutter/src/rendering/flex.dart:1329:32)
+#59     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#60     RenderPadding.performLayout (package:flutter/src/rendering/shifted_box.dart:262:12)
+#61     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#62     MultiChildLayoutDelegate.layoutChild (package:flutter/src/rendering/custom_layout.dart:180:12)
+#63     _ScaffoldLayout.performLayout (package:flutter/src/material/scaffold.dart:1113:7)
+#64     MultiChildLayoutDelegate._callPerformLayout (package:flutter/src/rendering/custom_layout.dart:246:7)
+#65     RenderCustomMultiChildLayoutBox.performLayout (package:flutter/src/rendering/custom_layout.dart:417:14)
+#66     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#67     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#68     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#69     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#70     _RenderCustomClip.performLayout (package:flutter/src/rendering/proxy_box.dart:1549:11)
+#71     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#72     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#73     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#74     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#75     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#76     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#77     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#78     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#79     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#80     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#81     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#82     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#83     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#84     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#85     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#86     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#87     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#88     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#89     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#90     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#91     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#92     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#93     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#94     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#95     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#96     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#97     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#98     RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#99     RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#100    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#101    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#102    RenderOffstage.performLayout (package:flutter/src/rendering/proxy_box.dart:3921:14)
+#103    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#104    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#105    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#106    _RenderTheaterMixin.layoutChild (package:flutter/src/widgets/overlay.dart:1124:13)
+#107    _RenderTheater.performLayout (package:flutter/src/widgets/overlay.dart:1482:9)
+#108    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#109    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#110    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#111    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#112    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#113    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#114    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#115    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#116    RenderCustomPaint.performLayout (package:flutter/src/rendering/custom_paint.dart:574:11)
+#117    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#118    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#119    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#120    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#121    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#122    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#123    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#124    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#125    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#126    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#127    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#128    RenderProxyBoxMixin.performLayout (package:flutter/src/rendering/proxy_box.dart:118:18)
+#129    RenderObject.layout (package:flutter/src/rendering/object.dart:2923:7)
+#130    RenderView.performLayout (package:flutter/src/rendering/view.dart:292:12)
+#131    RenderObject._layoutWithoutResize (package:flutter/src/rendering/object.dart:2771:7)
+#132    PipelineOwner.flushLayout (package:flutter/src/rendering/object.dart:1174:18)
+#133    PipelineOwner.flushLayout (package:flutter/src/rendering/object.dart:1187:15)
+#134    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2434:27)
+#135    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:558:5)
+#136    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#137    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#138    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:2261:9)
+#141    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#142    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:2250:27)
+#143    WidgetTester.pump.<anonymous closure> (package:flutter_test/src/widget_tester.dart:652:53)
+#146    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#147    WidgetTester.pump (package:flutter_test/src/widget_tester.dart:652:27)
+#148    _open (file:///home/runner/work/milo/milo/test/story_test.dart:32:11)
+<asynchronous suspension>
+#149    main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/story_test.dart:163:7)
+<asynchronous suspension>
+#150    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#151    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 7 frames from dart:async and package:stack_trace)
+
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following StateError was thrown running a test:
-Bad state: No element
+The following assertion was thrown running a test:
+A Timer is still pending even after the widget tree was disposed.
+'package:flutter_test/src/binding.dart':
+Failed assertion: line 2543 pos 12: '!timersPending'
+
 When the exception was thrown, this was the stack:
-#0      Iterable.single (dart:core/iterable.dart:694:25)
-#1      WidgetController.element (package:flutter_test/src/controller.dart:888:30)
-#2      WidgetController.ensureVisible (package:flutter_test/src/controller.dart:2389:32)
-#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:163:13)
-<asynchronous suspension>
-#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+#2      AutomatedTestWidgetsFlutterBinding._verifyInvariants (package:flutter_test/src/binding.dart:2543:12)
+#3      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1974:7)
 <asynchronous suspension>
 <asynchronous suspension>
-(elided one frame from package:stack_trace)
+(elided 3 frames from class _AssertionError and package:stack_trace)
+
 The test description was:
-  test checklist shows pass and fail honestly; models picker fills the field
+  no connection shows a plain message, not a repeated tale
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:05 +24 -4: /home/runner/work/milo/milo/test/connections_test.dart: test checklist shows pass and fail honestly; models picker fills the field [E]
+00:24 +83 -6: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen no connection shows a plain message, not a repeated tale [E]
   Test failed. See exception logs above.
-  The test description was: test checklist shows pass and fail honestly; models picker fills the field
+  The test description was: no connection shows a plain message, not a repeated tale
   
-00:05 +24 -4: /home/runner/work/milo/milo/test/connections_test.dart: tested date shows only after a passed probe; saved alone never reads connected
-══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following StateError was thrown running a test:
-Bad state: No element
-When the exception was thrown, this was the stack:
-#0      Iterable.single (dart:core/iterable.dart:694:25)
-#1      WidgetController.element (package:flutter_test/src/controller.dart:888:30)
-#2      WidgetController.ensureVisible (package:flutter_test/src/controller.dart:2389:32)
-#3      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/connections_test.dart:206:13)
-<asynchronous suspension>
-#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
-<asynchronous suspension>
-<asynchronous suspension>
-(elided one frame from package:stack_trace)
-The test description was:
-  tested date shows only after a passed probe; saved alone never reads connected
-════════════════════════════════════════════════════════════════════════════════════════════════════
-00:06 +24 -5: /home/runner/work/milo/milo/test/connections_test.dart: tested date shows only after a passed probe; saved alone never reads connected [E]
-  Test failed. See exception logs above.
-  The test description was: tested date shows only after a passed probe; saved alone never reads connected
-  
-00:06 +24 -5: /home/runner/work/milo/milo/test/connections_test.dart: routes save through to the fake vault; remove disconnects
-00:06 +25 -5: loading /home/runner/work/milo/milo/test/regression_test.dart
-00:07 +25 -5: /home/runner/work/milo/milo/test/regression_test.dart: contract keeps highlight/show_image/set_timer and drops bad ones
-00:07 +26 -5: /home/runner/work/milo/milo/test/regression_test.dart: offline preference and a11y toggles round-trip through settings
-00:07 +27 -5: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain timeout message exists and memory is not "coming next"
-00:07 +28 -5: /home/runner/work/milo/milo/test/regression_test.dart: sync banner mapping never leaks content
-00:07 +29 -5: /home/runner/work/milo/milo/test/regression_test.dart: untouched idle drifts drowsy and wakes on activity
-00:07 +30 -5: /home/runner/work/milo/milo/test/regression_test.dart: voice ranking prefers saved choice, then language, then warm fallback
-00:07 +31 -5: /home/runner/work/milo/milo/test/regression_test.dart: delivery tone fits the feeling, never excited by default
-00:07 +32 -5: /home/runner/work/milo/milo/test/regression_test.dart: TTS voice choice round-trips through settings
-00:07 +33 -5: /home/runner/work/milo/milo/test/regression_test.dart: mic amplitude is 0 for silence and rises with signal
-00:07 +34 -5: /home/runner/work/milo/milo/test/regression_test.dart: learn-words JSON validation keeps good entries and drops the rest
-00:07 +35 -5: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chips sent exactly; removal drops from the very next request
-00:07 +36 -5: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chip text truncates at 3000, message at 800
-00:07 +37 -5: /home/runner/work/milo/milo/test/regression_test.dart: scan settings round-trip through settings
-00:07 +38 -5: /home/runner/work/milo/milo/test/regression_test.dart: memory pause blocks writes, resume restores (plan 7.10) paused: proposals discarded, request context empty
-00:07 +39 -5: loading /home/runner/work/milo/milo/test/v2_test.dart
-00:10 +39 -5: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule no valence>=0 face has inner brow ends lower than outer ends
-00:10 +40 -5: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule concerned raises the inner ends; curious raises one brow
-00:10 +41 -5: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry character fills its box in every LOD (>= 85%)
-00:10 +42 -5: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry motion gain clamps to [1, 2.5]
-00:10 +43 -5: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry gaze travel reads on screen in every LOD
-00:10 +44 -5: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry breath moves the chest >= 2 dp
-00:10 +45 -5: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry mouth shapes cover all nine
-00:10 +46 -5: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry LOD follows box size; colourways derive from one base
-00:10 +47 -5: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry Rive stub throws until a real asset exists
-00:10 +48 -5: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions idle library has 20 behaviours; gaze subset is clip-free
-00:10 +49 -5: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions reactions are synchronous, rate-limited and presence-aware
-00:10 +50 -5: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions hub swallows handler errors; bad sounds are ignored
-00:10 +51 -5: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions sound gates: quiet/aac/chip/hidden stay silent
-00:10 +52 -5: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions ten idle seconds always show visible non-blink motion
-00:10 +53 -5: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder greetings are deterministic, pooled and guilt-free
-00:10 +54 -5: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder ladder choices route locally; contract gestures all exist as clips
-00:10 +55 -5: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder settings round-trip the new fields
-00:10 +56 -5: loading /home/runner/work/milo/milo/test/ledger_test.dart
-00:11 +56 -5: /home/runner/work/milo/milo/test/ledger_test.dart: 100 mixed cloud calls write exactly 100 ledger entries
-00:11 +57 -5: /home/runner/work/milo/milo/test/ledger_test.dart: mid-stream cut: partial finishes, pocket explains, ladder rests
-00:11 +58 -5: loading /home/runner/work/milo/milo/test/lab_test.dart
-00:12 +58 -5: /home/runner/work/milo/milo/test/lab_test.dart: connection words are honest for every outcome
-00:12 +59 -5: /home/runner/work/milo/milo/test/lab_test.dart: lab poses expressions, fires clips and flips toggles
-00:13 +60 -5: /home/runner/work/milo/milo/test/lab_test.dart: connection row shows canned health and server address
-00:13 +61 -5: /home/runner/work/milo/milo/test/lab_test.dart: lab renders at harness sizes without overflow
-00:13 +62 -5: loading /home/runner/work/milo/milo/test/renderer_states_test.dart
-00:14 +62 -5: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase A
-10:14 +62 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase A [E]
-  TimeoutException after 0:10:00.000000: Test timed out after 10 minutes.
-  dart:isolate  _RawReceivePort._handleMessage
-  
-10:14 +62 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase B (idle movement)
+00:24 +83 -6: loading /home/runner/work/milo/milo/test/ledger_test.dart
+00:25 +83 -6: /home/runner/work/milo/milo/test/ledger_test.dart: 100 mixed cloud calls write exactly 100 ledger entries
+00:26 +84 -6: /home/runner/work/milo/milo/test/ledger_test.dart: mid-stream cut: partial finishes, pocket explains, ladder rests
+00:26 +85 -6: loading /home/runner/work/milo/milo/test/lab_test.dart
+00:26 +85 -6: /home/runner/work/milo/milo/test/lab_test.dart: connection words are honest for every outcome
+00:26 +86 -6: /home/runner/work/milo/milo/test/lab_test.dart: lab poses expressions, fires clips and flips toggles
+00:28 +87 -6: /home/runner/work/milo/milo/test/lab_test.dart: connection row shows canned health and server address
+00:28 +88 -6: /home/runner/work/milo/milo/test/lab_test.dart: lab renders at harness sizes without overflow
+00:28 +89 -6: loading /home/runner/work/milo/milo/test/genui_test.dart
+00:29 +89 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator valid checklist spec passes
+00:29 +90 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator empty, wrong version and shapeless specs are dropped
+00:29 +91 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator unknown root kills spec, unknown child is dropped
+00:29 +92 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator bad actions dropped, bad button dropped, node survives
+00:29 +93 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator image concept must be known
+00:29 +94 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator genimage keeps prompt and alt, drops short prompts, fills missing alt
+00:29 +95 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator strings sanitized and capped
+00:29 +96 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator duplicate ids, depth and size caps
+00:29 +97 -6: /home/runner/work/milo/milo/test/genui_test.dart: spec validator ops validate strictly
+00:29 +98 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store root builds panel, invalid spec ignored
+00:29 +99 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store ops patch the current panel atomically
+00:29 +100 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store delta updates keep unsent display values
+00:29 +101 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store ops for another activity are ignored
+00:29 +102 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store new activity root resets interactions
+00:29 +103 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store same-activity root rebuild keeps answers (stable ids)
+00:29 +104 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store toggle and answer record last action
+00:29 +105 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store snapshot is flat, scalar and capped
+00:29 +106 -6: /home/runner/work/milo/milo/test/genui_test.dart: panel store move/add/replace ops reshape the tree
+00:29 +107 -6: loading /home/runner/work/milo/milo/test/renderer_states_test.dart
+00:30 +107 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase A
+golden missing, skipped (generate on a dev machine): milo_resting_a.png
+00:31 +108 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase B (idle movement)
+golden missing, skipped (generate on a dev machine): milo_resting_b.png
+00:31 +109 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states listening with voice activity
+golden missing, skipped (generate on a dev machine): milo_listening.png
+00:31 +110 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states thinking
+golden missing, skipped (generate on a dev machine): milo_thinking.png
+00:31 +111 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states speaking, open and soft phases
+golden missing, skipped (generate on a dev machine): milo_speaking_open.png
+golden missing, skipped (generate on a dev machine): milo_speaking_soft.png
+00:31 +112 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states happy
+golden missing, skipped (generate on a dev machine): milo_happy.png
+00:31 +113 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states sad (concerned frown)
+golden missing, skipped (generate on a dev machine): milo_sad.png
+00:31 +114 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states confused (curious inquiry)
+golden missing, skipped (generate on a dev machine): milo_confused.png
+00:31 +115 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states reassuring (encouraging warmth)
+golden missing, skipped (generate on a dev machine): milo_reassuring.png
+00:31 +116 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states celebrating
+golden missing, skipped (generate on a dev machine): milo_celebrating.png
+00:31 +117 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states natural blink occurs and completes
+00:31 +118 -6: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states frame cost stays far under budget
+600 ticks: 9 ms (16.6 us/frame)
+00:31 +119 -6: loading /home/runner/work/milo/milo/test/screenshots_test.dart
+00:32 +119 -6: /home/runner/work/milo/milo/test/screenshots_test.dart: capture submission screenshots
+capture 01-intro: 472 ms (393x852)
+capture 02-home: 220 ms (393x852)
+capture 03-chat: 274 ms (393x852)
+capture 04-understand: 218 ms (393x852)
+capture 05-express: 239 ms (393x852)
+capture 06-accessibility: 318 ms (393x852)
+capture 07-connections: 123 ms (393x852)
+capture 08-about: 202 ms (393x852)
+capture 09-genui-panel: 76 ms (393x852)
+capture 10-segment-fixture: 36 ms (393x262)
+capture 11-offline: 140 ms (393x852)
+00:35 +120 -6: loading /home/runner/work/milo/milo/test/contract_test.dart
+00:35 +120 -6: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools accepts the three closed tools with clean args
+00:35 +121 -6: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools drops invented tools and malformed args
+00:35 +122 -6: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools steps are cleaned, truncated, and capped
+00:35 +123 -6: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools kActions mirrors the contract file
+00:35 +124 -6: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks batch turn fires read_aloud, steps, lookup
+00:35 +125 -6: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks streamed ui events fire the same callbacks
+00:35 +126 -6: loading /home/runner/work/milo/milo/test/agent_test.dart
+00:36 +126 -6: /home/runner/work/milo/milo/test/agent_test.dart: agent steps card checks steps off and saves to Do on confirmation
+00:38 +127 -6: /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable"
+00:38 +128 -6: /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer
+00:38 +129 -6: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) any tap picks the highlighted tile
+00:39 +130 -6: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval
+00:39 +131 -6: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) two periods, counts only, check-ins gated by opt-in
+00:39 +132 -6: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) quiet week says so gently, no loss language
+00:39 +133 -6: /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word
+00:40 +134 -6: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) platform text lands in the provider
+00:40 +135 -6: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once
+00:40 +136 -6: loading /home/runner/work/milo/milo/test/intro_test.dart
+00:41 +136 -6: /home/runner/work/milo/milo/test/intro_test.dart: veil shows the wordmark, then dismisses on its timer
+00:41 +137 -6: /home/runner/work/milo/milo/test/intro_test.dart: tap skips the veil once the entrance has landed
+00:41 +138 -6: /home/runner/work/milo/milo/test/intro_test.dart: reduced motion gets a short static hold, no animation
+00:41 +139 -6: loading /home/runner/work/milo/milo/test/speech_lifecycle_test.dart
+00:42 +139 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle empty and whitespace text never enter the speaking state
+00:42 +140 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle no TTS engine: silent caption, still mouth, clean idle
+00:42 +141 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle platform failure mid-utterance: mouth shuts, turn ends idle
+00:42 +142 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle cancellation mid-speech returns to idle with no stuck state
+00:42 +143 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle barge-in tap stops speech and listens; settling is clean
+00:43 +144 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle taps never speak: first and repeated taps are motion only
+00:43 +145 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle introduction plays once, then taps and relaunches stay silent
+00:46 +146 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle quiet mode: greet stays silent and unmet
+00:46 +147 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle returning users predate the met flag: familiar, silently
+00:46 +148 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle provider-adjacent settings writes preserve familiarity
+00:49 +149 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle reset replays the introduction exactly once
+00:55 +150 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle overlapping speaks: the newest wins, both settle, nothing throws
+00:55 +151 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle stale envelope feeds after speech ends are ignored
+00:56 +152 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle giggle and hum move the body, never the mouth
+00:56 +153 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle voice off: captions without mouth movement or audio
+00:56 +154 -6: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle cancel while idle and dispose mid-speech are safe
+00:56 +155 -6: loading /home/runner/work/milo/milo/test/layout_test.dart
+00:58 +155 -6: /home/runner/work/milo/milo/test/layout_test.dart: tabs: no overflow across sizes, scales and hands
+01:09 +156 -6: /home/runner/work/milo/milo/test/layout_test.dart: pushed screens: no overflow
+01:13 +157 -6: /home/runner/work/milo/milo/test/layout_test.dart: crowded small screen: every dock control is present
+01:13 +158 -6: /home/runner/work/milo/milo/test/layout_test.dart: dock and rail never cover the header
+01:13 +159 -6: /home/runner/work/milo/milo/test/layout_test.dart: tap targets meet guidelines
+01:14 +160 -6: /home/runner/work/milo/milo/test/layout_test.dart: keyboard peeks the dock
+01:14 +161 -6: Some tests failed.
+
+Failing tests:
+  /home/runner/work/milo/milo/test/photo_segments_test.dart: find outlines matches; tapping a box explains it
+  /home/runner/work/milo/milo/test/photo_tiles_test.dart: grown-up draws, reviews, then saves a picture tile
+  /home/runner/work/milo/milo/test/photo_tiles_test.dart: word builder hands its word to Understand for a real explanation
+  /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes
+  ... and 2 more
+Error: Process completed with exit code 1.
+2s

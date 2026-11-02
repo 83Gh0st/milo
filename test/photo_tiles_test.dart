@@ -38,7 +38,8 @@ void main() {
     final db = FakeDb(), api = FakeApi(db, SecureStore());
     final c = tileContainer(db, api);
     await pumpScreen(t, const WordsEditor(), container: c);
-    await t.enterText(find.byType(TextField).at(1), 'Grandma'); // emoji field first, label second
+    expect(find.byType(TextField), findsNWidgets(2)); // tripwire: label lookup below assumes exactly two fields
+    await t.enterText(find.byKey(const Key('tileLabel')), 'Grandma');
     await t.tap(find.text('Draw a picture (AI)'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
@@ -50,6 +51,7 @@ void main() {
     expect(db.tileRows.single['label'], 'Grandma');
     expect(db.settings.keys.where((k) => k.startsWith('local.tileart.')), hasLength(1));
     expect(t.takeException(), isNull);
+    c.dispose(); // in-body: teardowns run after the timer invariant check
   });
 
   testWidgets('word builder hands its word to Understand for a real explanation', (t) async {
@@ -60,5 +62,6 @@ void main() {
     await t.pump();
     expect(c.read(lookupWordProvider), 'tree'); // UnderstandScreen picks this up and explains it
     expect(t.takeException(), isNull);
+    c.dispose(); // in-body: teardowns run after the timer invariant check
   });
 }

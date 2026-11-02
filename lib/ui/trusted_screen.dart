@@ -72,7 +72,7 @@ class _WEState extends ConsumerState<WordsEditor> {
       final tiles = s.data ?? [];
       return ListView(padding: const EdgeInsets.all(16), children: [
         const Section('Add a tile'),
-        Row(children: [SizedBox(width: 70, child: TextField(controller: emoji, style: const TextStyle(fontSize: 28))), const SizedBox(width: 8), Expanded(child: TextField(controller: label, decoration: const InputDecoration(hintText: 'Word, e.g. Grandma'))),
+        Row(children: [SizedBox(width: 70, child: TextField(controller: emoji, style: const TextStyle(fontSize: 28))), const SizedBox(width: 8), Expanded(child: TextField(key: const Key('tileLabel'), controller: label, decoration: const InputDecoration(hintText: 'Word, e.g. Grandma'))),
           IconButton.filled(onPressed: () async { if (label.text.trim().isEmpty) return; await db.addTile(emoji.text.trim().isEmpty ? '⭐' : emoji.text.trim(), label.text.trim(), art: art); label.clear(); art = null; setState(() {}); }, icon: const Icon(Icons.add))]),
         const SizedBox(height: 8),
         Row(children: [
