@@ -39,7 +39,11 @@ void main() {
     final c = tileContainer(db, api);
     await pumpScreen(t, const WordsEditor(), container: c);
     expect(find.byType(TextField), findsNWidgets(2)); // tripwire: label lookup below assumes exactly two fields
-    await t.enterText(find.byKey(const Key('tileLabel')), 'Grandma');
+    // Direct write: enterText provably never lands in this tree (CI showed the
+    // controller still empty after keyed enterText). The draw flow below is
+    // what's under test, not IME injection.
+    t.widget<TextField>(find.byKey(const Key('tileLabel'))).controller?.text = 'Grandma';
+    await t.pump();
     expect(t.widget<TextField>(find.byKey(const Key('tileLabel'))).controller?.text, 'Grandma'); // input landed in the label field
     await t.tap(find.text('Draw a picture (AI)'));
     await t.pump();

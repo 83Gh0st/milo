@@ -1,13 +1,54 @@
-ome/runner/work/milo/milo/test/photo_tiles_test.dart: tile art round-trips locally and dies with its tile
+1m 36s
+Run flutter test --reporter expanded 2>&1 | tee flutter_test.log; test ${PIPESTATUS[0]} -eq 0
+00:00 +0: loading /home/runner/work/milo/milo/test/voice_test.dart
+00:00 +0: /home/runner/work/milo/milo/test/voice_test.dart: normalize abbreviations, digits, numbers, emoji
+00:00 +1: /home/runner/work/milo/milo/test/voice_test.dart: normalize native digits map to latin, other scripts survive
+00:00 +2: /home/runner/work/milo/milo/test/voice_test.dart: normalize Milo keeps its name; lexicon is a hook, not a guess
+00:00 +3: /home/runner/work/milo/milo/test/voice_test.dart: normalize splitSentences chunks long sentences with word offsets
+00:00 +4: /home/runner/work/milo/milo/test/voice_test.dart: router auto with a silent sink stays on platform; offline forces platform
+00:00 +5: /home/runner/work/milo/milo/test/voice_test.dart: router online mode uses neural and prefetches; read-aloud stays platform
+00:00 +6: /home/runner/work/milo/milo/test/voice_test.dart: router fetches start eagerly while earlier sentences play
+00:00 +7: /home/runner/work/milo/milo/test/voice_test.dart: router fetch failure mid-turn: platform finishes, one notice, no repeats
+00:00 +8: /home/runner/work/milo/milo/test/voice_test.dart: router play failure after audio started: skip ahead, never repeat
+00:00 +9: /home/runner/work/milo/milo/test/voice_test.dart: router barge-in cancels everything with no notice and no stuck state
+00:00 +10: /home/runner/work/milo/milo/test/voice_test.dart: router 100 interruptions: never overlapping audio, never stuck
+00:00 +11: /home/runner/work/milo/milo/test/voice_test.dart: router voice identity is stable and independent of the brain
+00:00 +12: /home/runner/work/milo/milo/test/voice_test.dart: neural cache second play is served from cache; mock audio is never cached
+00:00 +13: /home/runner/work/milo/milo/test/voice_test.dart: director speech bare director speaks headless and settles to idle
+00:01 +14: /home/runner/work/milo/milo/test/voice_test.dart: director speech endpointing: partials hold listening, a pause endpoints
+00:01 +15: /home/runner/work/milo/milo/test/voice_test.dart: director speech mouth follows the envelope and shuts in silence
+00:01 +16: /home/runner/work/milo/milo/test/voice_test.dart: director speech listening with a dead server self-exits instead of sticking
+00:01 +17: /home/runner/work/milo/milo/test/voice_test.dart: director speech aac board speech starts promptly (regression: <200 ms to first audio)
+00:02 +18: /home/runner/work/milo/milo/test/voice_test.dart: director speech voice settings round-trip through persistence
+00:02 +19: loading /home/runner/work/milo/milo/test/ai_choice_test.dart
+00:03 +19: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice defaults to Milo hosted
+00:03 +20: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice round-trips through the family flag the router reads
+00:03 +21: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice choice words name both options honestly
+00:03 +22: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice switching providers never migrates, deletes, or exposes memory
+00:03 +23: /home/runner/work/milo/milo/test/ai_choice_test.dart: ai choice routing: family attaches vault auth, hosted sends none
+00:03 +24: loading /home/runner/work/milo/milo/test/connections_test.dart
+00:04 +24: /home/runner/work/milo/milo/test/connections_test.dart: sync off shows the gate, sync on shows the four provider tiles
+00:05 +25: /home/runner/work/milo/milo/test/connections_test.dart: empty vault at 360x640 scale 2.0: everything reachable, save is honest
+00:06 +26: /home/runner/work/milo/milo/test/connections_test.dart: ack flow: refusal surfaces the checkbox, ack saves the key
+00:06 +27: /home/runner/work/milo/milo/test/connections_test.dart: test checklist shows pass and fail honestly; models picker fills the field
+00:07 +28: /home/runner/work/milo/milo/test/connections_test.dart: tested date shows only after a passed probe; saved alone never reads connected
+00:07 +29: /home/runner/work/milo/milo/test/connections_test.dart: routes save through to the fake vault; remove disconnects
+00:08 +30: /home/runner/work/milo/milo/test/connections_test.dart: hosted status names Milo hosted Muse Spark
+00:08 +31: /home/runner/work/milo/milo/test/connections_test.dart: model picker refreshes, fails usefully, and keeps manual entry
+00:09 +32: /home/runner/work/milo/milo/test/connections_test.dart: prettyModelId mirrors the server rules
+00:09 +33: /home/runner/work/milo/milo/test/connections_test.dart: ConnModel.parse tolerates legacy string items
+00:09 +34: loading /home/runner/work/milo/milo/test/photo_tiles_test.dart
+00:10 +34: /home/runner/work/milo/milo/test/photo_tiles_test.dart: tile art round-trips locally and dies with its tile
 00:10 +35: /home/runner/work/milo/milo/test/photo_tiles_test.dart: grown-up draws, reviews, then saves a picture tile
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
 The following TestFailure was thrown running a test:
-Expected: exactly one matching candidate
-  Actual: _TextWidgetFinder:<Found 0 widgets with text "AI-drawn. Look at it before saving — you
-decide.": []>
-   Which: means none were found but one was expected
+Expected: 'Grandma'
+  Actual: ''
+   Which: is different. Both strings start the same, but the actual value is missing the following
+trailing characters: Grandma
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/photo_tiles_test.dart:46:5)
+#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/photo_tiles_test.dart:43:5)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -15,254 +56,214 @@ When the exception was thrown, this was the stack:
 <asynchronous suspension>
 <asynchronous suspension>
 (elided one frame from package:stack_trace)
+
 This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/photo_tiles_test.dart line 46
+  file:///home/runner/work/milo/milo/test/photo_tiles_test.dart line 43
 The test description was:
   grown-up draws, reviews, then saves a picture tile
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:12 +35 -1: /home/runner/work/milo/milo/test/photo_tiles_test.dart: grown-up draws, reviews, then saves a picture tile [E]
+00:11 +35 -1: /home/runner/work/milo/milo/test/photo_tiles_test.dart: grown-up draws, reviews, then saves a picture tile [E]
   Test failed. See exception logs above.
   The test description was: grown-up draws, reviews, then saves a picture tile
   
-00:12 +35 -1: /home/runner/work/milo/milo/test/photo_tiles_test.dart: word builder hands its word to Understand for a real explanation
+00:11 +35 -1: /home/runner/work/milo/milo/test/photo_tiles_test.dart: word builder hands its word to Understand for a real explanation
 00:12 +36 -1: loading /home/runner/work/milo/milo/test/photo_segments_test.dart
-00:14 +36 -1: /home/runner/work/milo/milo/test/photo_segments_test.dart: find outlines matches; tapping a box explains it
+00:13 +36 -1: /home/runner/work/milo/milo/test/photo_segments_test.dart: find outlines matches; tapping a box explains it
+00:14 +37 -1: /home/runner/work/milo/milo/test/photo_segments_test.dart: short phrases never ask; offline msg keeps the photo
+00:14 +38 -1: loading /home/runner/work/milo/milo/test/regression_test.dart
+00:15 +38 -1: /home/runner/work/milo/milo/test/regression_test.dart: contract keeps highlight/show_image/set_timer and drops bad ones
+00:15 +39 -1: /home/runner/work/milo/milo/test/regression_test.dart: offline preference and a11y toggles round-trip through settings
+00:15 +40 -1: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain timeout message exists and memory is not "coming next"
+00:15 +41 -1: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain key message points a grown-up at AI connections
+00:15 +42 -1: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain is honest about video and audio files
+00:15 +43 -1: /home/runner/work/milo/milo/test/regression_test.dart: picture failures speak their cause, never a silent spinner
+00:15 +44 -1: /home/runner/work/milo/milo/test/regression_test.dart: generated-picture keys dedupe identical prompts only
+00:15 +45 -1: /home/runner/work/milo/milo/test/regression_test.dart: intro veil timing stays inside the 1.5-2 s spec
+00:15 +46 -1: /home/runner/work/milo/milo/test/regression_test.dart: cloud failure mapping names Spark timeouts, never the network
+00:15 +47 -1: /home/runner/work/milo/milo/test/regression_test.dart: sync banner mapping never leaks content
+00:15 +48 -1: /home/runner/work/milo/milo/test/regression_test.dart: untouched idle drifts drowsy and wakes on activity
+00:15 +49 -1: /home/runner/work/milo/milo/test/regression_test.dart: voice ranking prefers saved choice, then language, then warm fallback
+00:15 +50 -1: /home/runner/work/milo/milo/test/regression_test.dart: delivery tone fits the feeling, never excited by default
+00:15 +51 -1: /home/runner/work/milo/milo/test/regression_test.dart: TTS voice choice round-trips through settings
+00:15 +52 -1: /home/runner/work/milo/milo/test/regression_test.dart: mic amplitude is 0 for silence and rises with signal
+00:15 +53 -1: /home/runner/work/milo/milo/test/regression_test.dart: learn-words JSON validation keeps good entries and drops the rest
+00:15 +54 -1: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chips sent exactly; removal drops from the very next request
+00:15 +55 -1: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chip text truncates at 3000, message at 800
+00:15 +56 -1: /home/runner/work/milo/milo/test/regression_test.dart: scan settings round-trip through settings
+00:15 +57 -1: /home/runner/work/milo/milo/test/regression_test.dart: memory pause blocks writes, resume restores (plan 7.10) paused: proposals discarded, request context empty
+00:15 +58 -1: loading /home/runner/work/milo/milo/test/v2_test.dart
+00:15 +58 -1: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule no valence>=0 face has inner brow ends lower than outer ends
+00:16 +59 -1: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule concerned raises the inner ends; curious raises one brow
+00:16 +60 -1: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry character fills its box in every LOD (>= 85%)
+00:16 +61 -1: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry motion gain clamps to [1, 2.5]
+00:16 +62 -1: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry gaze travel reads on screen in every LOD
+00:16 +63 -1: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry breath moves the chest >= 2 dp
+00:16 +64 -1: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry mouth shapes cover all nine
+00:16 +65 -1: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry LOD follows box size; colourways derive from one base
+00:16 +66 -1: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry Rive stub throws until a real asset exists
+00:16 +67 -1: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions idle library has 20 behaviours; gaze subset is clip-free
+00:16 +68 -1: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions reactions are synchronous, rate-limited and presence-aware
+00:16 +69 -1: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions hub swallows handler errors; bad sounds are ignored
+00:16 +70 -1: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions sound gates: quiet/aac/chip/hidden stay silent
+00:16 +71 -1: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions ten idle seconds always show visible non-blink motion
+00:16 +72 -1: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder greetings are deterministic, pooled and guilt-free
+00:16 +73 -1: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder ladder choices route locally; contract gestures all exist as clips
+00:16 +74 -1: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder settings round-trip the new fields
+00:16 +75 -1: loading /home/runner/work/milo/milo/test/segment_test.dart
+00:17 +75 -1: /home/runner/work/milo/milo/test/segment_test.dart: validateRegions clamps, drops degenerate, caps count
+00:17 +76 -1: /home/runner/work/milo/milo/test/segment_test.dart: overlay draws tappable labeled regions over the photo
+00:17 +77 -1: loading /home/runner/work/milo/milo/test/intro_lifecycle_test.dart
+00:18 +77 -1: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: fresh companion is unmet; hello motion never speaks
+00:18 +78 -1: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: skipped onboarding marks met silently
+00:19 +79 -1: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: full onboarding speaks the introduction once
+00:20 +80 -1: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: Replay introduction speaks exactly once more
+00:21 +81 -1: loading /home/runner/work/milo/milo/test/story_test.dart
+00:21 +81 -1: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) accepts a good tale with attribution
+00:21 +82 -1: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) rejects wrong shapes instead of showing half a tale
+00:21 +83 -1: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) predates-attribution payloads still open
+00:21 +84 -1: /home/runner/work/milo/milo/test/story_test.dart: toldByLabel names the teller without model ids
+00:21 +85 -1: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes
 ══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following TestFailure was thrown running a test:
-Expected: exactly one matching candidate
-  Actual: _TextWidgetFinder:<Found 0 widgets with text "Explain “heart”": []>
-   Which: means none were found but one was expected
+The following StateError was thrown running a test:
+Bad state: Too many elements
+
 When the exception was thrown, this was the stack:
-#4      main.<anonymous closure> (file:///home/runner/work/milo/milo/test/photo_segments_test.dart:38:5)
+#0      Iterable.single (dart:core/iterable.dart:696:24)
+#1      WidgetController.widget (package:flutter_test/src/controller.dart:828:30)
+#2      WidgetController.scrollUntilVisible.<anonymous closure> (package:flutter_test/src/controller.dart:2429:15)
+#5      TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#6      WidgetController.scrollUntilVisible (package:flutter_test/src/controller.dart:2427:27)
+#7      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/story_test.dart:145:15)
 <asynchronous suspension>
-#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+#8      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
-#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
-<asynchronous suspension>
-<asynchronous suspension>
-(elided one frame from package:stack_trace)
-This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/photo_segments_test.dart line 38
-The test description was:
-  find outlines matches; tapping a box explains it
-════════════════════════════════════════════════════════════════════════════════════════════════════
-00:15 +36 -2: /home/runner/work/milo/milo/test/photo_segments_test.dart: find outlines matches; tapping a box explains it [E]
-  Test failed. See exception logs above.
-  The test description was: find outlines matches; tapping a box explains it
-  
-00:15 +36 -2: /home/runner/work/milo/milo/test/photo_segments_test.dart: short phrases never ask; offline msg keeps the photo
-00:15 +37 -2: loading /home/runner/work/milo/milo/test/regression_test.dart
-00:16 +37 -2: /home/runner/work/milo/milo/test/regression_test.dart: contract keeps highlight/show_image/set_timer and drops bad ones
-00:16 +38 -2: /home/runner/work/milo/milo/test/regression_test.dart: offline preference and a11y toggles round-trip through settings
-00:16 +39 -2: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain timeout message exists and memory is not "coming next"
-00:16 +40 -2: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain key message points a grown-up at AI connections
-00:16 +41 -2: /home/runner/work/milo/milo/test/regression_test.dart: pocket brain is honest about video and audio files
-00:16 +42 -2: /home/runner/work/milo/milo/test/regression_test.dart: picture failures speak their cause, never a silent spinner
-00:16 +43 -2: /home/runner/work/milo/milo/test/regression_test.dart: generated-picture keys dedupe identical prompts only
-00:16 +44 -2: /home/runner/work/milo/milo/test/regression_test.dart: intro veil timing stays inside the 1.5-2 s spec
-00:16 +45 -2: /home/runner/work/milo/milo/test/regression_test.dart: cloud failure mapping names Spark timeouts, never the network
-00:16 +46 -2: /home/runner/work/milo/milo/test/regression_test.dart: sync banner mapping never leaks content
-00:16 +47 -2: /home/runner/work/milo/milo/test/regression_test.dart: untouched idle drifts drowsy and wakes on activity
-00:16 +48 -2: /home/runner/work/milo/milo/test/regression_test.dart: voice ranking prefers saved choice, then language, then warm fallback
-00:16 +49 -2: /home/runner/work/milo/milo/test/regression_test.dart: delivery tone fits the feeling, never excited by default
-00:16 +50 -2: /home/runner/work/milo/milo/test/regression_test.dart: TTS voice choice round-trips through settings
-00:16 +51 -2: /home/runner/work/milo/milo/test/regression_test.dart: mic amplitude is 0 for silence and rises with signal
-00:16 +52 -2: /home/runner/work/milo/milo/test/regression_test.dart: learn-words JSON validation keeps good entries and drops the rest
-00:16 +53 -2: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chips sent exactly; removal drops from the very next request
-00:16 +54 -2: /home/runner/work/milo/milo/test/regression_test.dart: chat payload matches visible chips (plan 7.7) chip text truncates at 3000, message at 800
-00:16 +55 -2: /home/runner/work/milo/milo/test/regression_test.dart: scan settings round-trip through settings
-00:16 +56 -2: /home/runner/work/milo/milo/test/regression_test.dart: memory pause blocks writes, resume restores (plan 7.10) paused: proposals discarded, request context empty
-00:16 +57 -2: loading /home/runner/work/milo/milo/test/v2_test.dart
-00:17 +57 -2: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule no valence>=0 face has inner brow ends lower than outer ends
-00:17 +58 -2: /home/runner/work/milo/milo/test/v2_test.dart: angry-brow rule concerned raises the inner ends; curious raises one brow
-00:17 +59 -2: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry character fills its box in every LOD (>= 85%)
-00:17 +60 -2: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry motion gain clamps to [1, 2.5]
-00:17 +61 -2: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry gaze travel reads on screen in every LOD
-00:17 +62 -2: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry breath moves the chest >= 2 dp
-00:17 +63 -2: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry mouth shapes cover all nine
-00:17 +64 -2: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry LOD follows box size; colourways derive from one base
-00:17 +65 -2: /home/runner/work/milo/milo/test/v2_test.dart: v2 geometry Rive stub throws until a real asset exists
-00:17 +66 -2: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions idle library has 20 behaviours; gaze subset is clip-free
-00:17 +67 -2: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions reactions are synchronous, rate-limited and presence-aware
-00:17 +68 -2: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions hub swallows handler errors; bad sounds are ignored
-00:17 +69 -2: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions sound gates: quiet/aac/chip/hidden stay silent
-00:17 +70 -2: /home/runner/work/milo/milo/test/v2_test.dart: idle + reactions ten idle seconds always show visible non-blink motion
-00:17 +71 -2: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder greetings are deterministic, pooled and guilt-free
-00:17 +72 -2: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder ladder choices route locally; contract gestures all exist as clips
-00:17 +73 -2: /home/runner/work/milo/milo/test/v2_test.dart: mood + greetings + ladder settings round-trip the new fields
-00:17 +74 -2: loading /home/runner/work/milo/milo/test/segment_test.dart
-00:18 +74 -2: /home/runner/work/milo/milo/test/segment_test.dart: validateRegions clamps, drops degenerate, caps count
-00:18 +75 -2: /home/runner/work/milo/milo/test/segment_test.dart: overlay draws tappable labeled regions over the photo
-00:19 +76 -2: loading /home/runner/work/milo/milo/test/intro_lifecycle_test.dart
-00:20 +76 -2: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: fresh companion is unmet; hello motion never speaks
-00:20 +77 -2: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: skipped onboarding marks met silently
-00:21 +78 -2: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: full onboarding speaks the introduction once
-00:22 +79 -2: /home/runner/work/milo/milo/test/intro_lifecycle_test.dart: Replay introduction speaks exactly once more
-00:23 +80 -2: loading /home/runner/work/milo/milo/test/story_test.dart
-00:24 +80 -2: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) accepts a good tale with attribution
-00:24 +81 -2: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) rejects wrong shapes instead of showing half a tale
-00:24 +82 -2: /home/runner/work/milo/milo/test/story_test.dart: Story.parse (second validation gate) predates-attribution payloads still open
-00:24 +83 -2: /home/runner/work/milo/milo/test/story_test.dart: toldByLabel names the teller without model ids
-00:24 +84 -2: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes
-Warning: A call to tap() with finder "Found 1 widget with text "Finish": [
-  Text("Finish", textAlign: center, dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
-]" derived an Offset (Offset(180.0, 1012.0)) that would not hit test on the specified widget.
-Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
-Indeed, Offset(180.0, 1012.0) is outside the bounds of the root of the render tree, Size(360.0, 1000.0).
-The finder corresponds to this RenderBox: RenderParagraph#0f2e1 relayoutBoundary=up20
-The hit test result at that offset is: HitTestResult(HitTestEntry<HitTestTarget>#5a38f(_ReusableRenderView#3f588), HitTestEntry<HitTestTarget>#6eb69(<AutomatedTestWidgetsFlutterBinding>))
-#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
-#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
-#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
-#3      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/story_test.dart:145:15)
-<asynchronous suspension>
-#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
-<asynchronous suspension>
-#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
-<asynchronous suspension>
-To silence this warning, pass "warnIfMissed: false" to "tap()".
-To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
-══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following TestFailure was thrown running a test:
-Expected: exactly one matching candidate
-  Actual: _TextWidgetFinder:<Found 0 widgets with text "go stories": []>
-   Which: means none were found but one was expected
-When the exception was thrown, this was the stack:
-#4      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/milo/milo/test/story_test.dart:148:7)
-<asynchronous suspension>
-#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+#9      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
 <asynchronous suspension>
 <asynchronous suspension>
-(elided one frame from package:stack_trace)
-This was caught by the test expectation on the following line:
-  file:///home/runner/work/milo/milo/test/story_test.dart line 148
+(elided 3 frames from dart:async and package:stack_trace)
+
 The test description was:
   generates, pages, continues, asks, saves and finishes
 ════════════════════════════════════════════════════════════════════════════════════════════════════
-00:26 +84 -3: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes [E]
+00:24 +85 -2: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes [E]
   Test failed. See exception logs above.
   The test description was: generates, pages, continues, asks, saves and finishes
   
-00:26 +84 -3: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen saved tales reopen and delete; new ask stays fresh-capable
-00:27 +85 -3: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen no connection shows a plain message, not a repeated tale
-00:27 +86 -3: loading /home/runner/work/milo/milo/test/ledger_test.dart
-00:28 +86 -3: /home/runner/work/milo/milo/test/ledger_test.dart: 100 mixed cloud calls write exactly 100 ledger entries
-00:28 +87 -3: /home/runner/work/milo/milo/test/ledger_test.dart: mid-stream cut: partial finishes, pocket explains, ladder rests
-00:29 +88 -3: loading /home/runner/work/milo/milo/test/lab_test.dart
-00:29 +88 -3: /home/runner/work/milo/milo/test/lab_test.dart: connection words are honest for every outcome
-00:29 +89 -3: /home/runner/work/milo/milo/test/lab_test.dart: lab poses expressions, fires clips and flips toggles
-00:31 +90 -3: /home/runner/work/milo/milo/test/lab_test.dart: connection row shows canned health and server address
-00:31 +91 -3: /home/runner/work/milo/milo/test/lab_test.dart: lab renders at harness sizes without overflow
-00:32 +92 -3: loading /home/runner/work/milo/milo/test/genui_test.dart
-00:32 +92 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator valid checklist spec passes
-00:32 +93 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator empty, wrong version and shapeless specs are dropped
-00:32 +94 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator unknown root kills spec, unknown child is dropped
-00:32 +95 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator bad actions dropped, bad button dropped, node survives
-00:32 +96 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator image concept must be known
-00:32 +97 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator genimage keeps prompt and alt, drops short prompts, fills missing alt
-00:32 +98 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator strings sanitized and capped
-00:32 +99 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator duplicate ids, depth and size caps
-00:32 +100 -3: /home/runner/work/milo/milo/test/genui_test.dart: spec validator ops validate strictly
-00:32 +101 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store root builds panel, invalid spec ignored
-00:32 +102 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store ops patch the current panel atomically
-00:32 +103 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store delta updates keep unsent display values
-00:32 +104 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store ops for another activity are ignored
-00:32 +105 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store new activity root resets interactions
-00:32 +106 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store same-activity root rebuild keeps answers (stable ids)
-00:32 +107 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store toggle and answer record last action
-00:32 +108 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store snapshot is flat, scalar and capped
-00:32 +109 -3: /home/runner/work/milo/milo/test/genui_test.dart: panel store move/add/replace ops reshape the tree
-00:33 +110 -3: loading /home/runner/work/milo/milo/test/renderer_states_test.dart
-00:34 +110 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase A
+00:24 +85 -2: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen saved tales reopen and delete; new ask stays fresh-capable
+00:24 +86 -2: /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen no connection shows a plain message, not a repeated tale
+00:25 +87 -2: loading /home/runner/work/milo/milo/test/ledger_test.dart
+00:26 +87 -2: /home/runner/work/milo/milo/test/ledger_test.dart: 100 mixed cloud calls write exactly 100 ledger entries
+00:26 +88 -2: /home/runner/work/milo/milo/test/ledger_test.dart: mid-stream cut: partial finishes, pocket explains, ladder rests
+00:26 +89 -2: loading /home/runner/work/milo/milo/test/lab_test.dart
+00:26 +89 -2: /home/runner/work/milo/milo/test/lab_test.dart: connection words are honest for every outcome
+00:26 +90 -2: /home/runner/work/milo/milo/test/lab_test.dart: lab poses expressions, fires clips and flips toggles
+00:28 +91 -2: /home/runner/work/milo/milo/test/lab_test.dart: connection row shows canned health and server address
+00:28 +92 -2: /home/runner/work/milo/milo/test/lab_test.dart: lab renders at harness sizes without overflow
+00:29 +93 -2: loading /home/runner/work/milo/milo/test/genui_test.dart
+00:29 +93 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator valid checklist spec passes
+00:29 +94 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator empty, wrong version and shapeless specs are dropped
+00:29 +95 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator unknown root kills spec, unknown child is dropped
+00:29 +96 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator bad actions dropped, bad button dropped, node survives
+00:29 +97 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator image concept must be known
+00:29 +98 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator genimage keeps prompt and alt, drops short prompts, fills missing alt
+00:29 +99 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator strings sanitized and capped
+00:29 +100 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator duplicate ids, depth and size caps
+00:29 +101 -2: /home/runner/work/milo/milo/test/genui_test.dart: spec validator ops validate strictly
+00:29 +102 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store root builds panel, invalid spec ignored
+00:29 +103 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store ops patch the current panel atomically
+00:29 +104 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store delta updates keep unsent display values
+00:29 +105 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store ops for another activity are ignored
+00:29 +106 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store new activity root resets interactions
+00:29 +107 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store same-activity root rebuild keeps answers (stable ids)
+00:29 +108 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store toggle and answer record last action
+00:29 +109 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store snapshot is flat, scalar and capped
+00:29 +110 -2: /home/runner/work/milo/milo/test/genui_test.dart: panel store move/add/replace ops reshape the tree
+00:29 +111 -2: loading /home/runner/work/milo/milo/test/renderer_states_test.dart
+00:30 +111 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase A
 golden missing, skipped (generate on a dev machine): milo_resting_a.png
-00:35 +111 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase B (idle movement)
+00:31 +112 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states resting, breath phase B (idle movement)
 golden missing, skipped (generate on a dev machine): milo_resting_b.png
-00:35 +112 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states listening with voice activity
+00:31 +113 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states listening with voice activity
 golden missing, skipped (generate on a dev machine): milo_listening.png
-00:35 +113 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states thinking
+00:31 +114 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states thinking
 golden missing, skipped (generate on a dev machine): milo_thinking.png
-00:35 +114 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states speaking, open and soft phases
+00:31 +115 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states speaking, open and soft phases
 golden missing, skipped (generate on a dev machine): milo_speaking_open.png
 golden missing, skipped (generate on a dev machine): milo_speaking_soft.png
-00:35 +115 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states happy
+00:31 +116 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states happy
 golden missing, skipped (generate on a dev machine): milo_happy.png
-00:35 +116 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states sad (concerned frown)
+00:31 +117 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states sad (concerned frown)
 golden missing, skipped (generate on a dev machine): milo_sad.png
-00:35 +117 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states confused (curious inquiry)
+00:31 +118 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states confused (curious inquiry)
 golden missing, skipped (generate on a dev machine): milo_confused.png
-00:35 +118 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states reassuring (encouraging warmth)
+00:31 +119 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states reassuring (encouraging warmth)
 golden missing, skipped (generate on a dev machine): milo_reassuring.png
-00:35 +119 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states celebrating
+00:31 +120 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states celebrating
 golden missing, skipped (generate on a dev machine): milo_celebrating.png
-00:35 +120 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states natural blink occurs and completes
-00:35 +121 -3: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states frame cost stays far under budget
-600 ticks: 12 ms (20.6 us/frame)
-00:35 +122 -3: loading /home/runner/work/milo/milo/test/screenshots_test.dart
-00:36 +122 -3: /home/runner/work/milo/milo/test/screenshots_test.dart: capture submission screenshots
-capture 01-intro: 555 ms (393x852)
-capture 02-home: 258 ms (393x852)
-capture 03-chat: 311 ms (393x852)
-capture 04-understand: 249 ms (393x852)
-capture 05-express: 266 ms (393x852)
-capture 06-accessibility: 386 ms (393x852)
-capture 07-connections: 146 ms (393x852)
-capture 08-about: 173 ms (393x852)
-capture 09-genui-panel: 88 ms (393x852)
-capture 10-segment-fixture: 42 ms (393x262)
-capture 11-offline: 249 ms (393x852)
-00:39 +123 -3: loading /home/runner/work/milo/milo/test/contract_test.dart
-00:40 +123 -3: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools accepts the three closed tools with clean args
-00:40 +124 -3: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools drops invented tools and malformed args
-00:40 +125 -3: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools steps are cleaned, truncated, and capped
-00:40 +126 -3: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools kActions mirrors the contract file
-00:40 +127 -3: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks batch turn fires read_aloud, steps, lookup
-00:40 +128 -3: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks streamed ui events fire the same callbacks
-00:40 +129 -3: loading /home/runner/work/milo/milo/test/agent_test.dart
-00:41 +129 -3: /home/runner/work/milo/milo/test/agent_test.dart: agent steps card checks steps off and saves to Do on confirmation
-00:43 +130 -3: /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable"
-00:43 +131 -3: /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer
-00:44 +132 -3: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) any tap picks the highlighted tile
-00:44 +133 -3: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval
-00:45 +134 -3: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) two periods, counts only, check-ins gated by opt-in
-00:45 +135 -3: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) quiet week says so gently, no loss language
-00:45 +136 -3: /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word
-00:46 +137 -3: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) platform text lands in the provider
-00:46 +138 -3: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once
-00:46 +139 -3: loading /home/runner/work/milo/milo/test/intro_test.dart
-00:47 +139 -3: /home/runner/work/milo/milo/test/intro_test.dart: veil shows the wordmark, then dismisses on its timer
-00:47 +140 -3: /home/runner/work/milo/milo/test/intro_test.dart: tap skips the veil once the entrance has landed
-00:48 +141 -3: /home/runner/work/milo/milo/test/intro_test.dart: reduced motion gets a short static hold, no animation
-00:48 +142 -3: loading /home/runner/work/milo/milo/test/speech_lifecycle_test.dart
-00:48 +142 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle empty and whitespace text never enter the speaking state
-00:48 +143 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle no TTS engine: silent caption, still mouth, clean idle
-00:49 +144 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle platform failure mid-utterance: mouth shuts, turn ends idle
-00:49 +145 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle cancellation mid-speech returns to idle with no stuck state
-00:49 +146 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle barge-in tap stops speech and listens; settling is clean
-00:49 +147 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle taps never speak: first and repeated taps are motion only
-00:49 +148 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle introduction plays once, then taps and relaunches stay silent
-00:52 +149 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle quiet mode: greet stays silent and unmet
-00:52 +150 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle returning users predate the met flag: familiar, silently
-00:52 +151 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle provider-adjacent settings writes preserve familiarity
-00:55 +152 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle reset replays the introduction exactly once
-01:01 +153 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle overlapping speaks: the newest wins, both settle, nothing throws
-01:02 +154 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle stale envelope feeds after speech ends are ignored
-01:02 +155 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle giggle and hum move the body, never the mouth
-01:02 +156 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle voice off: captions without mouth movement or audio
-01:03 +157 -3: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle cancel while idle and dispose mid-speech are safe
-01:03 +158 -3: loading /home/runner/work/milo/milo/test/layout_test.dart
-01:04 +158 -3: /home/runner/work/milo/milo/test/layout_test.dart: tabs: no overflow across sizes, scales and hands
-01:18 +159 -3: /home/runner/work/milo/milo/test/layout_test.dart: pushed screens: no overflow
-01:23 +160 -3: /home/runner/work/milo/milo/test/layout_test.dart: crowded small screen: every dock control is present
-01:23 +161 -3: /home/runner/work/milo/milo/test/layout_test.dart: dock and rail never cover the header
-01:23 +162 -3: /home/runner/work/milo/milo/test/layout_test.dart: tap targets meet guidelines
-01:24 +163 -3: /home/runner/work/milo/milo/test/layout_test.dart: keyboard peeks the dock
-01:24 +164 -3: Some tests failed.
+00:31 +121 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states natural blink occurs and completes
+00:31 +122 -2: /home/runner/work/milo/milo/test/renderer_states_test.dart: renderer states frame cost stays far under budget
+600 ticks: 26 ms (44.7 us/frame)
+00:32 +123 -2: loading /home/runner/work/milo/milo/test/screenshots_test.dart
+00:32 +123 -2: /home/runner/work/milo/milo/test/screenshots_test.dart: capture submission screenshots
+capture 01-intro: 481 ms (393x852)
+capture 02-home: 229 ms (393x852)
+capture 03-chat: 273 ms (393x852)
+capture 04-understand: 205 ms (393x852)
+capture 05-express: 211 ms (393x852)
+capture 06-accessibility: 358 ms (393x852)
+capture 07-connections: 117 ms (393x852)
+capture 08-about: 151 ms (393x852)
+capture 09-genui-panel: 78 ms (393x852)
+capture 10-segment-fixture: 35 ms (393x262)
+capture 11-offline: 172 ms (393x852)
+00:35 +124 -2: loading /home/runner/work/milo/milo/test/contract_test.dart
+00:36 +124 -2: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools accepts the three closed tools with clean args
+00:36 +125 -2: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools drops invented tools and malformed args
+00:36 +126 -2: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools steps are cleaned, truncated, and capped
+00:36 +127 -2: /home/runner/work/milo/milo/test/contract_test.dart: validateTurn tools kActions mirrors the contract file
+00:36 +128 -2: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks batch turn fires read_aloud, steps, lookup
+00:36 +129 -2: /home/runner/work/milo/milo/test/contract_test.dart: director tool callbacks streamed ui events fire the same callbacks
+00:36 +130 -2: loading /home/runner/work/milo/milo/test/agent_test.dart
+00:37 +130 -2: /home/runner/work/milo/milo/test/agent_test.dart: agent steps card checks steps off and saves to Do on confirmation
+00:38 +131 -2: /home/runner/work/milo/milo/test/agent_test.dart: blind model honesty an image turn on a blind model explains, not "unreachable"
+00:39 +132 -2: /home/runner/work/milo/milo/test/agent_test.dart: check-in counts (§0.1, plan 7.11) off by default; opt-in records one count, never the answer
+00:39 +133 -2: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) any tap picks the highlighted tile
+00:39 +134 -2: /home/runner/work/milo/milo/test/agent_test.dart: switch scanning (P2) highlight auto-advances on the interval
+00:40 +135 -2: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) two periods, counts only, check-ins gated by opt-in
+00:40 +136 -2: /home/runner/work/milo/milo/test/agent_test.dart: trusted-adult report (P2) quiet week says so gently, no loss language
+00:40 +137 -2: /home/runner/work/milo/milo/test/agent_test.dart: lookup_word handoff prefills the Understand reader with the looked-up word
+00:40 +138 -2: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) platform text lands in the provider
+00:40 +139 -2: /home/runner/work/milo/milo/test/agent_test.dart: share-in (plan 7.13) shared text prefills the Understand reader once
+00:41 +140 -2: loading /home/runner/work/milo/milo/test/intro_test.dart
+00:41 +140 -2: /home/runner/work/milo/milo/test/intro_test.dart: veil shows the wordmark, then dismisses on its timer
+00:42 +141 -2: /home/runner/work/milo/milo/test/intro_test.dart: tap skips the veil once the entrance has landed
+00:42 +142 -2: /home/runner/work/milo/milo/test/intro_test.dart: reduced motion gets a short static hold, no animation
+00:42 +143 -2: loading /home/runner/work/milo/milo/test/speech_lifecycle_test.dart
+00:43 +143 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle empty and whitespace text never enter the speaking state
+00:43 +144 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle no TTS engine: silent caption, still mouth, clean idle
+00:43 +145 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle platform failure mid-utterance: mouth shuts, turn ends idle
+00:43 +146 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle cancellation mid-speech returns to idle with no stuck state
+00:43 +147 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle barge-in tap stops speech and listens; settling is clean
+00:43 +148 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle taps never speak: first and repeated taps are motion only
+00:43 +149 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle introduction plays once, then taps and relaunches stay silent
+00:46 +150 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle quiet mode: greet stays silent and unmet
+00:46 +151 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle returning users predate the met flag: familiar, silently
+00:46 +152 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle provider-adjacent settings writes preserve familiarity
+00:49 +153 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle reset replays the introduction exactly once
+00:55 +154 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle overlapping speaks: the newest wins, both settle, nothing throws
+00:56 +155 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle stale envelope feeds after speech ends are ignored
+00:56 +156 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle giggle and hum move the body, never the mouth
+00:56 +157 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle voice off: captions without mouth movement or audio
+00:57 +158 -2: /home/runner/work/milo/milo/test/speech_lifecycle_test.dart: speech lifecycle cancel while idle and dispose mid-speech are safe
+00:57 +159 -2: loading /home/runner/work/milo/milo/test/layout_test.dart
+00:58 +159 -2: /home/runner/work/milo/milo/test/layout_test.dart: tabs: no overflow across sizes, scales and hands
+01:09 +160 -2: /home/runner/work/milo/milo/test/layout_test.dart: pushed screens: no overflow
+01:14 +161 -2: /home/runner/work/milo/milo/test/layout_test.dart: crowded small screen: every dock control is present
+01:14 +162 -2: /home/runner/work/milo/milo/test/layout_test.dart: dock and rail never cover the header
+01:14 +163 -2: /home/runner/work/milo/milo/test/layout_test.dart: tap targets meet guidelines
+01:14 +164 -2: /home/runner/work/milo/milo/test/layout_test.dart: keyboard peeks the dock
+01:15 +165 -2: Some tests failed.
+
 Failing tests:
-  /home/runner/work/milo/milo/test/photo_segments_test.dart: find outlines matches; tapping a box explains it
   /home/runner/work/milo/milo/test/photo_tiles_test.dart: grown-up draws, reviews, then saves a picture tile
   /home/runner/work/milo/milo/test/story_test.dart: StoryTime screen generates, pages, continues, asks, saves and finishes
-Error: Process completed with exit code 1.
