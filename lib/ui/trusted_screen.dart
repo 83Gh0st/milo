@@ -343,17 +343,15 @@ class _HostedStatus extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final check = ref.watch(connectionCheckProvider);
     Widget line(String s) => Text(s, style: const TextStyle(fontSize: 13, color: T.mute));
-    const capLabels = {'chat': 'Thinking + chat', 'understand': 'Reading help', 'image': 'Pictures', 'voice': 'Voice in', 'segment': 'Object outlines'};
     return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('Hosted by Milo - Muse Spark', style: TextStyle(fontWeight: FontWeight.w700)),
       const SizedBox(height: 4),
-      const Text('No key or model picking needed: one hosted connection routes each job automatically (chat, pictures, voice, outlines). Hosted AI needs internet; the board and saved work still work offline.', style: TextStyle(fontSize: 13, color: T.mute)),
+      const Text('One hosted connection routes every job automatically - no key or model picking. Needs internet; the board still works offline.', style: TextStyle(fontSize: 13, color: T.mute)),
       const SizedBox(height: 6),
       ...check.when(
         data: (s) => [
           line(s.provider == null ? 'Unreachable right now.' : s.provider == 'modal' ? 'Answering via Milo hosted (Muse Spark).${s.budgetOk == true ? '' : ' Daily budget used - resting.'}' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used - resting.'}'),
-          if (s.demoEnabled != null) line(s.demoEnabled! ? 'Competition demo access: on (hosted key stays on the server).' : 'Competition demo access: off.'),
-          for (final e in capLabels.entries) line(capabilityLine(e.value, s.capabilities[e.key])),
+          line('${s.demoEnabled == null ? '' : s.demoEnabled! ? 'Demo access on (key stays on the server). ' : 'Demo access off. '}${s.capabilities.isEmpty ? '' : capabilitySummary(s.capabilities)}'),
         ],
         loading: () => [line('Checking…')],
         error: (_, __) => [line('Unreachable right now.')],

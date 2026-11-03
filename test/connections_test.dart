@@ -293,7 +293,10 @@ void main() {
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model-a', 'policy': {}});
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
+    await settle(t); // hosted-status future resolves first: no layout shift mid-drag
     await dragToBuild(t, find.text('OpenAI', skipOffstage: false), find.byType(ListView).first);
+    await t.ensureVisible(find.text('OpenAI', skipOffstage: false));
+    await t.pump(); // let the scroll land before tapping (tile starts offstage)
     await t.tap(find.text('OpenAI'));
     await settle(t);
     await t.ensureVisible(find.text('Choose', skipOffstage: false).first);

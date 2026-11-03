@@ -282,9 +282,10 @@ class _PhotoSegmentsState extends ConsumerState<PhotoSegments> {
     if (phrase.text.trim().length < 2 || busy) return;
     setState(() { busy = true; err = ''; sel = null; searched = false; maskCount = 0; segRoute = ''; });
     try {
-      final res = await ref.read(apiProvider).segmentDetailed(widget.image, phrase.text.trim());
-      final found = validateRegions(res.regions);
-      if (mounted) setState(() { regions = found; searched = true; maskCount = res.masks.length; segRoute = res.route; });
+      final api = ref.read(apiProvider);
+      final found = validateRegions(await api.segment(widget.image, phrase.text.trim()));
+      final meta = api.lastSegmentMeta; // set by the real API; null for test doubles
+      if (mounted) setState(() { regions = found; searched = true; maskCount = meta?.maskCount ?? 0; segRoute = meta?.route ?? ''; });
     } catch (e) {
       if (mounted) {
         setState(() => err = switch (e) {

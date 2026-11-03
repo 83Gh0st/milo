@@ -48,6 +48,9 @@ void main() {
       expect(capabilityLine('Pictures', {'status': 'available', 'route': 'byok'}), contains('your key'));
       expect(capabilityLine('Pictures', {'status': 'available', 'route': 'open-weight'}), contains('open model'));
       expect(capabilityLine('Pictures', null), contains('not reported'));
+      expect(capabilitySummary({'chat': {'status': 'available'}, 'image': {'status': 'unverified'}}),
+          contains('Chat ready'));
+      expect(capabilitySummary(const {}), contains('Pictures unavailable'));
     });
   });
 }

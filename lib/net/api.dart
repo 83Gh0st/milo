@@ -261,6 +261,11 @@ class MiloApi {
   /// Visual grounding (SAM 3.1 via the gateway): outline every [phrase] in the
   /// photo. Returns raw region maps for [validateRegions] (the client-side
   /// gate); empty list = "nothing found", still success. Explicit tap only.
+  /// Metadata from the most recent real [segmentDetailed] call (mask count +
+  /// route). Null until one succeeds; test doubles overriding [segment]
+  /// leave it null and callers word that plainly.
+  ({int maskCount, String model, String provider, String route})? lastSegmentMeta;
+
   Future<List<Map<String, dynamic>>> segment(Uint8List image, String phrase) async =>
       (await segmentDetailed(image, phrase)).regions;
 
@@ -274,8 +279,10 @@ class MiloApi {
     final regs = r.data!['regions'];
     if (regs is! List) throw ApiError('bad_grounding');
     final masks = r.data!['masks'];
+    final maskList = masks is List ? <Map<String, dynamic>>[for (final e in masks) if (e is Map) Map<String, dynamic>.from(e)] : const <Map<String, dynamic>>[];
+    lastSegmentMeta = (maskCount: maskList.length, model: '${r.data!['model'] ?? ''}', provider: '${r.data!['provider'] ?? ''}', route: '${r.data!['route'] ?? ''}');
     return (regions: <Map<String, dynamic>>[for (final e in regs) if (e is Map) Map<String, dynamic>.from(e)],
-        masks: masks is List ? <Map<String, dynamic>>[for (final e in masks) if (e is Map) Map<String, dynamic>.from(e)] : const <Map<String, dynamic>>[],
+        masks: maskList,
         model: '${r.data!['model'] ?? ''}', provider: '${r.data!['provider'] ?? ''}', route: '${r.data!['route'] ?? ''}');
   }
 
@@ -408,6 +415,20 @@ class ConnStatus {
   final Map<String, Map<String, String>> capabilities; // cap -> {provider, model, route, status}
   final bool? demoEnabled;
   const ConnStatus({required this.apiBase, required this.words, required this.ok, this.provider, this.brainMode, this.budgetOk, this.capabilities = const {}, this.demoEnabled});
+}
+
+/// Compact one-line summary of all capability statuses for the hosted card
+/// (keeps the AI-connections list short enough to reach on small screens).
+/// Pure: unit-tested.
+String capabilitySummary(Map<String, Map<String, String>> caps) {
+  const labels = {'chat': 'Chat', 'understand': 'Reading', 'image': 'Pictures', 'voice': 'Voice', 'segment': 'Outlines'};
+  String short(String? status) => switch (status) {
+        'available' => 'ready',
+        'unverified' => 'connected, unproven',
+        'disabled' => 'off',
+        _ => 'unavailable',
+      };
+  return [for (final e in labels.entries) '${e.value} ${short(caps[e.key]?['status'])}'].join(' · ');
 }
 
 /// One-line status for a capability row: status + route, no secrets, no

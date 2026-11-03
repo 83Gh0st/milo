@@ -107,8 +107,8 @@ String genImageErrorWords(ApiError e) {
 String voiceErrorWords(String code) => switch (code) {
       'mic_denied' => 'The microphone is off. You can allow it in Settings, or type instead.',
       'cloud_off' => 'Voice needs cloud AI. Turn it on in Privacy, or type.',
-      'too_short' => 'I did not hear anything. Hold still, speak, then tap stop.',
-      'no_speech' => 'I could not hear words in that. Try again closer to the phone, or type.',
+      'too_short' => 'I did not hear anything. Speak, then tap stop - or type instead.',
+      'no_speech' => 'I could not hear words in that. Try again closer to the phone, or type instead.',
       'demo_quota_exceeded' => 'Demo voice limit reached for today. You can still type.',
       'demo_disabled' => 'Hosted voice is turned off right now. You can still type.',
       'budget_exhausted' => 'The thinking cloud is resting. You can still type.',
