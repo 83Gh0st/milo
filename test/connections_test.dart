@@ -353,8 +353,10 @@ void main() {
     // in the closed field and spoil the Pictures negative below).
     await t.tap(find.text('meta/fake-spark').hitTestable());
     await settle(t);
+    expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsNothing); // selection closed the menu
     // ...but Pictures does not offer a chat-role model for an image job.
-    await t.scrollUntilVisible(firstChoice('Pictures'), 50);
+    // Explicit scrollable: the default finder breaks if any overlay menu is open.
+    await t.scrollUntilVisible(firstChoice('Pictures'), 50, scrollable: list);
     await t.ensureVisible(firstChoice('Pictures'));
     await t.pump();
     await t.tap(firstChoice('Pictures'));
