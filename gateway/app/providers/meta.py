@@ -1,8 +1,19 @@
 """Meta Model API adapters. Base URL, model ids and the realtime ASR handshake follow Meta's published docs (verify with scripts/smoke_test.py)."""
-import asyncio, base64, json, uuid
+import asyncio, base64, json, logging, uuid
 from openai import AsyncOpenAI, APIConnectionError, APIStatusError, APITimeoutError
 from ..config import Settings, assert_model_allowed
 from .base import ProviderError, Usage
+
+log = logging.getLogger("milo.meta")
+
+
+def _client_key(key):
+    """SDK-safe key for client construction. The SDK refuses an empty key,
+    which would crash adapter construction (and gateway boot) whenever no
+    credential is configured. Real calls are refused earlier as
+    not_configured (MetaAdapter._require_key) or map a 401 to auth_failed;
+    this placeholder is never a real credential."""
+    return key or "not-configured"
 
 
 class MetaModels:
@@ -10,12 +21,12 @@ class MetaModels:
     which model ids this key may call, without spending a generation."""
     def __init__(self, s: Settings):
         self.s = s
-        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=15, max_retries=0)
+        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=_client_key(s.model_api_key), timeout=15, max_retries=0)
 
     async def list_ids(self, api_key=None) -> list:
         client, family = self.client, bool(api_key and api_key != self.s.model_api_key)
         if family:
-            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=15, max_retries=0)
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=_client_key(api_key), timeout=15, max_retries=0)
         try:
             page = await client.models.list()
             return sorted({m.id for m in page.data if getattr(m, "id", "")})
@@ -35,13 +46,13 @@ class MetaReasoning:
         self.model = model or s.spark_model
         if self.model not in (s.spark_model, getattr(s, "wonder_model", None)):
             raise ProviderError("model_not_found", 502)
-        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=30, max_retries=1)
+        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=_client_key(s.model_api_key), timeout=30, max_retries=1)
 
     async def stream(self, messages, *, schema=None, effort="low", max_tokens=900, api_key=None):
         assert_model_allowed(self.s, self.model)
         client, family = self.client, bool(api_key and api_key != self.s.model_api_key)
         if family:  # BYOK: this turn is billed to the family's key, never constructed with the deployer key
-            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=30, max_retries=1)
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=_client_key(api_key), timeout=30, max_retries=1)
         kw = dict(model=self.model, messages=messages, stream=True, max_completion_tokens=max_tokens,
                   reasoning_effort=effort, stream_options={"include_usage": True})
         if schema:
@@ -67,21 +78,70 @@ class MetaReasoning:
         yield usage
 
 
+def is_image_bytes(raw: bytes) -> bool:
+    """True only for real image bytes (PNG/JPEG/WebP/GIF/AVIF - every format
+    the phone renders natively). A text/HTML/error body is never an image."""
+    if raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:2] == b"\xff\xd8" or raw[:6] in (b"GIF87a", b"GIF89a"):
+        return True
+    if len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return True
+    return len(raw) >= 12 and raw[4:8] == b"ftyp" and raw[8:12] in (b"avif", b"avis")
+
+
+def decode_image_field(value) -> bytes:
+    """Decodes an image payload field: raw base64 or a data: URL. Anything
+    else (empty, prose, a signed URL string) yields b'' - never garbage."""
+    if not isinstance(value, str) or not value:
+        return b""
+    v = value.strip()
+    if v.startswith("data:"):
+        head, sep, tail = v.partition(",")
+        if not sep or ";base64" not in head:
+            return b""
+        v = tail
+    try:
+        return base64.b64decode("".join(v.split()), validate=True)
+    except Exception:
+        return b""
+
+
 class MetaImage:
     def __init__(self, s: Settings):
         self.s = s
         assert_model_allowed(s, s.image_model)
-        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=45, max_retries=1)
+        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=_client_key(s.model_api_key), timeout=45, max_retries=1)
 
     async def generate(self, prompt: str, size: str = "1024x1024", api_key=None) -> bytes:
         client = self.client
         if api_key and api_key != self.s.model_api_key:
-            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=45, max_retries=1)
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=_client_key(api_key), timeout=45, max_retries=1)
         try:  # agentic tools off: no web/image search or shell for child-facing pictures
             r = await client.images.generate(model=self.s.image_model, prompt=prompt, n=1, size=size,
                                              extra_body={"reasoning_strength": "low", "tool_enablement": {"enable_image_search": False, "enable_web_search": False, "enable_shell": False}})
-            return base64.b64decode(r.data[0].b64_json)
-        except (APIStatusError, APIConnectionError, APITimeoutError, TypeError, IndexError):
+            item = r.data[0]
+            raw = decode_image_field(getattr(item, "b64_json", None))
+            if not raw:
+                url = getattr(item, "url", None) or getattr(item, "image_url", None)
+                if url:
+                    # Signed-URL form: fetch the bytes server-side; the URL
+                    # itself is never returned to the app or logged.
+                    import httpx
+                    async with httpx.AsyncClient(timeout=30) as http:
+                        resp = await http.get(url)
+                        resp.raise_for_status()
+                        raw = resp.content
+            if not is_image_bytes(raw):
+                # Sanitized shape only: field names, lengths, magic bytes.
+                # Never the payload, prompt, key, or URL.
+                log.warning("image shape b64=%s url=%s raw_len=%s magic=%s",
+                            bool(getattr(item, "b64_json", None)),
+                            bool(getattr(item, "url", None) or getattr(item, "image_url", None)),
+                            len(raw), raw[:12].hex() if raw else "")
+                raise ProviderError("image_empty", 502)
+            return raw
+        except ProviderError:
+            raise
+        except (APIStatusError, APIConnectionError, APITimeoutError, TypeError, IndexError, ValueError):
             raise ProviderError("image_failed", 503)
 
 
@@ -113,10 +173,32 @@ def image_size(raw: bytes):
     return None
 
 
+def summarize_masks(records, limit: int = 20) -> list:
+    """Lossless mask metadata from parser records (never pixel data).
+
+    Mirrors scripts/probe_sam.py: object id + mask dimensions + encoding.
+    The gateway forwards this metadata alongside the boxes so clients can
+    show that a real mask exists without shipping mask bytes to the phone.
+    Pure: unit-tested without the API."""
+    out = []
+    for r in records or []:
+        if getattr(r, "kind", "") != "mask":
+            continue
+        m = getattr(r, "mask", None)
+        out.append({"object_id": str(getattr(r, "object_id", "") or ""),
+                    "width": int(getattr(m, "width", 0) or 0),
+                    "height": int(getattr(m, "height", 0) or 0),
+                    "encoding": str(getattr(m, "encoding", "") or "")[:40]})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def norm_boxes(records, w: int, h: int, limit: int = 20) -> list:
     """Parser box records (source-media coords) -> normalized overlay boxes.
-    Pure: unit-tested without the API. Masks ignored (the overlay draws
-    boxes); degenerate/off-frame records dropped, never clamped into lies."""
+    Pure: unit-tested without the API. Degenerate/off-frame records dropped,
+    never clamped into lies. Mask records are reported separately via
+    summarize_masks; the overlay draws boxes."""
     out = []
     for r in records or []:
         if getattr(r, "kind", "") != "box":
@@ -169,7 +251,7 @@ class MetaGround:
     def __init__(self, s: Settings):
         self.s = s
         assert_model_allowed(s, s.sam_model)
-        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=s.model_api_key, timeout=60, max_retries=1)
+        self.client = AsyncOpenAI(base_url=s.meta_base_url, api_key=_client_key(s.model_api_key), timeout=60, max_retries=1)
 
     async def ground(self, image_b64: str, phrase: str, api_key=None) -> dict:
         try:
@@ -187,7 +269,7 @@ class MetaGround:
         mime = "image/png" if raw[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg"
         client, family = self.client, bool(api_key and api_key != self.s.model_api_key)
         if family:  # BYOK: billed to the family's key
-            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=api_key, timeout=60, max_retries=1)
+            client = AsyncOpenAI(base_url=self.s.meta_base_url, api_key=_client_key(api_key), timeout=60, max_retries=1)
         try:
             stream = await client.responses.create(model=self.s.sam_model, stream=True, input=[{
                 "type": "message", "role": "user", "content": [
@@ -208,7 +290,8 @@ class MetaGround:
             raise ProviderError("provider_error", 503)
         if getattr(getattr(result, "outcome", None), "status", "") != "completed":
             raise ProviderError("bad_grounding", 502)
-        return {"boxes": norm_boxes(getattr(result, "records", []), w, h), "model": self.s.sam_model}
+        records = getattr(result, "records", [])
+        return {"boxes": norm_boxes(records, w, h), "masks": summarize_masks(records), "model": self.s.sam_model}
 
 
 class _MetaVoiceSession:

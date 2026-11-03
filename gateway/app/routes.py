@@ -30,12 +30,46 @@ def cost_chat(s, u: Usage) -> float:
     return (fresh * s.price_in + u.cached * s.price_cached_in + u.completion * s.price_out) / 1e6
 
 
+_CAP_BY_PATH = {"/v1/brain/turn": "chat", "/v1/understand": "chat", "/v1/plan": "chat",
+                "/v1/compose": "chat", "/v1/story": "chat", "/v1/speak": "chat",
+                "/v1/visual": "image", "/v1/image": "image", "/v1/segment": "segment"}
+
+
+def route_kind(ctx, provider: str = "") -> str:
+    """Safe diagnostics label: who funded this request. Never a key."""
+    if ctx is not None:
+        return "byok"
+    if provider == "modal":
+        return "open-weight"
+    return "demo"  # deployer/hosted credential (competition demo access)
+
+
+def demo_active(request: Request) -> bool:
+    s = request.app.state.settings
+    return bool(s.demo_enabled) and s.provider != "mock"
+
+
 async def budget_guard(request: Request):
     if request.headers.get("x-vault-id"):
         return  # family-keyed calls spend the family's quota, not the deployer's (per-request auth still applies)
-    b = request.app.state.budget
+    st = request.app.state
+    s = st.settings
+    # Administrator demo switch: with demo access off, the hosted credential
+    # serves nobody. BYOK above is unaffected; local/offline app features are
+    # unaffected. Mock (offline practice) is not the hosted credential.
+    if s.provider != "mock" and not s.demo_enabled and request.url.path in _CAP_BY_PATH:
+        raise HTTPException(503, {"error": "demo_disabled",
+                                  "message": "Hosted AI is turned off right now. Milo still works offline."})
+    b = st.budget
     if not await b.ok() or not await b.month_ok():
         raise HTTPException(503, {"error": "budget_exhausted"})
+    if demo_active(request):
+        # Per-installation demo quotas (device hash from the session token).
+        try:
+            dev = verify_token(s, (request.headers.get("authorization", "")[7:]).strip())
+        except Exception:
+            dev = "unknown"
+        st.demo.check(dev, _CAP_BY_PATH.get(request.url.path, "chat"))
 
 
 @router.post("/session")
@@ -50,11 +84,50 @@ async def health(request: Request):
     st = request.app.state
     s = st.settings
     modal_text = s.reasoning_provider == "modal" and bool(s.modal_models_url.strip())
+    demo_on = bool(s.demo_enabled) and s.provider != "mock"
+    hosted_key = bool(s.model_api_key) if s.provider == "meta" else s.provider == "mock"
+
+    def cap(provider: str, model: str, route: str, verified: bool) -> dict:
+        # available = routable now; unverified = wired but no keyed live run
+        # yet; disabled = admin switch off or no credential. A green health
+        # check alone never claims inference works.
+        if s.provider == "mock":
+            status = "available"  # offline practice provider, no credential involved
+        else:
+            # Open-weight text needs the Modal endpoint, not the Meta key.
+            credentialed = hosted_key or (provider == "modal" and bool(s.modal_models_url.strip() and s.modal_models_key.strip()))
+            status = "available" if (demo_on and credentialed and verified) else \
+                "unverified" if (demo_on and credentialed) else \
+                "disabled" if not demo_on else "unavailable"
+        return {"provider": provider, "model": model, "route": route, "status": status}
+
+    text_route = "open-weight" if modal_text else "demo"
+    text_provider = "modal" if modal_text else ("meta" if s.provider == "meta" else "mock")
+    text_model = s.modal_model if modal_text else (s.spark_model if s.provider == "meta" else "mock")
+    # Text is served by the open-weight endpoint when configured, even with
+    # no Meta key: report that honestly instead of "unavailable".
+    text_ready = modal_text or hosted_key
     return {"status": "ok", "provider": s.provider, "models": {"reasoning": s.spark_model, "voice": s.voice_model, "image": s.image_model},
             "budget_ok": await st.budget.ok(), "budget_month_ok": await st.budget.month_ok(), "brain_mode": s.brain_mode,
-            "reasoning_provider": "modal" if modal_text else s.provider,
-            "reasoning_model": s.modal_model if modal_text else (s.spark_model if s.provider == "meta" else "mock"),
-            "vault_available": st.engine is not None, "budget_persistent": st.budget.persistent, "spend_backend": st.budget.backend}
+            "reasoning_provider": text_provider,
+            "reasoning_model": text_model,
+            "vault_available": st.engine is not None, "budget_persistent": st.budget.persistent, "spend_backend": st.budget.backend,
+            "demo": {"enabled": demo_on, "mode": "hosted-meta" if s.provider == "meta" else s.provider,
+                     "needs_internet": True, "offline_still_works": True,
+                     "limits": {"requests_per_day": s.demo_requests_per_day, "image_per_day": s.demo_image_per_day,
+                                "segment_per_day": s.demo_segment_per_day, "voice_minutes_per_day": s.demo_voice_minutes_per_day}},
+            "capabilities": {
+                "chat": cap(text_provider, text_model, text_route, text_ready),
+                # Understand carries photos (vision): multimodal, so it is
+                # served by Meta Spark - hosted demo key or BYOK - never by
+                # the text-only open-weight model sharing this gateway.
+                "understand": cap("meta" if s.provider == "meta" else text_provider,
+                                  s.spark_model if s.provider == "meta" else text_model,
+                                  "demo" if s.provider == "meta" else text_route, hosted_key),
+                "image": cap("meta" if s.provider == "meta" else s.provider, s.image_model, "demo", False),
+                "voice": cap("meta" if s.provider == "meta" else s.provider, s.voice_model, "demo", False),
+                "segment": cap("meta" if s.provider == "meta" else s.provider, s.sam_model, "demo", bool(s.sam_verified)),
+            }}
 
 
 def _peek_lines(st, ctx, cap, need=None) -> bool:
@@ -141,7 +214,7 @@ async def run_brain(st, msgs, presentation: str, *, effort: str, timeout: float,
     yield sse("done", {"followup": asm.followup, "blocked": asm.blocked, "capped": asm.capped, "provider": provider, "model": model})
     if metered:
         await st.budget.add(cost_chat(st.settings, usage))  # family-keyed turns spend the family's quota, not the deployer's
-    log.info("turn", extra={"kind": kind, "ms": int((time.monotonic() - t0) * 1000), "tok_in": usage.prompt, "tok_cached": usage.cached, "tok_out": usage.completion, "ttft": usage.ttft_ms, "conn": usage.connect_ms, "parse": parse_ms, "err": err or "", "prov": provider, "pmodel": model})
+    log.info("turn", extra={"kind": kind, "cap": cap, "route": route_kind(ctx, provider), "ms": int((time.monotonic() - t0) * 1000), "tok_in": usage.prompt, "tok_cached": usage.cached, "tok_out": usage.completion, "ttft": usage.ttft_ms, "conn": usage.connect_ms, "parse": parse_ms, "err": err or "", "prov": provider, "pmodel": model})
 
 
 def _crisis_stream():
@@ -349,8 +422,9 @@ async def visual(req: VisualReq, request: Request, dev: str = Depends(auth), _b:
                 png = (await conn.execute(select(visual_cache.c.png).where(visual_cache.c.h == h))).scalar()
             if png is not None:
                 return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+        t0 = time.monotonic()
         try:
-            _, _, png = await st.router.generate_image({"visual": [e]}, creds, STYLE.format(c=c), caps_map=caps)
+            prov, mdl, png = await st.router.generate_image({"visual": [e]}, creds, STYLE.format(c=c), caps_map=caps)
         except ProviderError as err:
             last_err = err  # fail over to the next visual entry when eligible
             if err.code not in FAILOVER_CODES:
@@ -364,7 +438,8 @@ async def visual(req: VisualReq, request: Request, dev: str = Depends(auth), _b:
                     await conn.execute(insert(visual_cache).values(h=h, png=png, created=int(time.time())))
                 except Exception:
                     pass
-        return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+        log.info("image", extra={"kind": "visual", "cap": "image", "route": route_kind(ctx, prov), "ms": int((time.monotonic() - t0) * 1000), "prov": prov, "pmodel": mdl, "bytes": len(png)})
+        return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Provider": prov, "X-Milo-Model": mdl, "X-Milo-Route": route_kind(ctx, prov)})
     raise HTTPException((last_err.status if last_err else 502), {"error": last_err.code if last_err else "unsupported_capability"})
 
 
@@ -407,8 +482,9 @@ async def segment(req: SegmentReq, request: Request, dev: str = Depends(auth), _
     caps = ctx.caps if ctx else None
     last_err: ProviderError | None = None
     for e in st.router.entries_for("segment", routes):
+        t0 = time.monotonic()
         try:
-            _, _, out = await st.router.ground_image({"segment": [e]}, creds, req.image_b64, phrase, caps_map=caps)
+            prov, mdl, out = await st.router.ground_image({"segment": [e]}, creds, req.image_b64, phrase, caps_map=caps)
         except ProviderError as err:
             last_err = err  # fail over to the next segment entry when eligible
             if err.code not in FAILOVER_CODES:
@@ -428,14 +504,17 @@ async def segment(req: SegmentReq, request: Request, dev: str = Depends(auth), _
                             "object_id": str(b.get("object_id") or f"r{i + 1}")[:40]})
         if ctx is None:
             await st.budget.add(st.settings.price_segment)
-        return {"regions": regions, "model": out.get("model", "")}
+        masks = out.get("masks") or []
+        log.info("segment", extra={"kind": "segment", "cap": "segment", "route": route_kind(ctx, prov), "ms": int((time.monotonic() - t0) * 1000), "prov": prov, "pmodel": mdl or out.get("model", ""), "bytes": len(regions)})
+        return {"regions": regions, "model": out.get("model", ""), "masks": masks,
+                "provider": prov, "route": route_kind(ctx, prov)}
     raise HTTPException(last_err.status if last_err else 502, {"error": last_err.code if last_err else "unsupported_capability"})
 
 
 @router.post("/image")
 async def image(req: ImageReq, request: Request, dev: str = Depends(auth), _b: None = Depends(budget_guard)):
     st = request.app.state
-    p = clean(req.prompt, 140)
+    p = clean(req.prompt, 300)
     if len(p) < 2:
         raise HTTPException(422, {"error": "no_content"})
     if _IMAGE_PAT.search(p.lower()):
@@ -452,8 +531,9 @@ async def image(req: ImageReq, request: Request, dev: str = Depends(auth), _b: N
                 png = (await conn.execute(select(visual_cache.c.png).where(visual_cache.c.h == h))).scalar()
             if png is not None:
                 return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Image": "ai-generated"})
+        t0 = time.monotonic()
         try:
-            _, _, png = await st.router.generate_image({"visual": [e]}, creds, _IMAGE_STYLE.format(p=p), caps_map=caps)
+            prov, mdl, png = await st.router.generate_image({"visual": [e]}, creds, _IMAGE_STYLE.format(p=p), caps_map=caps)
         except ProviderError as err:
             last_err = err  # fail over to the next visual entry when eligible
             if err.code not in FAILOVER_CODES:
@@ -467,7 +547,8 @@ async def image(req: ImageReq, request: Request, dev: str = Depends(auth), _b: N
                     await conn.execute(insert(visual_cache).values(h=h, png=png, created=int(time.time())))
                 except Exception:
                     pass
-        return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Image": "ai-generated"})
+        log.info("image", extra={"kind": "image", "cap": "image", "route": route_kind(ctx, prov), "ms": int((time.monotonic() - t0) * 1000), "prov": prov, "pmodel": mdl, "bytes": len(png)})
+        return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Milo-Image": "ai-generated", "X-Milo-Provider": prov, "X-Milo-Model": mdl, "X-Milo-Route": route_kind(ctx, prov)})
     raise HTTPException((last_err.status if last_err else 502), {"error": last_err.code if last_err else "unsupported_capability"})
 
 
@@ -475,12 +556,15 @@ async def image(req: ImageReq, request: Request, dev: str = Depends(auth), _b: N
 async def voice(ws: WebSocket):
     st = ws.app.state
     await ws.accept()
+    dev = ""
     try:
         first = json.loads(await asyncio.wait_for(ws.receive_text(), 5))
-        st.limiter.check(verify_token(st.settings, first.get("token", "")))
+        dev = verify_token(st.settings, first.get("token", ""))
+        st.limiter.check(dev)
     except Exception:
         await ws.close(code=4401)
         return
+    t_voice = time.monotonic()
     ctx = None
     if first.get("vault_id") or first.get("vault_key"):
         try:
@@ -494,11 +578,22 @@ async def voice(ws: WebSocket):
         await ws.send_json({"type": "error", "code": "budget_exhausted"})
         await ws.close()
         return
+    if ctx is None and st.settings.provider != "mock" and not st.settings.demo_enabled:
+        await ws.send_json({"type": "error", "code": "demo_disabled"})
+        await ws.close()
+        return
+    if ctx is None and demo_active(ws):
+        try:
+            st.demo.check(dev or "unknown", "chat")
+        except HTTPException as e:
+            await ws.send_json({"type": "error", "code": (e.detail.get("error") if isinstance(e.detail, dict) else "demo_quota_exceeded")})
+            await ws.close()
+            return
     lang = [first["lang"]] if isinstance(first.get("lang"), str) and len(first["lang"]) < 30 else None
     kws = [str(k)[:30] for k in first["keywords"][:20]] if isinstance(first.get("keywords"), list) else None
     creds = dict(ctx.creds) if ctx else dict(st.deployer_creds)  # no deployer fallback on family requests (see run_brain)
     try:
-        _, _, sess = await st.router.open_voice(ctx.routes if ctx else None, creds, lang, kws, caps_map=ctx.caps if ctx else None)
+        vprov, vmodel, sess = await st.router.open_voice(ctx.routes if ctx else None, creds, lang, kws, caps_map=ctx.caps if ctx else None)
     except ProviderError as e:
         await ws.send_json({"type": "error", "code": e.code})
         await ws.close()
@@ -507,19 +602,26 @@ async def voice(ws: WebSocket):
     c = {"total": 0, "since": 0}
 
     async def up():
+        from .voice_input import is_too_short, strip_wav_header
         while True:
             m = await ws.receive()
             if m["type"] == "websocket.disconnect":
                 return
             if m.get("bytes"):
-                n = len(m["bytes"])
+                # Some recorders prepend a WAV header to "raw" PCM; strip it
+                # so header bytes never enter the PCM_24KHZ session.
+                payload = strip_wav_header(m["bytes"])
+                n = len(payload)
                 c["total"] += n
                 c["since"] += n
                 if c["since"] > UTTER_CAP or c["total"] > SESSION_CAP:
                     await ws.send_json({"type": "error", "code": "too_long"})
                     return
-                await sess.send(m["bytes"])
+                if payload:
+                    await sess.send(payload)
             elif m.get("text") and '"end"' in m["text"]:
+                if is_too_short(c["since"]):
+                    await ws.send_json({"type": "error", "code": "too_short"})
                 return
 
     async def down():
@@ -539,7 +641,12 @@ async def voice(ws: WebSocket):
         await sess.close()
         if ctx is None:
             await st.budget.add(c["total"] / 48000 / 3600 * st.settings.price_voice_hour)
-        log.info("voice", extra={"kind": "voice", "bytes": c["total"]})
+            if demo_active(ws):
+                try:
+                    st.demo.check_voice_bytes(dev or "unknown", c["total"])
+                except HTTPException:
+                    pass  # already streamed; the next session is refused instead
+        log.info("voice", extra={"kind": "voice", "cap": "voice", "route": route_kind(ctx, vprov), "ms": int((time.monotonic() - t_voice) * 1000), "prov": vprov, "pmodel": vmodel, "bytes": c["total"]})
         try:
             await ws.close()
         except Exception:

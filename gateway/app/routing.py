@@ -62,6 +62,27 @@ class Router:
         except StopAsyncIteration:
             return None
 
+    @staticmethod
+    def _declared_capable(adapter, provider, need) -> bool:
+        """Static capability truth for the deployer/demo path (no probe map):
+        an adapter that declares no vision must never receive a photo turn,
+        even when it is first in the route list. Multimodal work (vision,
+        image generation, voice, SAM) belongs to the Meta suite - hosted
+        demo key or family BYOK - never to the text-only open-weight model
+        that shares this gateway. Family routes keep probe-based gating."""
+        caps = None
+        fn = getattr(adapter, "capabilities", None)
+        if callable(fn):
+            try:
+                caps = fn()
+            except Exception:
+                caps = None
+        if caps is not None:
+            return bool(getattr(caps, need, False))
+        from .providers.capabilities import DECLARED
+        declared = DECLARED.get(provider)
+        return bool(getattr(declared, need, False)) if declared is not None else True
+
     async def select_and_stream(self, capability, routes, creds_map, messages, *, schema=None, effort="low",
                                 max_tokens=None, timeout=30, caps_map=None, need=None, strategy_resolver=None):
         """Returns (provider, model, strategy, async-iterator). Failover
@@ -84,6 +105,12 @@ class Router:
             adapter = self.adapters.get(provider)
             creds = (creds_map or {}).get(provider)
             if adapter is None or (creds is None and provider not in ("mock",)):
+                last_err = ProviderError("unsupported_capability", 502)
+                continue
+            if caps_map is None and adapter is not None and not self._declared_capable(adapter, provider, need):
+                # Deployer/demo path: never hand a capability the adapter
+                # declares it cannot do (e.g. vision to the open-weight
+                # text model) - fail over to the Meta suite entry instead.
                 last_err = ProviderError("unsupported_capability", 502)
                 continue
             if self._circuit(provider, model).is_open():

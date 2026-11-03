@@ -21,7 +21,15 @@ double micRms(Uint8List b) {
   return n == 0 ? 0 : (math.sqrt(sum / n) * 4).clamp(0.0, 1.0).toDouble();
 }
 
-/// Push-to-talk voice input: 24 kHz mono PCM16 -> gateway -> Muse Voice Transcribe. Audio is never stored on the phone.
+/// Minimum streamed audio for a real utterance (0.1 s of 24 kHz PCM16).
+/// Shorter is a tap or silence, reported as too_short - never sent as speech.
+const kMinVoiceBytes = 4800;
+
+/// Push-to-talk voice input: 24 kHz mono PCM16 -> gateway -> Muse Voice
+/// Transcribe (speech-to-text only; Milo's spoken replies use the existing
+/// phone TTS / neural voice path, never the transcriber). Audio is never
+/// stored on the phone. The final transcript is delivered via onFinal and
+/// the caller passes it straight into the conversation - no manual copy.
 class VoiceClient {
   VoiceClient(this.api);
   final MiloApi api;
@@ -29,10 +37,18 @@ class VoiceClient {
   WebSocketChannel? _ch;
   StreamSubscription? _a, _w;
   bool active = false;
+  int _sentBytes = 0;
+  bool _gotSpeech = false;
+  bool _finalDelivered = false; // a transcript is delivered exactly once per session
+  Completer<void>? _finalWait;
   Future<bool> requestPermission() => _rec.hasPermission(); // shows the system prompt the first time
 
   Future<void> start({required void Function(String) onPartial, required void Function(String) onFinal, required void Function(String) onError, void Function(double)? onLevel, String lang = 'English'}) async {
     if (active) return;
+    _sentBytes = 0;
+    _gotSpeech = false;
+    _finalDelivered = false;
+    _finalWait = Completer<void>();
     try {
       if (!await _rec.hasPermission()) { onError('mic_denied'); return; }
       final tok = await api.beginVoice(); // ledger first
@@ -41,23 +57,91 @@ class VoiceClient {
       _ch = WebSocketChannel.connect(Uri.parse('${Env.wsBase}/v1/voice'));
       _ch!.sink.add(jsonEncode({'token': tok, 'lang': lang, if (vh.isNotEmpty) 'vault_id': vh['X-Vault-Id'], if (vh.isNotEmpty) 'vault_key': vh['X-Vault-Key']}));
       _w = _ch!.stream.listen((m) {
-        final d = jsonDecode(m as String) as Map<String, dynamic>;
+        if (m is! String) return;
+        final d = jsonDecode(m) as Map<String, dynamic>;
         switch (d['type']) {
-          case 'partial': onPartial('${d['text']}');
-          case 'final': onFinal('${d['text']}'); stop();
-          case 'error': onError('${d['code']}'); stop();
+          case 'partial':
+            if ('${d['text']}'.trim().isNotEmpty) _gotSpeech = true;
+            onPartial('${d['text']}');
+          case 'final':
+            {
+              if (_finalDelivered) return; // duplicate finals must not re-exit the screen or re-ask
+              _finalDelivered = true;
+              final t = '${d['text']}'.trim();
+              if (t.isNotEmpty) _gotSpeech = true;
+              if (!(_finalWait?.isCompleted ?? true)) _finalWait?.complete();
+              onFinal(t);
+              stop();
+            }
+          case 'error':
+            {
+              if (_finalDelivered) return;
+              _finalDelivered = true;
+              if (!(_finalWait?.isCompleted ?? true)) _finalWait?.complete();
+              onError('${d['code']}');
+              stop();
+            }
         }
-      }, onError: (_) { onError('offline'); stop(); });
-      final s = await _rec.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 24000, numChannels: 1));
-      _a = s.listen((b) { _ch?.sink.add(b); onLevel?.call(micRms(b)); });
-    } on CloudDisabled { onError('cloud_off'); } catch (_) { onError('offline'); await stop(); }
+      }, onError: (_) { onError('offline'); stop(); }, onDone: () {
+        if (!(_finalWait?.isCompleted ?? true)) _finalWait?.complete();
+      });
+      Stream<Uint8List> s;
+      try {
+        s = await _rec.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 24000, numChannels: 1));
+      } catch (_) {
+        // Some Android recorders refuse raw PCM streaming: fall back to WAV
+        // chunks (the gateway strips the header) before giving up.
+        try {
+          s = await _rec.startStream(const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 24000, numChannels: 1));
+        } catch (_) {
+          onError('recorder_failed');
+          await stop();
+          return;
+        }
+      }
+      _a = s.listen((b) {
+        _sentBytes += b.length;
+        _ch?.sink.add(b);
+        onLevel?.call(micRms(b));
+      });
+    } on CloudDisabled {
+      onError('cloud_off');
+    } catch (_) {
+      onError('offline');
+      await stop();
+    }
   }
 
+  /// Stops capture and gives the gateway a bounded window to deliver the
+  /// last final transcript before closing (the old fixed 2 s close raced
+  /// slow finals and truncated them).
   Future<void> stop() async {
     if (!active) return;
     active = false;
     await _a?.cancel();
-    try { await _rec.stop(); _ch?.sink.add(jsonEncode({'type': 'end'})); } catch (_) {}
-    Future.delayed(const Duration(seconds: 2), () { _w?.cancel(); _ch?.sink.close(); _ch = null; });
+    var short = false;
+    try {
+      await _rec.stop();
+      short = _sentBytes < kMinVoiceBytes && !_gotSpeech;
+      _ch?.sink.add(jsonEncode({'type': 'end'}));
+    } catch (_) {}
+    if (short) {
+      // Nothing audible was captured: close promptly; the gateway answers
+      // too_short and the caller words it. No transcript is invented.
+      await _close();
+      return;
+    }
+    try {
+      await _finalWait?.future.timeout(const Duration(seconds: 3));
+    } catch (_) {}
+    await _close();
+  }
+
+  Future<void> _close() async {
+    await _w?.cancel();
+    try {
+      await _ch?.sink.close();
+    } catch (_) {}
+    _ch = null;
   }
 }

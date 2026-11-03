@@ -25,6 +25,15 @@ Required Modal secrets (create once; values stay in Modal)::
 With MODAL_FALLBACK=false, text turns use ONLY the hosted model: a hosted
 outage fails loudly instead of silently testing mock. Verify with the
 ladder in docs/MODAL.md, then promote the same code to production.
+
+Competition-demo configuration (staging only; needs owner approval +
+deploy): in secret ``milo-gateway-staging`` set ``PROVIDER=meta``,
+``MODEL_API_KEY=<hosted Meta key>``, ``DEMO_ENABLED=true`` (plus the
+DEMO_* limits as desired) and ``SAM_VERIFIED=true`` only after
+``gateway/scripts/probe_sam.py`` passes with that key. Keep
+``REASONING_PROVIDER=modal`` + ``milo-models-client`` for the preserved
+open-weight Spark route (text falls back per MODAL_FALLBACK). The hosted
+key never leaves the server: no dart-define, no APK asset, no client log.
 """
 
 import modal

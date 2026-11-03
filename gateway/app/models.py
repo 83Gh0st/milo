@@ -108,7 +108,9 @@ class VisualReq(BaseModel):
 
 
 class ImageReq(BaseModel):
-    prompt: str = Field(min_length=2, max_length=300)
+    # Clients may send a long context (e.g. a story page); the route screens
+    # and truncates to its own prompt budget, so validation must not 422 first.
+    prompt: str = Field(min_length=2, max_length=1000)
 
 
 class SegmentReq(BaseModel):

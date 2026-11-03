@@ -117,6 +117,10 @@ final visualProvider = StateNotifierProvider<VisualNotifier, Map<String, Uint8Li
 String genImageKey(String prompt) => c.sha256.convert(utf8.encode(prompt.trim().toLowerCase())).toString();
 final genImageProvider = StateNotifierProvider<VisualNotifier, Map<String, Uint8List>>((_) => VisualNotifier());
 
+/// Per-prompt generation state for the Create card: 'busy' while drawing,
+/// otherwise the ApiError code to word honestly. Empty = idle.
+final genImageStateProvider = StateProvider<Map<String, String>>((_) => const {});
+
 // ---- Sync status: null when fine, a short generic message otherwise (never content) ----
 final syncBannerProvider = StateProvider<String?>((_) => null);
 
@@ -159,11 +163,40 @@ class CoreRouter {
   CoreRouter(this.ref);
   final Ref ref;
   final _recent = <Map<String, String>>[];
+  bool _recentLoaded = false;
+
+  /// Conversation context survives app restarts (last 6 turns, on-device
+  /// encrypted store only - never synced, never sent anywhere except as
+  /// the `recent` field of the next brain request). Loaded once, saved
+  /// after every cloud turn.
+  Future<void> _loadRecent(MiloDb db) async {
+    if (_recentLoaded) return;
+    _recentLoaded = true;
+    try {
+      final raw = await db.get('local.recent_turns');
+      if (raw == null || raw.isEmpty) return;
+      for (final e in jsonDecode(raw) as List) {
+        if (e is Map && (e['role'] == 'user' || e['role'] == 'milo') && '${e['text'] ?? ''}'.isNotEmpty) {
+          _recent.add({'role': '${e['role']}', 'text': '${e['text']}'});
+        }
+      }
+      if (_recent.length > 6) _recent.removeRange(0, _recent.length - 6);
+    } catch (_) {
+      _recent.clear(); // corrupt history is dropped, never blocks a turn
+    }
+  }
+
+  Future<void> _saveRecent(MiloDb db) async {
+    try {
+      await db.put('local.recent_turns', jsonEncode(_recent));
+    } catch (_) {}
+  }
   static final _local = RegExp(r"\b(read to me|help me say|do steps|take a break|breathe|talk to someone|thank|someone is here|not right now)\b|^(hi|hello|hey)\b");
   static String? strategyOf(String t) => const {'easier words': 'simpler', 'show a picture': 'picture', 'give an example': 'example', 'make it shorter': 'short', 'simplify': 'simpler', 'examples': 'example', 'explain': 'default'}[t.toLowerCase().trim()];
 
   Future<Map<String, dynamic>> _body(String text, String activity, Director d, {bool dropDocument = false}) async {
     final db = ref.read(dbProvider);
+    await _loadRecent(db);
     final chips = [for (final c in ref.read(chipsProvider)) if (!(dropDocument && c.kind == 'document')) c];
     return buildBrainBody(text: text, activity: activity, presentation: d.profile.name, lang: d.lang, support: await db.support(), chips: chips,
         memories: await ref.read(memoryProvider).forRequest(activity), name: await db.flag('cloud.name') ? await db.get('name') : null, recent: _recent,
@@ -184,8 +217,12 @@ class CoreRouter {
       final activity = const ['home', 'understand', 'express', 'do'].elementAtOrNull(d.tab) ?? 'chat';
       await d.performStream(ref.read(apiProvider).brainTurn(await _body(text, activity == 'home' ? 'chat' : activity, d)));
       ref.read(ladderProvider.notifier).ok();
-      _recent..add({'role': 'user', 'text': text})..add({'role': 'milo', 'text': d.caption});
+      // Full reply, not the on-screen caption sentence: history built from
+      // captions made every past Milo turn one truncated sentence.
+      final reply = d.lastReplyText.isNotEmpty ? d.lastReplyText : d.caption;
+      _recent..add({'role': 'user', 'text': text})..add({'role': 'milo', 'text': reply});
       if (_recent.length > 6) _recent.removeRange(0, _recent.length - 6);
+      await _saveRecent(db);
       await db.progress('message');
     } on CloudDisabled { await d.perform(validateTurn(pocketBrain(text, d.profile.name, cloud: 'off'))); }
     on ApiError catch (e) { await _cloudFailed(e.code, text, d); }
@@ -248,7 +285,7 @@ class CoreRouter {
         ust.done();
         if (e is CloudDisabled) { await d.perform(validateTurn(pocketBrain('', d.profile.name, cloud: 'off'))); }
         // A blind model is not a broken network: say what is actually wrong.
-        else if (imageB64 != null && ((e is StreamError && e.code == 'unsupported_capability') || (e is ApiError && e.code == 'unsupported_capability'))) { await d.perform(const BrainTurn(emotion: 'calm', say: ['This model cannot look at pictures. A trusted adult can pick one that can, in AI connections.'])); }
+        else if (imageB64 != null && ((e is StreamError && e.code == 'unsupported_capability') || (e is ApiError && e.code == 'unsupported_capability'))) { await d.perform(const BrainTurn(emotion: 'calm', say: ['Milo cannot look at pictures right now. Hosted picture access may be off or not set up on the server. A trusted adult can check AI connections.'])); }
         else { openScreen('unreachable'); }
       }
     }

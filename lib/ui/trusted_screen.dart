@@ -346,8 +346,13 @@ class _HostedStatus extends ConsumerWidget {
     return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('Hosted by Milo - Muse Spark', style: TextStyle(fontWeight: FontWeight.w700)),
       const SizedBox(height: 4),
+      const Text('One hosted connection routes every job automatically - no key or model picking. Needs internet; the board still works offline.', style: TextStyle(fontSize: 13, color: T.mute)),
+      const SizedBox(height: 6),
       ...check.when(
-        data: (s) => [line(s.provider == null ? 'Unreachable right now.' : s.provider == 'modal' ? 'Answering via Milo hosted (Muse Spark).${s.budgetOk == true ? '' : ' Daily budget used - resting.'}' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used - resting.'}')],
+        data: (s) => [
+          line(s.provider == null ? 'Unreachable right now.' : s.provider == 'modal' ? 'Answering via Milo hosted (Muse Spark).${s.budgetOk == true ? '' : ' Daily budget used - resting.'}' : 'Answering via ${s.provider}.${s.budgetOk == true ? '' : ' Daily budget used - resting.'}'),
+          line('${s.demoEnabled == null ? '' : s.demoEnabled! ? 'Demo access on (key stays on the server). ' : 'Demo access off. '}${s.capabilities.isEmpty ? '' : capabilitySummary(s.capabilities)}'),
+        ],
         loading: () => [line('Checking…')],
         error: (_, __) => [line('Unreachable right now.')],
       ),
@@ -439,7 +444,7 @@ class _ConnSheetState extends State<_ConnSheet> {
       Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
       Padding(padding: const EdgeInsets.only(top: 2), child: Text('Through Milo: ${kProviderCapsNote[widget.provider] ?? 'Thinking and reading.'}', style: const TextStyle(fontSize: 12, color: T.mute))),
       if (widget.existing != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Saved · key ${widget.existing!['hint']}${(() { final t = testedOn(widget.existing!['caps']); return t == null ? ' · not tested yet' : ' · tested $t'; })()}', style: const TextStyle(color: T.mute))),
-      if (widget.existing == null) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Paste the key, Save it, then Test connection.', style: TextStyle(fontSize: 13, color: T.mute))),
+      if (widget.existing == null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(widget.provider == 'meta' ? 'Paste the one Meta key, Save it, then Test connection. It covers chat, pictures, voice and outlines automatically.' : 'Paste the key, Save it, then Test connection.', style: const TextStyle(fontSize: 13, color: T.mute))),
       const SizedBox(height: 12),
       TextField(controller: key, obscureText: true, keyboardType: TextInputType.visiblePassword, enableSuggestions: false, autocorrect: false, decoration: InputDecoration(hintText: widget.existing == null ? 'Paste the API key here' : 'Paste a new key to replace it (leave empty to keep)')),
       if (widget.provider == 'custom' || widget.provider == 'openai') ...[const SizedBox(height: 10),

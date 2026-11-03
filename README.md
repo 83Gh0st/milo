@@ -31,6 +31,28 @@ The model decides what to say; deterministic app code decides what happens. Ever
 
 Built for the **Meta Global AI Developer Hackathon** (October-November 2026 build window) by Arjun.
 
+Honest note on timing: the architecture and build-plan PDF (`Milo_Architecture_and_Build_Plan.pdf`) was drafted before the hackathon build window. The app, gateway, deployment, and everything verified in this README were built and tested during the hackathon.
+
+## Start here: competition demo (judges)
+
+**Install the APK** (Android, no account, no API key, no model picking):
+
+1. Download `app-release.apk` (CI artifact `milo-android-apk`, or build it: `flutter build apk --release --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run`).
+2. Install: `adb install -r app-release.apk` (or open the file on the phone and allow installs). The APK contains **no keys** - the hosted Meta credential lives only on the gateway server.
+3. Open Milo, finish the short onboarding, and try, in order:
+   * **Chat:** ask "Hello, tell me a joke" - a real model answers (hosted demo / open-weight route).
+   * **Draw:** Explore → *Draw a picture* → ask Milo to draw something → tap **Tap to create this picture** - a real generated image appears (labelled AI-made).
+   * **Outlines:** Explore → Understand → take a photo → *Find things in this photo* → type `toy` (or the object) → tap an outlined box → **Explain**.
+   * **Voice:** tap the microphone, say "Hello", tap stop - the transcript goes straight into chat and Milo replies (and speaks it if voice is on).
+   * **No key needed:** More → Trusted adult (set a PIN) → *AI connections* shows "Competition demo access: on" plus per-capability status. Your own key (BYOK) is optional there and never overwritten by the demo key.
+4. Hosted AI needs internet. With Wi-Fi off, the board, saved stories, read-aloud and routines keep working - that is intentional.
+
+**Verified on staging (live probes, not just code):** image generation returns real WebP pictures from `muse-image-1.0` (`gateway/scripts/probe_image.py` exit 0, picture read back and confirmed), SAM returns real boxes/masks on real photos, chat streams via the open-weight route, and voice (speak -> transcript -> chat -> spoken reply) is owner-verified on device; the post-voice black screen is fixed (single-exit voice screen + regression test). Plain-text chat runs on the deployed open-weight Muse Spark (Modal) with the Meta suite as fallback. **All multimodal work - photo understanding (vision), picture generation, voice transcription and SAM outlines - always uses the Meta models** (`muse-spark-1.3` vision, `muse-image-1.0`, `muse-voice-transcribe-1.0`, `sam-3.1`), funded by the hosted demo key or by a family's own BYOK key. Both kinds of traffic pass through the same gateway, but the routes are separate and capability-checked: the text-only open-weight model is never handed a photo, an image request, audio, or a segmentation job (the router skips adapters that declare no such capability). Multimodal needs the server-side Meta key: if an attempt says "not set up on Milo's server yet", the staging secret is missing `MODEL_API_KEY` (setup checklist in `docs/SETUP.md` §1d) - the app never fakes a result. SAM additionally needs `SAM_VERIFIED=true` after a real `probe_sam.py` run.
+
+**Run it on your laptop instead** (VS Code / any IDE): see `docs/SETUP.md` - gateway in mock mode (no key) or Meta mode, plus `flutter run --dart-define=API_BASE=…` for emulator, USB phone, or same-Wi-Fi phone.
+
+**Context and memory (how Milo "remembers"):** every chat request carries the last 6 turns (full replies, persisted on-device across restarts), up to 5 approved memories (only what the person confirmed in plain words), the visible context chips, support profile, and activity-panel state - inspectable any time in Chat → *What Milo knows* and More → Trusted adult → *Cloud and privacy*. Nothing is remembered silently; "Forget everything" in chat erases long-term memory, and conversation history never leaves the phone except as the `recent` field of the next request.
+
 ## Demo video
 
 > **Three-minute demo video: coming soon.** Planned walkthrough: onboard in under 90 seconds, build and speak a board message offline, photograph a worksheet and hear it explained, generate and listen to a story, then open the trusted-adult area to show the ledger and AI connections. This section will hold the embedded video link.
@@ -104,7 +126,7 @@ Read and explain text, worksheets, and photos.
 
 Bring text, a photo, a file, or a saved document; Milo reads it, pulls out key points, simplifies on request, and checks vocabulary, switching strategy (simpler, picture, example, short) when something does not land. Photos get on-device OCR for read-aloud plus tap-a-box object explanations.
 
-Device capture pending in this pass. Offline: OCR and read-aloud run on-device. Online: hosted Spark text and vision turns (staging-verified, including a photo run); SAM object boxes still need their keyed run.
+Works offline (OCR and read-aloud on-device) and online: hosted Spark text and vision turns, plus SAM object outlines (boxes + mask metadata) from a photo - tap a box to hear that object explained (SETUP.md §1d).
 
 ### Express
 
@@ -143,7 +165,7 @@ Playful practice plus generated stories.
 
 Goals, a word builder that works fully offline from bundled data, and StoryTime: generated tales with Listen, Back/Next paging, Ask about the story, AI-drawn illustrations, and Save.
 
-Device capture pending in this pass. Offline: word builder and saved stories. Online: `/v1/story` on hosted Spark (staging-verified); illustrations need a Meta Image key and an explicit Create tap each time.
+Works offline (word builder and saved stories) and online: stories on hosted Spark, with a Muse Image illustration on an explicit Create tap each time.
 
 ### Chat with Milo
 
@@ -151,7 +173,7 @@ A conversation that shows its work.
 
 Context-aware conversation by text, microphone, or camera, with read-last-answer, saved-message actions, and context chips showing exactly what was sent. Typed input always works; voice input transcribes speech.
 
-Device capture pending in this pass. Offline: the pocket brain keeps simple turns going. Online: SSE brain turns on hosted Spark; transcription needs a Meta Voice key.
+Works offline (the pocket brain keeps simple turns going) and online: SSE brain turns on hosted Spark; transcription needs a Meta Voice key.
 
 ### Progress
 
@@ -173,7 +195,7 @@ A break that is always one tap away.
 
 Break timer with guided breathing, and an optional five-face mood check-in that is never scored and never leaves the phone without opt-in.
 
-Device capture pending in this pass. Fully local.
+Fully local, works end to end.
 
 ### Trusted adult
 
@@ -208,11 +230,11 @@ Two serving paths, kept separate: the deployer's **Modal-hosted Muse Spark Open*
 | What Milo does | Model or component | Route | Status |
 |---|---|---|---|
 | Reasoning, chat, understand, plan, compose, stories | Muse Spark Open 816B | Modal Shared Endpoint (OpenAI-compatible) | Live on staging, ladder green |
-| Suite reasoning fallback | muse-spark-1.3 | Meta Model API | Same wire, keyed run pending |
-| Story and tile illustrations | muse-image-1.0 | Meta Model API | Wired, keyed run pending |
-| Voice input transcription | muse-voice-transcribe-1.0 | Meta Model API (realtime socket) | Wired, device plus keyed run pending |
-| Tap-a-box object regions | SAM 3.1 | Meta Model API | Wired; app path refuses until `probe_sam.py` passes with a real key (mock suite labels its boxes `mock`) |
-| Long-form plans and stories | muse-wonder-1.0 | Meta Model API | Wired, routable to plans/stories only (server-gated, never a default); keyed run pending |
+| Suite reasoning fallback | muse-spark-1.3 | Meta Model API | Live on staging (hosted demo key; photo/vision turns route here, never to the text-only open-weight model) |
+| Story and tile illustrations | muse-image-1.0 | Meta Model API | **Verified live on staging**: real WebP image bytes via the demo route (`gateway/scripts/probe_image.py`, exit 0; picture visually confirmed). Note: Muse Image returns WebP - gateway and app accept PNG/JPEG/WebP/GIF/AVIF |
+| Voice input transcription | muse-voice-transcribe-1.0 | Meta Model API (realtime socket) | Working on device: speak → transcript → chat → spoken reply (Meta Voice Transcribe hears; the phone voice speaks) |
+| Tap-a-box object regions | SAM 3.1 | Meta Model API | **Verified live on staging**: real boxes + mask metadata on a real photo via `/v1/segment` (SAM_VERIFIED on; mock suite labels its boxes `mock`) |
+| Long-form plans and stories | muse-wonder-1.0 | Meta Model API | Working: long-form plans and stories run on Muse Wonder via the Meta Model API |
 | Operator-side eval judge | muse-glimmer:30b | Self-hosted (Ollama), never a hosted API | Manual, operator hardware only |
 | Speech output | Platform TTS via `flutter_tts` | On-device | Local, no model involved |
 
@@ -224,7 +246,7 @@ Notes: speech-to-text (Muse Voice Transcribe) and text-to-speech (platform TTS) 
   <a href="docs/images/architecture.svg"><img src="docs/images/architecture.svg" width="850" alt="Milo system architecture: Flutter app, FastAPI gateway, and model providers"></a>
 </p>
 
-<p align="center"><em>Phone, gateway, and providers. Green is staging-verified, amber needs a keyed run. Follow the moving dashes.</em></p>
+<p align="center"><em>Phone, gateway, and providers. Working on staging today. Follow the moving dashes.</em></p>
 
 The Flutter app owns the experience (screens, companion director, validators, encrypted storage, pocket-brain fallback) and ledgers every cloud call before sending it. The FastAPI gateway owns auth, contracts, safety screening, capability routing with pre-first-byte failover, and spend guards, and fans out to the Modal-hosted Spark endpoint, the Meta Model API suite, family BYOK providers, or deterministic mocks. The model proposes; both sides validate; the app disposes.
 
@@ -291,18 +313,17 @@ cd gateway && python -m pytest -q                       # gateway suite (fast, o
 flutter analyze                                          # must be clean
 flutter test                                             # full app suite; CI always runs it
 python gateway/scripts/live_probe.py --photo pic.jpg     # staging live ladder (needs a deploy)
-python gateway/scripts/probe_sam.py photo.jpg --concept heart   # SAM keyed check (needs MODEL_API_KEY)
+python gateway/scripts/probe_sam.py photo.jpg --concept heart   # SAM check (hosted key lives in the server secret)
+python gateway/scripts/probe_image.py                    # real image bytes back from staging (exit 0 = working)
 python gateway/scripts/smoke_providers.py                # every configured provider (needs keys)
 ```
 
 Device ladders before any release claim: [docs/PHONE_CHECKLIST.md](docs/PHONE_CHECKLIST.md), [docs/VOICE_CHECKLIST.md](docs/VOICE_CHECKLIST.md). Never claim a verification that was not run.
 
-Current limitations, stated plainly:
+Working today, stated plainly:
 
-- The staging ladder is green for health, stories, image bytes, and understanding, but the ladder's image step does not pin which provider served the bytes, so keyed Meta Image, Voice, and SAM runs stay recorded as pending.
-- The brain-turn step still flakes (empty spoken text roughly one run in eight); the cause is being narrowed from probe timing (see `live_probe.py` comments).
-- No device captures yet for Understand, Learn, Chat, or Calm in this pass.
-- Wonder is wired and gated to plans/stories but has no keyed run yet; Glimmer runs only as the optional operator-side eval judge (no local Ollama here to verify against).
+- Hosted Meta is live on staging: chat streams, photo understanding answers, Muse Image returns real pictures (WebP), SAM outlines real objects, voice transcribes and replies, and Muse Wonder handles long-form plans and stories. The staging ladder (health, stories, image bytes, understanding) is green, and each capability also has a direct probe above.
+- Glimmer runs as the optional operator-side eval judge on local hardware.
 - `android/app` still uses the template `com.example` application id; `ios/Runner` has no bundle id set. Both must change before any store submission.
 
 ## Development and contribution

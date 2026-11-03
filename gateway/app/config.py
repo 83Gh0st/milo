@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     image_model: str = "muse-image-1.0"
     wonder_model: str = "muse-wonder-1.0"  # long-form only (stories/plan), explicit route; never default turns
     sam_model: str = "sam-3.1"  # entitlement-checked; app path gated on a keyed probe_sam.py run
+    sam_verified: bool = False  # SAM_VERIFIED: true only after probe_sam.py passes with a real key (server secret)
+    # --- competition demo access (hosted Meta credential, server-side only) ---
+    demo_enabled: bool = True  # DEMO_ENABLED: admin switch for hosted/demo access; set false to disable hosted serving (BYOK unaffected)
+    demo_requests_per_day: int = 300  # per installation (device hash), deployer/demo path only
+    demo_image_per_day: int = 20  # per installation; image generation is the expensive capability
+    demo_segment_per_day: int = 30  # per installation
+    demo_voice_minutes_per_day: float = 30.0  # per installation, billed from streamed PCM bytes
+    demo_max_concurrent: int = 4  # global in-flight demo requests (single-container pinning makes this exact)
     brain_mode: str = "json"               # json | lines
     jwt_secret: str = ""
     key_enc_secret: str = ""             # encrypts family BYOK keys at rest; required (>=32 chars) in prod
@@ -88,6 +96,8 @@ def validate_runtime(s: Settings) -> None:
         raise RuntimeError("SPEND_BACKEND=postgres needs DATABASE_URL")
     if s.spend_backend.strip().lower() == "modal_dict" and not s.spend_dict_name.strip():
         raise RuntimeError("SPEND_BACKEND=modal_dict needs SPEND_DICT_NAME")
+    if s.demo_requests_per_day < 1 or s.demo_image_per_day < 0 or s.demo_segment_per_day < 0 or s.demo_max_concurrent < 1:
+        raise RuntimeError("demo limits must be positive (DEMO_REQUESTS_PER_DAY/DEMO_IMAGE_PER_DAY/DEMO_SEGMENT_PER_DAY/DEMO_MAX_CONCURRENT)")
     if s.brain_mode not in ("json", "lines"):
         raise RuntimeError("BRAIN_MODE must be json or lines")
     if s.provider not in ("meta", "mock"):

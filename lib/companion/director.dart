@@ -118,6 +118,10 @@ class Director extends ChangeNotifier {
   // UI-visible state
   CState state = CState.idle;
   String caption = 'Tap me to say hi!';
+  /// Full text of Milo's last completed reply (all sentences joined), for
+  /// conversation history. [caption] alone is only the sentence currently
+  /// on screen - using it as history silently truncated every past turn.
+  String lastReplyText = '';
   List<String> choices = [];
   final Set<String> peeked = {}; // dock collapsed per screen kind (persisted as local.peeked, never synced)
   Presence presence = Presence.stage;
@@ -816,6 +820,7 @@ class Director extends ChangeNotifier {
   Future<void> performStream(Stream<BrainEvent> events) async {
     final id = ++_turn;
     final q = <String>[];
+    final said = <String>[];
     var busy = false, wait = false;
     Future<void> pump() async {
       if (busy) return;
@@ -835,7 +840,7 @@ class Director extends ChangeNotifier {
           final g = d['gaze'];
           if (g is Map && '${g['id']}'.isNotEmpty) onGaze?.call('${g['id']}');
           _paceRate = d['pace'] == 'slow' ? .8 : 1;
-        case 'say': q.add('${d['text']}'); unawaited(pump());
+        case 'say': said.add('${d['text']}'); q.add('${d['text']}'); unawaited(pump());
         case 'ui':
           if (d['action'] == 'offer_choices') { choices = [for (final c in d['choices'] as List) '$c']; notifyListeners(); gesture('nod'); }
           if (d['action'] == 'open_screen') onOpenScreen?.call('${d['screen']}');
@@ -854,6 +859,7 @@ class Director extends ChangeNotifier {
     }
     while ((busy || q.isNotEmpty) && id == _turn) { await Future.delayed(const Duration(milliseconds: 80)); }
     if (id != _turn) return;
+    lastReplyText = said.join(' ');
     _paceRate = 1; _sayTone = null; relax();
     _set(wait || choices.isNotEmpty ? CState.waiting : CState.idle);
     if (wait || choices.isNotEmpty) _armNudge();
@@ -911,6 +917,7 @@ class Director extends ChangeNotifier {
     if (t.lookupWord != null) onLookupWord?.call(t.lookupWord!);
     if (t.choices.isNotEmpty) gesture('nod'); // acknowledgement: Milo nods as it offers choices
     final tone = toneForEmotion(t.emotion);
+    lastReplyText = t.say.join(' ');
     for (final s in t.say) {
       if (id != _turn) return;
       _cap(s); onSaid?.call(s);

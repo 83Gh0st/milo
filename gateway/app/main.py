@@ -4,11 +4,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from .config import Settings, get_settings, validate_runtime
 from .db import Budget, make_engine, md
-from .security import RateLimiter
+from .security import DemoLimiter, RateLimiter
 
 
 class JsonFormatter(logging.Formatter):
-    KEYS = ("rid", "path", "status", "ms", "kind", "tok_in", "tok_cached", "tok_out", "err", "bytes", "dev", "prov", "pmodel")  # never prompt or response text
+    KEYS = ("rid", "path", "status", "ms", "kind", "cap", "route", "tok_in", "tok_cached", "tok_out", "err", "bytes", "dev", "prov", "pmodel")  # never keys, prompts, audio, images, or response text
 
     def format(self, r):
         d = {"ts": round(r.created, 3), "lvl": r.levelname, "msg": r.getMessage()}
@@ -47,6 +47,9 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
     app = FastAPI(title="Milo Gateway", version="1.0.0", lifespan=lifespan, docs_url=None if prod else "/docs", redoc_url=None, openapi_url=None if prod else "/openapi.json")
     app.state.settings, app.state.limiter = s, RateLimiter(s.rate_per_min, s.rate_per_day)
     app.state.ip_limiter = RateLimiter(s.session_per_min_ip, 5000)
+    app.state.demo = DemoLimiter(requests_per_day=s.demo_requests_per_day, image_per_day=s.demo_image_per_day,
+                                 segment_per_day=s.demo_segment_per_day, voice_minutes_per_day=s.demo_voice_minutes_per_day,
+                                 max_concurrent=s.demo_max_concurrent)
     if s.provider == "mock":
         from .providers.mock import MockImage, MockReasoning, MockVoice
         app.state.reasoning, app.state.image, app.state.voice = reasoning or MockReasoning(), image or MockImage(), voice or MockVoice()
@@ -84,8 +87,13 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
                                     "visual": [RouteEntry("meta", s.image_model)], "segment": [RouteEntry("meta", s.sam_model)],
                                     "stt": [RouteEntry("meta", s.voice_model)], "tts": []}
     if s.reasoning_provider == "modal" and modal_ready:
-        # Hosted Muse Spark serves the text capabilities; image/voice stay on the
-        # suite. Fallback to the suite entry is configurable: staging sets
+        # Open-weight Muse Spark serves TEXT capabilities only. Multimodal
+        # work never routes here: pictures (visual), voice (stt) and outlines
+        # (segment) keep their Meta-suite routes below, funded by the hosted
+        # demo key or a family's BYOK key through this same gateway; photo
+        # (vision) understand turns also fail over to Meta Spark because the
+        # router skips adapters that declare no vision (routing.py).
+        # Fallback to the suite entry is configurable: staging sets
         # MODAL_FALLBACK=false so hosted outages fail loudly instead of
         # silently testing the suite.
         first = [RouteEntry("modal", s.modal_model)]

@@ -75,7 +75,7 @@ class _ChatState extends ConsumerState<ChatScreen> {
                 margin: const EdgeInsets.symmetric(vertical: 5), padding: const EdgeInsets.all(14), constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .8),
                 decoration: BoxDecoration(color: m.milo ? T.priSoft : T.pri, borderRadius: BorderRadius.circular(18)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  if (m.imageB64 != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(base64Decode(m.imageB64!), width: 180, fit: BoxFit.cover, semanticLabel: 'Photo you showed Milo'))),
+                  if (m.imageB64 != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: ClipRRect(borderRadius: BorderRadius.circular(12), child: _SafeB64Image(b64: m.imageB64!))),
                   if (m.text.isNotEmpty) Text(m.text, style: TextStyle(fontSize: 17, height: d.lineSpacing / 1.5 * 1.35, color: m.milo ? T.ink : Colors.white)),
                   if (m.steps.isNotEmpty) _StepsCard(steps: m.steps),
                   if (m.milo && m.text.isNotEmpty) Align(alignment: Alignment.centerRight, child: InkWell(onTap: () => d.speak(m.text), child: const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.volume_up, size: 18, color: T.pri))))]))),
@@ -92,11 +92,47 @@ class _ChatState extends ConsumerState<ChatScreen> {
 /// plain outages each say their thing - never a silent spinner.
 String genImageErrorWords(ApiError e) {
   final err = e.detail is Map ? (e.detail as Map)['error'] : null;
-  if (err == 'prompt_not_allowed') return 'I can only draw kind pictures for kids. What else shall we draw?';
+  if (err == 'prompt_not_allowed' || e.code == 'prompt_not_allowed') return 'I can only draw kind pictures for kids. What else shall we draw?';
+  if (e.code == 'demo_quota_exceeded') return 'Demo picture limit reached for today. Your board still works offline.';
+  if (e.code == 'demo_busy') return 'Milo is busy drawing for other visitors. Try again in a moment.';
+  if (e.code == 'demo_disabled') return 'Hosted drawing is turned off right now. Your board still works offline.';
+  if (e.code == 'not_configured') return 'Drawing is not set up on Milo\'s server yet. A grown-up needs to finish setup (server Meta key missing).';
+  if (e.code == 'bad_image_response' || e.code == 'image_empty') return 'The picture did not come back properly. We can try again.';
   if (e.code == 'http_422') return 'That request did not work. Try different words?';
   if (e.code == 'auth_failed' || e.code == 'http_401' || e.code == 'http_403') return 'Drawing needs a grown-up to set up picture access first.';
   if (e.code == 'offline') return 'I need the internet to draw that. Your board still works.';
   return 'The drawing did not work just now. We can try again later.';
+}
+
+/// Honest words for a failed listen, by cause. Pure: unit-tested.
+String voiceErrorWords(String code) => switch (code) {
+      'mic_denied' => 'The microphone is off. You can allow it in Settings, or type instead.',
+      'cloud_off' => 'Voice needs cloud AI. Turn it on in Privacy, or type.',
+      'too_short' => 'I did not hear anything. Speak, then tap stop - or type instead.',
+      'no_speech' => 'I could not hear words in that. Try again closer to the phone, or type instead.',
+      'demo_quota_exceeded' => 'Demo voice limit reached for today. You can still type.',
+      'demo_disabled' => 'Hosted voice is turned off right now. You can still type.',
+      'not_configured' => 'Voice is not set up on Milo\'s server yet. You can still type.',
+      'recorder_failed' => 'The recorder could not start on this phone. You can still type.',
+      'budget_exhausted' => 'The thinking cloud is resting. You can still type.',
+      'offline' => 'Voice needs the internet. You can still type.',
+      _ => 'Voice is not available right now. You can type instead.',
+    };
+
+/// Photo the person showed Milo, decoded defensively: corrupt stored data
+/// shows a placeholder, never a build exception (the old red box).
+class _SafeB64Image extends StatelessWidget {
+  const _SafeB64Image({required this.b64});
+  final String b64;
+  @override
+  Widget build(BuildContext context) {
+    try {
+      return Image.memory(base64Decode(b64), width: 180, fit: BoxFit.cover, semanticLabel: 'Photo you showed Milo',
+          errorBuilder: (_, __, ___) => const SizedBox(width: 180, height: 100, child: Center(child: Icon(Icons.broken_image_outlined, color: T.mute, size: 32))));
+    } catch (_) {
+      return const SizedBox(width: 180, height: 100, child: Center(child: Icon(Icons.broken_image_outlined, color: T.mute, size: 32)));
+    }
+  }
 }
 
 /// The generative activity panel, pinned at the end of the thread. Hidden
@@ -119,11 +155,16 @@ class _ActivityPanel extends ConsumerWidget {
         }, generateImage: (p) async {
           final k = genImageKey(p);
           if (ref.read(genImageProvider).containsKey(k)) return;
+          if (ref.read(genImageStateProvider)[k] == 'busy') return; // double-taps never race two generations
+          ref.read(genImageStateProvider.notifier).state = {...ref.read(genImageStateProvider), k: 'busy'};
           try {
             ref.read(genImageProvider.notifier).put(k, await ref.read(apiProvider).generateImage(p));
+            ref.read(genImageStateProvider.notifier).state = {...ref.read(genImageStateProvider)}..remove(k);
           } on ApiError catch (e) {
+            ref.read(genImageStateProvider.notifier).state = {...ref.read(genImageStateProvider), k: e.code};
             d.speak(genImageErrorWords(e));
           } catch (_) {
+            ref.read(genImageStateProvider.notifier).state = {...ref.read(genImageStateProvider), k: 'error'};
             d.speak('The drawing did not work just now. We can try again later.');
           }
         }));
@@ -178,19 +219,40 @@ class VoiceListenScreen extends ConsumerStatefulWidget { const VoiceListenScreen
 class _VoiceState extends ConsumerState<VoiceListenScreen> {
   String text = '';
   String? error;
+  bool _left = false; // single-exit guard: gateway final, deliberate stop and typed fallback race; only the first may pop
   final c = TextEditingController();
   VoidCallback? _onExit; // captured where ref is legal: ref.read in dispose() throws (widget defunct)
+
+  /// The ONLY way off this screen with words to send. Popping twice (final
+  /// transcript plus the stop-tap continuation) removes the route underneath
+  /// as well - on Android that leaves a black screen. Guarded synchronously.
+  void _leave(String heard) {
+    if (_left || !mounted) return;
+    _left = true;
+    final d = ref.read(directorProvider);
+    d.setListening(false);
+    Navigator.pop(context);
+    final h = heard.trim();
+    if (h.isNotEmpty) {
+      ref.read(chatProvider.notifier).user(h);
+      d.ask(h);
+    }
+  }
+
   @override
   void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => _start()); }
   Future<void> _start() async {
-    final v = ref.read(voiceProvider), d = ref.read(directorProvider), chat = ref.read(chatProvider.notifier);
-    _onExit = () { try { v.stop(); d.setListening(false); } catch (_) {} }; // best-effort: the providers may already be gone on a fast pop
+    final v = ref.read(voiceProvider), d = ref.read(directorProvider);
+    _onExit = () { // runs from dispose(): never notify providers synchronously there (Riverpod forbids provider changes during dispose; on device it can break the pop transition)
+      try { v.stop(); } catch (_) {}
+      Future(() { try { d.setListening(false); } catch (_) {} });
+    };
     d.setListening(true);
     await v.start(lang: kLangNames[d.lang] ?? 'English',
       onLevel: (l) => d.micLevel = l, // field only: the frame clock repaints, no rebuilds
-      onPartial: (t) { d.notePartial(); if (mounted) setState(() { text = t; c.text = t; }); },
-      onFinal: (t) { d.setListening(false); if (mounted) { Navigator.pop(context); } if (t.trim().isNotEmpty) { chat.user(t); d.ask(t); } },
-      onError: (e) { d.setListening(false); if (mounted) setState(() => error = switch (e) { 'mic_denied' => 'The microphone is off. You can type instead.', 'cloud_off' => 'Voice needs cloud AI. Turn it on in Privacy, or type.', _ => 'Voice is not available right now. You can type instead.' }); });
+      onPartial: (t) { if (_left) return; d.notePartial(); if (mounted) setState(() { text = t; c.text = t; }); },
+      onFinal: (t) => _leave(t),
+      onError: (e) { if (_left) return; d.setListening(false); if (mounted) setState(() => error = voiceErrorWords(e)); });
   }
   @override
   void dispose() { _onExit?.call(); c.dispose(); super.dispose(); }
@@ -203,14 +265,22 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
       const MiloStage(),
       Wrap(spacing: 8, runSpacing: 8, children: [for (final w in words.length > 6 ? words.sublist(words.length - 6) : words) Chip(label: Text(w, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)), backgroundColor: Colors.white, side: const BorderSide(color: T.pri))]),
       Text(error ?? 'You can edit what I heard.', style: const TextStyle(color: T.mute)),
-      if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: c, autofocus: true, onSubmitted: (t) { Navigator.pop(context); ref.read(chatProvider.notifier).user(t); d.ask(t); }, decoration: const InputDecoration(hintText: 'Type here'))),
+      if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: c, autofocus: true, onSubmitted: _leave, decoration: const InputDecoration(hintText: 'Type here'))),
       const Spacer(),
       SizedBox(height: 60, child: AnimatedBuilder(animation: d.frame, builder: (_, __) {
         final live = d.attenLive, lvl = live ? (.2 + .8 * d.micLevel.clamp(0.0, 1.0)) : .2;
         return Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (var i = 0; i < 28; i++) Container(width: 5, margin: const EdgeInsets.symmetric(horizontal: 2), height: 10 + 38 * (.5 + .5 * math.sin(d.clock * 7 + i * .6)) * lvl, decoration: BoxDecoration(color: T.pri, borderRadius: BorderRadius.circular(3)))]);
       })),
       const SizedBox(height: 16),
-      GestureDetector(onTap: () async { await ref.read(voiceProvider).stop(); if (text.trim().isNotEmpty && mounted) { Navigator.pop(context); ref.read(chatProvider.notifier).user(text); d.ask(text); } else if (mounted) { Navigator.pop(context); } },
+      GestureDetector(onTap: () async {
+            final heard = text.trim();
+            await ref.read(voiceProvider).stop(); // waits briefly for the final transcript; _leave pops + asks on success
+            if (_left || !mounted) return; // the final already took us off this screen during the wait
+            if (error != null) return; // failure words + type fallback stay on screen
+            // Deliberate stop with only a partial: the words on screen are
+            // what Milo heard - send them, never lose them.
+            _leave(heard);
+          },
           child: Container(width: 84, height: 84, decoration: const BoxDecoration(color: T.coral, shape: BoxShape.circle), child: const Icon(Icons.stop, color: Colors.white, size: 40))),
       const SizedBox(height: 8), const Text('Tap to stop', style: TextStyle(color: T.mute)),
     ]))));

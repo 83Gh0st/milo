@@ -4,15 +4,26 @@ protocol's (creds, model) into their api_key + configured-model shape.
 The `meta` module (openai SDK) is imported lazily so unit tests can import
 this module without the web stack.
 """
+import os
+
 from .base import ProviderError, MODEL_NOT_FOUND, UNSUPPORTED_CAPABILITY
 from .capabilities import ProbeResult
 
-# SAM 3.1 app path: implemented from Meta's own cookbook (07_sam/01_api_basics:
-# Responses API + meta_sam_parser, request shape mirrored in
-# scripts/probe_sam.py). Boxes only; live-unverified until probe_sam.py passes
-# against the live API with a real key. The probe below reports sam_entitled
-# either way; verified_live stays False in meta_catalog until then.
-SAM_KEYED_PROBE_PENDING = True
+# Back-compat probe flag (tests and ops scripts read it): the authoritative
+# gate is Settings.sam_verified below; this mirrors the process env default.
+SAM_KEYED_PROBE_PENDING = os.environ.get("SAM_VERIFIED", "") != "true"
+
+
+def sam_probe_pending(settings) -> bool:
+    """SAM app path gate: True until the keyed probe_sam.py run passes.
+
+    The switch lives in Settings (SAM_VERIFIED env / server secret) so the
+    deployed value is visible in one place and testable without import-time
+    env reads. The probe reports sam_entitled either way; a health check or
+    entitlement alone never enables the app path."""
+    if settings is None:
+        return True
+    return not bool(getattr(settings, "sam_verified", False))
 
 
 class MetaAdapter:
@@ -33,6 +44,15 @@ class MetaAdapter:
     def _key(self, creds):
         return getattr(creds, "api_key", None) or self.s.model_api_key
 
+    def _require_key(self, creds):
+        """Distinct, honest failure when no Meta credential exists at all
+        (demo secret not set, no BYOK key): callers word this as 'not set
+        up on the server yet', never as a generic provider outage."""
+        key = self._key(creds)
+        if not key:
+            raise ProviderError("not_configured", 503)
+        return key
+
     async def stream(self, messages, *, schema=None, effort="low", max_tokens=None, creds=None, model=None):
         want = model or self.s.spark_model
         if want == self.s.spark_model:
@@ -42,17 +62,19 @@ class MetaAdapter:
         else:
             raise ProviderError(MODEL_NOT_FOUND, 502)
         kw = {} if max_tokens is None else {"max_tokens": max_tokens}  # None keeps the wrapped default (meta: 900)
-        async for piece in engine.stream(messages, schema=schema, effort=effort, api_key=self._key(creds), **kw):
+        async for piece in engine.stream(messages, schema=schema, effort=effort, api_key=self._require_key(creds), **kw):
             yield piece
 
     async def generate_image(self, prompt, creds=None, model=None):
         want = model or self.s.image_model
         if want != self.s.image_model:
             raise ProviderError(MODEL_NOT_FOUND, 502)
-        return await self.image.generate(prompt, api_key=self._key(creds))
+        return await self.image.generate(prompt, api_key=self._require_key(creds))
 
     async def ground(self, image_b64, phrase, creds=None, model=None):
-        if SAM_KEYED_PROBE_PENDING:
+        if getattr(self, "s", None) is not None:
+            self._require_key(creds)
+        if sam_probe_pending(getattr(self, "s", None)):
             raise ProviderError(UNSUPPORTED_CAPABILITY, 502)
         want = model or self.s.sam_model
         if want != self.s.sam_model:
@@ -63,7 +85,7 @@ class MetaAdapter:
         want = model or self.s.voice_model
         if want != self.s.voice_model:
             raise ProviderError(MODEL_NOT_FOUND, 502)
-        return await self.voice.open(language_bias, keywords, api_key=self._key(creds))
+        return await self.voice.open(language_bias, keywords, api_key=self._require_key(creds))
 
     async def discover_models(self, creds=None):
         # The full one-key suite: one family Meta key funds all five. Order is

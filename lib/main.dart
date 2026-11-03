@@ -19,6 +19,12 @@ import 'ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Never the default red/grey error box: a decode or build failure shows a
+  // calm placeholder instead (real failures still surface as words/snackbars).
+  ErrorWidget.builder = (details) => const Material(
+        color: Color(0xFFFEF4E5),
+        child: Center(child: Padding(padding: EdgeInsets.all(24), child: Text('That part could not be shown. You can go back and try again.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Color(0xFF454B66))))),
+      );
   final store = SecureStore();
   final db = await MiloDb.open(store);
   runApp(ProviderScope(overrides: [storeProvider.overrideWithValue(store), dbProvider.overrideWithValue(db)], child: const MiloApp()));

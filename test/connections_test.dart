@@ -293,7 +293,10 @@ void main() {
     api.savedConns.add({'provider': 'openai', 'base_url': '', 'hint': '…5678', 'default_model': 'fake-model-a', 'policy': {}});
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
+    await settle(t); // hosted-status future resolves first: no layout shift mid-drag
     await dragToBuild(t, find.text('OpenAI', skipOffstage: false), find.byType(ListView).first);
+    await t.ensureVisible(find.text('OpenAI', skipOffstage: false));
+    await t.pump(); // let the scroll land before tapping (tile starts offstage)
     await t.tap(find.text('OpenAI'));
     await settle(t);
     await t.ensureVisible(find.text('Choose', skipOffstage: false).first);
@@ -329,6 +332,9 @@ void main() {
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
     final list = find.byType(ListView).first;
+    // scrollUntilVisible wants the inner Scrollable, not the ListView: the
+    // default finder breaks if any overlay menu adds a second scrollable.
+    final listScrollable = find.descendant(of: list, matching: find.byType(Scrollable));
     for (final label in ['Step-by-step plans', 'Stories', 'Object outlines']) {
       await dragToBuild(t, find.text(label, skipOffstage: false), list);
       expect(find.text(label, skipOffstage: false), findsOneWidget);
@@ -338,22 +344,32 @@ void main() {
       return find.descendant(of: card, matching: find.byType(DropdownButtonFormField<String>)).first;
     }
     // Plans offers the chat-role suite model alongside the provider default...
-    await t.scrollUntilVisible(firstChoice('Step-by-step plans'), 50);
+    await t.scrollUntilVisible(firstChoice('Step-by-step plans'), 50, scrollable: listScrollable);
     await t.ensureVisible(firstChoice('Step-by-step plans'));
     await t.pump();
     await t.tap(firstChoice('Step-by-step plans'));
     await settle(t);
-    expect(find.text('meta/fake-model-a (Fake Model A)', skipOffstage: false), findsOneWidget);
-    expect(find.text('meta/fake-spark', skipOffstage: false), findsOneWidget); // default still offered
-    await t.tap(find.text('Step-by-step plans', skipOffstage: false).first); // dismiss the menu
+    // .hitTestable(): every row builds its full item list eagerly offstage;
+    // only the open menu's item is laid out and tappable.
+    expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsOneWidget);
+    expect(find.text('meta/fake-spark').hitTestable(), findsOneWidget); // default still offered
+    // Select the default to close the menu deterministically (a barrier tap
+    // is flaky: the open menu adds a second Scrollable that breaks the next
+    // scrollUntilVisible, and selecting the suite model would leave its label
+    // in the closed field and spoil the Pictures negative below).
+    await t.tap(find.text('meta/fake-spark').hitTestable());
     await settle(t);
+    expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsNothing); // selection closed the menu
     // ...but Pictures does not offer a chat-role model for an image job.
-    await t.scrollUntilVisible(firstChoice('Pictures'), 50);
+    await t.scrollUntilVisible(firstChoice('Pictures'), 50, scrollable: listScrollable);
     await t.ensureVisible(firstChoice('Pictures'));
     await t.pump();
     await t.tap(firstChoice('Pictures'));
     await settle(t);
-    expect(find.text('meta/fake-model-a (Fake Model A)', skipOffstage: false), findsNothing);
+    expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsNothing);
+    expect(find.text('meta/fake-spark').hitTestable(), findsOneWidget); // menu did open: the negative above is not vacuous
+    await t.tap(find.text('meta/fake-spark').hitTestable()); // close the menu before teardown
+    await settle(t);
     expect(t.takeException(), isNull);
     c.dispose();
   });
