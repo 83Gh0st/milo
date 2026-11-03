@@ -66,7 +66,11 @@ class MetaAdapter:
         return await self.voice.open(language_bias, keywords, api_key=self._key(creds))
 
     async def discover_models(self, creds=None):
-        return [self.s.spark_model, self.s.voice_model, self.s.image_model]
+        # The full one-key suite: one family Meta key funds all five. Order is
+        # the picker's order (Spark first: it stays the recommended default).
+        s = self.s
+        return [m for m in (s.spark_model, getattr(s, "wonder_model", None), s.image_model,
+                            s.voice_model, getattr(s, "sam_model", None)) if m]
 
     async def _entitlements(self, creds):
         """One cheap /v1/models call: which Meta ids this key may use. Never

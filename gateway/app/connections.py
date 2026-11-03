@@ -117,13 +117,17 @@ async def list_models(provider: str, request: Request, vid: str = Depends(vault_
     items = []
     for mid in models:
         role, rec = None, False
-        if provider == "meta":  # configured trio: roles are certain, from our own config
+        if provider == "meta":  # configured suite: roles are certain, from our own config
             if mid == s.spark_model:
                 role, rec = "chat", True
             elif mid == s.image_model:
                 role = "image"
             elif mid == s.voice_model:
                 role = "voice"
+            elif mid == getattr(s, "sam_model", None):
+                role = "segment"
+            elif mid == getattr(s, "wonder_model", None):
+                role = "longform"
         items.append({"id": mid, "name": friendly_model_name(mid), "recommended": rec, "role": role})
     return {"models": items, "source": "live" if provider in ("openai", "anthropic", "custom") else "configured"}
 
@@ -148,10 +152,14 @@ async def test_connection(provider: str, body: ProbeReq, request: Request, vid: 
     except ProviderError as e:
         log.info("probe failed", extra={"kind": "connections", "prov": provider, "err": e.code})
         raise HTTPException(e.status, {"error": e.code})
-    if probe.ok:
-        caps = {model: {"strategy": probe.strategy, "ttfb_ms": probe.ttfb_ms, "checks": probe.checks,
-                         "tested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}}
-        await vaultstore.save_caps(request.app.state.engine, vid, provider, caps)
+    # Every completed probe is recorded, pass or fail: the app shows the
+    # tested date with honest red checks, and the router gates deterministic
+    # failures (not entitled, bad key) while still attempting after transient
+    # ones (timeout, rate limit). Only a probe that raised (no result at
+    # all) leaves no record.
+    caps = {model: {"strategy": probe.strategy, "ttfb_ms": probe.ttfb_ms, "checks": probe.checks,
+                     "tested_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}}
+    await vaultstore.save_caps(request.app.state.engine, vid, provider, caps)
     out = probe.as_dict()
     out["echo_safe"] = redact(str(out), [key] if key else []) == str(out)
     return out
@@ -159,6 +167,7 @@ async def test_connection(provider: str, body: ProbeReq, request: Request, vid: 
 
 @router.put("/routes")
 async def put_routes(body: RoutesReq, request: Request, vid: str = Depends(vault_auth)):
+    s = request.app.state.settings
     routes = {}
     for cap, entries in body.routes.items():
         if cap not in CAPABILITIES_NEEDED:
@@ -167,11 +176,20 @@ async def put_routes(body: RoutesReq, request: Request, vid: str = Depends(vault
             raise HTTPException(422, {"error": "bad_route_list", "capability": cap})
         routes[cap] = []
         for e in entries:
+            if e.provider == "modal":
+                raise HTTPException(422, {"error": "model_not_allowed",
+                                          "reason": "Milo-hosted reasoning is deployer-only and cannot be a family route"})
+            if e.provider not in adapter_ids():
+                raise HTTPException(422, {"error": "unknown_provider", "provider": e.provider})
+            model = e.model.strip()
             try:
-                check_model(e.provider, e.model.strip())
+                check_model(e.provider, model)
             except ValueError as ex:
                 raise HTTPException(422, {"error": "model_not_allowed", "reason": str(ex)})
-            routes[cap].append({"provider": e.provider, "model": e.model.strip(), "strategy": e.strategy})
+            if model == s.wonder_model and cap not in ("plan", "story"):
+                raise HTTPException(422, {"error": "model_not_allowed",
+                                          "reason": "Muse Wonder serves long-form plans and stories only, never ordinary chat, reading, pictures, voice, or outlines"})
+            routes[cap].append({"provider": e.provider, "model": model, "strategy": e.strategy})
     if not await vaultstore.save_routes(request.app.state.engine, vid, routes):
         raise HTTPException(409, {"error": "no_connections", "hint": "connect a provider first, then route"})
     return {"routes": routes}

@@ -250,6 +250,7 @@ def test_meta_catalog_complete_and_honest():
         assert isinstance(c.models, tuple) and c.models and isinstance(c.byok, bool)
     assert live_capabilities() == ("spark",)  # only staging-verified rows claim live
     assert get_capability("sam").status == "wired" and not get_capability("sam").verified_live  # probe means "no app-path code"; /v1/segment + MetaGround exist, keyed run pending
+    assert get_capability("wonder").status == "wired" and not get_capability("wonder").verified_live  # PUT-gated to plan/story, keyed run pending
     try:
         get_capability("muse-fairy")
     except KeyError:

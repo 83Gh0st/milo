@@ -142,7 +142,7 @@ class _SwitchRow extends StatelessWidget { const _SwitchRow(this.t, this.v, this
 /// Honest limit: a ChatGPT/Claude/Meta *app* login is not API access; the
 /// family needs its own API key, billed to its own account.
 const kConnProviders = [('meta', 'Meta (recommended)'), ('openai', 'OpenAI'), ('anthropic', 'Anthropic'), ('custom', 'Custom or local')];
-const kRouteCaps = [('brain', 'Thinking + chat'), ('understand', 'Reading help'), ('visual', 'Pictures'), ('stt', 'Voice in')];
+const kRouteCaps = [('brain', 'Thinking + chat'), ('understand', 'Reading help'), ('plan', 'Step-by-step plans'), ('story', 'Stories'), ('visual', 'Pictures'), ('stt', 'Voice in'), ('segment', 'Object outlines')];
 const kCheckNames = {
   'chat': 'Chat',
   'json_schema': 'Structured replies',
@@ -154,11 +154,11 @@ const kCheckNames = {
   'sam_entitled': 'Outlines objects',
   'wonder_entitled': 'Long stories',
 };
-const kRoleLabels = {'chat': 'Thinking', 'image': 'Pictures', 'voice': 'Voice'};
+const kRoleLabels = {'chat': 'Thinking', 'image': 'Pictures', 'voice': 'Voice', 'segment': 'Outlines', 'longform': 'Long-form'};
 /// What Milo itself can do through each BYOK provider (adapter-level, not
 /// vendor marketing: only Meta's adapter implements pictures and voice).
 const kProviderCapsNote = {
-  'meta': 'Thinking, pictures and voice.',
+  'meta': 'Thinking, pictures, voice and object outlines from one key.',
   'openai': 'Thinking and reading. Milo can’t make pictures or hear voice with OpenAI yet.',
   'anthropic': 'Thinking and reading. Milo can’t make pictures or hear voice with Anthropic yet.',
   'custom': 'Thinking and reading through your address.',
@@ -198,6 +198,7 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
   bool? syncOn, useFamily;
   Map<String, dynamic>? conns;
   Map<String, String?> primary = {}, fallback = {};
+  Map<String, List<ConnModel>> metaRoles = {}; // Meta suite models by role, for capability-correct route options
   bool busy = false;
   String? error;
 
@@ -229,7 +230,19 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
         primary[cap] = es.isEmpty ? null : '${es[0]['provider']}/${es[0]['model']}';
         fallback[cap] = es.length < 2 ? null : '${es[1]['provider']}/${es[1]['model']}';
       }
-      setState(() { conns = st; useFamily = flag.isNotEmpty; error = null; });
+      Map<String, List<ConnModel>> roles = {};
+      final listed = [for (final c in (st['connections'] as List?) ?? []) Map<String, dynamic>.from(c as Map)];
+      if (listed.any((c) => c['provider'] == 'meta')) {
+        try {
+          final mm = await api.connectionModels(vh['X-Vault-Id']!, vh['X-Vault-Key']!, 'meta');
+          for (final m in mm.models) {
+            final k = m.role ?? '';
+            roles[k] = [...roles[k] ?? const [], m];
+          }
+        } catch (_) {} // offline or unlisted: dropdowns fall back to provider defaults
+      }
+      if (!mounted) return;
+      setState(() { conns = st; metaRoles = roles; useFamily = flag.isNotEmpty; error = null; });
     } catch (e) { if (mounted) setState(() => error = connWords(e)); }
   }
 
@@ -265,9 +278,23 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
   Widget build(BuildContext context) {
     final db = ref.read(dbProvider);
     String label(String p, String m) => '$p/${m.isEmpty ? '(model not set)' : m}';
-    final opts = [(value: 'mock/mock', label: 'mock/mock (Offline demo)'),
-      for (final c in _list) (value: '${c['provider']}/${c['default_model']}', label: label('${c['provider']}', '${c['default_model']}'))];
-    String? valid(String? v) => v != null && opts.any((o) => o.value == v) ? v : null;
+    // One Meta key, right model per job: each row offers the provider
+    // defaults plus the Meta suite members whose role fits the capability
+    // (long-form Wonder only on Plans and Stories, never ordinary chat).
+    const capRoles = {'brain': ['chat'], 'understand': ['chat'], 'plan': ['chat', 'longform'], 'story': ['chat', 'longform'], 'visual': ['image'], 'stt': ['voice'], 'segment': ['segment']};
+    List<({String value, String label})> optsFor(String cap) {
+      final out = [(value: 'mock/mock', label: 'mock/mock (Offline demo)'),
+        for (final c in _list) (value: '${c['provider']}/${c['default_model']}', label: label('${c['provider']}', '${c['default_model']}'))];
+      for (final r in capRoles[cap] ?? const <String>[]) {
+        for (final m in metaRoles[r] ?? const <ConnModel>[]) {
+          final v = 'meta/${m.id}';
+          if (out.any((o) => o.value == v)) continue;
+          out.add((value: v, label: 'meta/${m.id} (${m.name})'));
+        }
+      }
+      return out;
+    }
+    String? valid(String cap, String? v) => v != null && optsFor(cap).any((o) => o.value == v) ? v : null;
     return MiloScreen(title: 'AI connections', body: ListView(padding: const EdgeInsets.all(16), children: [
       const Text('Milo can think with your own AI account instead of the shared one. Use is billed to your account by your provider. A key is sent once over an encrypted connection, stored encrypted on the Milo server, and never kept on this phone. A ChatGPT or Claude app login is not enough - you need an API key from your provider.', style: TextStyle(fontSize: 15)),
       const SizedBox(height: 12),
@@ -292,11 +319,11 @@ class _PKState extends ConsumerState<ProviderKeyScreen> {
         const Section('Use for'),
         for (final (cap, capLabel) in kRouteCaps) Card(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(capLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
-          DropdownButtonFormField<String>(isExpanded: true, decoration: const InputDecoration(labelText: 'First choice'), initialValue: valid(primary[cap]),
-              items: [for (final o in opts) DropdownMenuItem(value: o.value, child: Text(o.label, overflow: TextOverflow.ellipsis))],
+          DropdownButtonFormField<String>(isExpanded: true, decoration: const InputDecoration(labelText: 'First choice'), initialValue: valid(cap, primary[cap]),
+              items: [for (final o in optsFor(cap)) DropdownMenuItem(value: o.value, child: Text(o.label, overflow: TextOverflow.ellipsis))],
               onChanged: (v) => setState(() => primary[cap] = v)),
-          DropdownButtonFormField<String>(isExpanded: true, decoration: const InputDecoration(labelText: 'If that fails'), initialValue: valid(fallback[cap]),
-              items: [for (final o in opts) DropdownMenuItem(value: o.value, child: Text(o.label, overflow: TextOverflow.ellipsis))],
+          DropdownButtonFormField<String>(isExpanded: true, decoration: const InputDecoration(labelText: 'If that fails'), initialValue: valid(cap, fallback[cap]),
+              items: [for (final o in optsFor(cap)) DropdownMenuItem(value: o.value, child: Text(o.label, overflow: TextOverflow.ellipsis))],
               onChanged: (v) => setState(() => fallback[cap] = v)),
         ]))),
         const SizedBox(height: 6),
