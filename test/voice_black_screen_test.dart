@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:milo/core/providers.dart';
 import 'package:milo/data/secure_store.dart';
-import 'package:milo/net/api.dart';
 import 'package:milo/net/voice.dart';
 import 'package:milo/ui/chat_screen.dart';
 
