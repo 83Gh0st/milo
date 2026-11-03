@@ -155,3 +155,24 @@ async def test_sam_coercion_closes_lanes_without_dupes():
     out = [e async for e in coerce_sam_events(src())]
     assert [e["type"] for e in out] == ["response.content_part.done", "response.output_text.done"]
     assert out[1]["text"] == "BOX"  # synthesized close carries the lane text; the real dup is swallowed
+
+
+def test_openai_sdk_supports_responses_api():
+    from importlib.metadata import version
+    major, minor = (int(x) for x in version("openai").split(".")[:2])
+    assert (major, minor) >= (1, 66), "client.responses needs openai>=1.66 (see gateway/requirements.txt)"
+
+
+async def test_sam_coercion_accepts_sdk_shaped_events():
+    from app.providers.meta import coerce_sam_events
+
+    class SdkEv:  # openai SDK events expose .model_dump(), not dict access
+        def __init__(self, d): self._d = d
+        def model_dump(self): return self._d
+
+    async def src():
+        yield SdkEv({"type": "response.content_part.done", "item_id": "i", "output_index": 0, "content_index": 0,
+                     "part": {"type": "output_text", "text": "BOX"}})
+
+    out = [e async for e in coerce_sam_events(src())]
+    assert [e["type"] for e in out] == ["response.content_part.done", "response.output_text.done"]

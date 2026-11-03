@@ -104,7 +104,8 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
   photo flow offers "Find things in this photo" when cloud AI is on; tapping
   a box explains that object against the same photo via the Understand path.
   Verify live with `MODEL_API_KEY=... python gateway/scripts/probe_sam.py
-  photo.jpg --concept heart` (exit 0 + JSON = the endpoint works) and then
+  photo.jpg --concept heart` (exit 0 + JSON = the endpoint works), set
+  `SAM_VERIFIED=true` on the server, redeploy, and then run
   `python gateway/scripts/live_probe.py --photo photo.jpg` (end-to-end
   through the gateway). Video tracking and mask rasters are deferred: the
   overlay draws boxes, which is what "point at the words" needs.

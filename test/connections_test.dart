@@ -343,8 +343,10 @@ void main() {
     await t.pump();
     await t.tap(firstChoice('Step-by-step plans'));
     await settle(t);
-    expect(find.text('meta/fake-model-a (Fake Model A)', skipOffstage: false), findsOneWidget);
-    expect(find.text('meta/fake-spark', skipOffstage: false), findsOneWidget); // default still offered
+    // .hitTestable(): every row builds its full item list eagerly offstage;
+    // only the open menu's item is laid out and tappable.
+    expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsOneWidget);
+    expect(find.text('meta/fake-spark').hitTestable(), findsOneWidget); // default still offered
     await t.tap(find.text('Step-by-step plans', skipOffstage: false).first); // dismiss the menu
     await settle(t);
     // ...but Pictures does not offer a chat-role model for an image job.
@@ -353,7 +355,7 @@ void main() {
     await t.pump();
     await t.tap(firstChoice('Pictures'));
     await settle(t);
-    expect(find.text('meta/fake-model-a (Fake Model A)', skipOffstage: false), findsNothing);
+    expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsNothing);
     expect(t.takeException(), isNull);
     c.dispose();
   });

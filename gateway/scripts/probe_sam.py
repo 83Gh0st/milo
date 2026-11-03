@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SAM 3.1 live-endpoint probe (Meta Model API). Run with a real key:
 
-    pip install openai meta_sam_parser
+    pip install -r gateway/requirements.txt   # pins openai==1.66 for client.responses
     MODEL_API_KEY=... python probe_sam.py photo.jpg --concept "heart"
     MODEL_API_KEY=... python probe_sam.py clip.mp4 --concept "ping pong ball"
 
@@ -112,8 +112,13 @@ async def main() -> int:
     if not key or not args.media.is_file() or not args.concept.strip():
         print("need MODEL_API_KEY, an existing media file, and a non-empty --concept", file=sys.stderr)
         return 3
+    api = AsyncOpenAI(base_url=BASE_URL, api_key=key)  # construct-only: no I/O
+    if not hasattr(api, "responses"):
+        await api.close()
+        print("need openai>=1.66 for client.responses: pip install -r gateway/requirements.txt", file=sys.stderr)
+        return 3
     try:
-        async with AsyncOpenAI(base_url=BASE_URL, api_key=key) as api:
+        async with api:
             if media_type(args.media).startswith("video/"):
                 result = await run_video(api, args.media, args.concept)
             else:
