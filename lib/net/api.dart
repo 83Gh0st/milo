@@ -274,8 +274,8 @@ class MiloApi {
     final regs = r.data!['regions'];
     if (regs is! List) throw ApiError('bad_grounding');
     final masks = r.data!['masks'];
-    return (regions: [for (final e in regs) if (e is Map) Map<String, dynamic>.from(e)],
-        masks: masks is List ? [for (final e in masks) if (e is Map) Map<String, dynamic>.from(e)] : const [],
+    return (regions: <Map<String, dynamic>>[for (final e in regs) if (e is Map) Map<String, dynamic>.from(e)],
+        masks: masks is List ? <Map<String, dynamic>>[for (final e in masks) if (e is Map) Map<String, dynamic>.from(e)] : const <Map<String, dynamic>>[],
         model: '${r.data!['model'] ?? ''}', provider: '${r.data!['provider'] ?? ''}', route: '${r.data!['route'] ?? ''}');
   }
 
