@@ -347,7 +347,11 @@ void main() {
     // only the open menu's item is laid out and tappable.
     expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsOneWidget);
     expect(find.text('meta/fake-spark').hitTestable(), findsOneWidget); // default still offered
-    await t.tap(find.text('Step-by-step plans', skipOffstage: false).first); // dismiss the menu
+    // Select the default to close the menu deterministically (a barrier tap
+    // is flaky: the open menu adds a second Scrollable that breaks the next
+    // scrollUntilVisible, and selecting the suite model would leave its label
+    // in the closed field and spoil the Pictures negative below).
+    await t.tap(find.text('meta/fake-spark').hitTestable());
     await settle(t);
     // ...but Pictures does not offer a chat-role model for an image job.
     await t.scrollUntilVisible(firstChoice('Pictures'), 50);
