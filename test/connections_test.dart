@@ -329,6 +329,9 @@ void main() {
     final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
     await pumpConn(t, c);
     final list = find.byType(ListView).first;
+    // scrollUntilVisible wants the inner Scrollable, not the ListView: the
+    // default finder breaks if any overlay menu adds a second scrollable.
+    final listScrollable = find.descendant(of: list, matching: find.byType(Scrollable));
     for (final label in ['Step-by-step plans', 'Stories', 'Object outlines']) {
       await dragToBuild(t, find.text(label, skipOffstage: false), list);
       expect(find.text(label, skipOffstage: false), findsOneWidget);
@@ -338,7 +341,7 @@ void main() {
       return find.descendant(of: card, matching: find.byType(DropdownButtonFormField<String>)).first;
     }
     // Plans offers the chat-role suite model alongside the provider default...
-    await t.scrollUntilVisible(firstChoice('Step-by-step plans'), 50);
+    await t.scrollUntilVisible(firstChoice('Step-by-step plans'), 50, scrollable: listScrollable);
     await t.ensureVisible(firstChoice('Step-by-step plans'));
     await t.pump();
     await t.tap(firstChoice('Step-by-step plans'));
@@ -355,13 +358,15 @@ void main() {
     await settle(t);
     expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsNothing); // selection closed the menu
     // ...but Pictures does not offer a chat-role model for an image job.
-    // Explicit scrollable: the default finder breaks if any overlay menu is open.
-    await t.scrollUntilVisible(firstChoice('Pictures'), 50, scrollable: list);
+    await t.scrollUntilVisible(firstChoice('Pictures'), 50, scrollable: listScrollable);
     await t.ensureVisible(firstChoice('Pictures'));
     await t.pump();
     await t.tap(firstChoice('Pictures'));
     await settle(t);
     expect(find.text('meta/fake-model-a (Fake Model A)').hitTestable(), findsNothing);
+    expect(find.text('meta/fake-spark').hitTestable(), findsOneWidget); // menu did open: the negative above is not vacuous
+    await t.tap(find.text('meta/fake-spark').hitTestable()); // close the menu before teardown
+    await settle(t);
     expect(t.takeException(), isNull);
     c.dispose();
   });
