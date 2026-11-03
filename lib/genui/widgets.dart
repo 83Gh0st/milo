@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/providers.dart' show genImageKey, genImageProvider, visualProvider;
+import '../core/providers.dart' show genImageKey, genImageProvider, genImageStateProvider, visualProvider;
 import '../ui/theme.dart';
 import 'panel.dart';
 
@@ -238,7 +238,8 @@ class _PanelImage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bytes = ref.watch(visualProvider)[concept];
-    if (bytes != null) return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, height: 140, fit: BoxFit.cover, semanticLabel: concept));
+    if (bytes != null) return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, height: 140, fit: BoxFit.cover, semanticLabel: concept,
+        errorBuilder: (_, __, ___) => Container(height: 120, decoration: BoxDecoration(color: T.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: T.line)), child: const Center(child: Text('That picture could not be shown.', style: TextStyle(color: T.mute, fontSize: 13))))));
     return InkWell(onTap: () => showImage(concept), borderRadius: BorderRadius.circular(12),
         child: Container(height: 120, decoration: BoxDecoration(color: T.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: T.line)),
             child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.image_outlined, color: T.mute, size: 32), const SizedBox(height: 4), Text('Tap to load: $concept', style: const TextStyle(color: T.mute, fontSize: 13))]))));
@@ -255,22 +256,26 @@ class _PanelGenImage extends ConsumerWidget {
   final Future<void> Function(String) generateImage;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bytes = ref.watch(genImageProvider)[genImageKey(prompt)];
+    final key = genImageKey(prompt);
+    final bytes = ref.watch(genImageProvider)[key];
+    final state = ref.watch(genImageStateProvider)[key];
     if (bytes == null) {
-      return InkWell(onTap: () => generateImage(prompt), borderRadius: BorderRadius.circular(12),
+      final busy = state == 'busy';
+      return InkWell(onTap: busy ? null : () => generateImage(prompt), borderRadius: BorderRadius.circular(12),
           child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: T.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: T.line)),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.auto_awesome_outlined, color: T.pri, size: 32),
+                if (busy) const Padding(padding: EdgeInsets.only(bottom: 8), child: CircularProgressIndicator()) else const Icon(Icons.auto_awesome_outlined, color: T.pri, size: 32),
                 const SizedBox(height: 8),
                 Text(prompt, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                const Text('Tap to create this picture', style: TextStyle(color: T.pri, fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(busy ? 'Drawing…' : state != null ? 'That drawing did not work. Tap to try again.' : 'Tap to create this picture', style: const TextStyle(color: T.pri, fontSize: 14, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                const Text('Milo will draw it with AI', style: TextStyle(color: T.mute, fontSize: 12)),
+                const Text('Milo will draw it with AI. Needs internet.', style: TextStyle(color: T.mute, fontSize: 12)),
               ])));
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, height: 180, width: double.infinity, fit: BoxFit.cover, semanticLabel: 'AI-made picture. $alt')),
+      ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, height: 180, width: double.infinity, fit: BoxFit.cover, semanticLabel: 'AI-made picture. $alt',
+          errorBuilder: (_, __, ___) => Container(height: 140, color: T.bg, child: const Center(child: Text('That picture could not be shown.', style: TextStyle(color: T.mute, fontSize: 13)))))),
       const SizedBox(height: 6),
       Row(children: [const Icon(Icons.auto_awesome, size: 14, color: T.mute), const SizedBox(width: 4), const Text('AI-made picture', style: TextStyle(color: T.mute, fontSize: 12, fontWeight: FontWeight.w700))]),
       const SizedBox(height: 2),

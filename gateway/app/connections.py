@@ -83,6 +83,11 @@ async def save_connection(provider: str, body: ConnectionReq, request: Request, 
         raise HTTPException(409, {"error": "policy_ack_required", "policy": _policy(provider)})
     key = (body.api_key or "").strip()
     model = (body.default_model or "").strip()
+    if provider == "meta" and not model:
+        # One Meta key, capability routing: the chat model is the sensible
+        # default; pictures/voice/outlines expand automatically server-side.
+        # The family never has to pick among Meta models.
+        model = s.spark_model
     if key:
         enc, hint = seal_vault_key(s.key_enc_secret, s.env, key), key_hint(key)
         caps = {"declared": DECLARED[provider].as_dict()}

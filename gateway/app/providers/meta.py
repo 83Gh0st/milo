@@ -67,6 +67,11 @@ class MetaReasoning:
         yield usage
 
 
+def is_image_bytes(raw: bytes) -> bool:
+    """True only for PNG/JPEG bytes. A text/HTML/error body is never an image."""
+    return raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:2] == b"\xff\xd8"
+
+
 class MetaImage:
     def __init__(self, s: Settings):
         self.s = s
@@ -80,8 +85,26 @@ class MetaImage:
         try:  # agentic tools off: no web/image search or shell for child-facing pictures
             r = await client.images.generate(model=self.s.image_model, prompt=prompt, n=1, size=size,
                                              extra_body={"reasoning_strength": "low", "tool_enablement": {"enable_image_search": False, "enable_web_search": False, "enable_shell": False}})
-            return base64.b64decode(r.data[0].b64_json)
-        except (APIStatusError, APIConnectionError, APITimeoutError, TypeError, IndexError):
+            item = r.data[0]
+            b64 = getattr(item, "b64_json", None)
+            if b64:
+                raw = base64.b64decode(b64)
+            elif getattr(item, "url", None):
+                # Signed-URL form: fetch the bytes server-side; the URL itself
+                # is never returned to the app or logged.
+                import httpx
+                async with httpx.AsyncClient(timeout=30) as http:
+                    resp = await http.get(item.url)
+                    resp.raise_for_status()
+                    raw = resp.content
+            else:
+                raise ProviderError("image_empty", 502)
+            if not is_image_bytes(raw):
+                raise ProviderError("image_empty", 502)
+            return raw
+        except ProviderError:
+            raise
+        except (APIStatusError, APIConnectionError, APITimeoutError, TypeError, IndexError, ValueError):
             raise ProviderError("image_failed", 503)
 
 
@@ -113,10 +136,32 @@ def image_size(raw: bytes):
     return None
 
 
+def summarize_masks(records, limit: int = 20) -> list:
+    """Lossless mask metadata from parser records (never pixel data).
+
+    Mirrors scripts/probe_sam.py: object id + mask dimensions + encoding.
+    The gateway forwards this metadata alongside the boxes so clients can
+    show that a real mask exists without shipping mask bytes to the phone.
+    Pure: unit-tested without the API."""
+    out = []
+    for r in records or []:
+        if getattr(r, "kind", "") != "mask":
+            continue
+        m = getattr(r, "mask", None)
+        out.append({"object_id": str(getattr(r, "object_id", "") or ""),
+                    "width": int(getattr(m, "width", 0) or 0),
+                    "height": int(getattr(m, "height", 0) or 0),
+                    "encoding": str(getattr(m, "encoding", "") or "")[:40]})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def norm_boxes(records, w: int, h: int, limit: int = 20) -> list:
     """Parser box records (source-media coords) -> normalized overlay boxes.
-    Pure: unit-tested without the API. Masks ignored (the overlay draws
-    boxes); degenerate/off-frame records dropped, never clamped into lies."""
+    Pure: unit-tested without the API. Degenerate/off-frame records dropped,
+    never clamped into lies. Mask records are reported separately via
+    summarize_masks; the overlay draws boxes."""
     out = []
     for r in records or []:
         if getattr(r, "kind", "") != "box":
@@ -208,7 +253,8 @@ class MetaGround:
             raise ProviderError("provider_error", 503)
         if getattr(getattr(result, "outcome", None), "status", "") != "completed":
             raise ProviderError("bad_grounding", 502)
-        return {"boxes": norm_boxes(getattr(result, "records", []), w, h), "model": self.s.sam_model}
+        records = getattr(result, "records", [])
+        return {"boxes": norm_boxes(records, w, h), "masks": summarize_masks(records), "model": self.s.sam_model}
 
 
 class _MetaVoiceSession:

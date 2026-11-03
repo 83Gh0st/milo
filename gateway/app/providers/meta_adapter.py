@@ -5,17 +5,25 @@ The `meta` module (openai SDK) is imported lazily so unit tests can import
 this module without the web stack.
 """
 import os
+
 from .base import ProviderError, MODEL_NOT_FOUND, UNSUPPORTED_CAPABILITY
 from .capabilities import ProbeResult
 
-# SAM 3.1 app path: implemented from Meta's own cookbook (07_sam/01_api_basics:
-# Responses API + meta_sam_parser, request shape mirrored in
-# scripts/probe_sam.py). Boxes only; the app path refuses until probe_sam.py
-# passes against the live API with a real key, then the owner sets
-# SAM_VERIFIED=true on the server (no code change) and redeploys. The probe
-# below reports sam_entitled either way; verified_live stays False in
-# meta_catalog until the keyed run passes.
+# Back-compat probe flag (tests and ops scripts read it): the authoritative
+# gate is Settings.sam_verified below; this mirrors the process env default.
 SAM_KEYED_PROBE_PENDING = os.environ.get("SAM_VERIFIED", "") != "true"
+
+
+def sam_probe_pending(settings) -> bool:
+    """SAM app path gate: True until the keyed probe_sam.py run passes.
+
+    The switch lives in Settings (SAM_VERIFIED env / server secret) so the
+    deployed value is visible in one place and testable without import-time
+    env reads. The probe reports sam_entitled either way; a health check or
+    entitlement alone never enables the app path."""
+    if settings is None:
+        return True
+    return not bool(getattr(settings, "sam_verified", False))
 
 
 class MetaAdapter:
@@ -55,7 +63,7 @@ class MetaAdapter:
         return await self.image.generate(prompt, api_key=self._key(creds))
 
     async def ground(self, image_b64, phrase, creds=None, model=None):
-        if SAM_KEYED_PROBE_PENDING:
+        if sam_probe_pending(getattr(self, "s", None)):
             raise ProviderError(UNSUPPORTED_CAPABILITY, 502)
         want = model or self.s.sam_model
         if want != self.s.sam_model:

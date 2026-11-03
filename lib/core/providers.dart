@@ -117,6 +117,10 @@ final visualProvider = StateNotifierProvider<VisualNotifier, Map<String, Uint8Li
 String genImageKey(String prompt) => c.sha256.convert(utf8.encode(prompt.trim().toLowerCase())).toString();
 final genImageProvider = StateNotifierProvider<VisualNotifier, Map<String, Uint8List>>((_) => VisualNotifier());
 
+/// Per-prompt generation state for the Create card: 'busy' while drawing,
+/// otherwise the ApiError code to word honestly. Empty = idle.
+final genImageStateProvider = StateProvider<Map<String, String>>((_) => const {});
+
 // ---- Sync status: null when fine, a short generic message otherwise (never content) ----
 final syncBannerProvider = StateProvider<String?>((_) => null);
 

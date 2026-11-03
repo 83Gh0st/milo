@@ -178,7 +178,10 @@ class _StoryState extends ConsumerState<StoryTime> {
     if (t == null || page >= t.pages.length) return;
     setState(() { artBusy = true; err = ''; });
     try {
-      final pic = await ref.read(apiProvider).generateImage('A gentle picture-book illustration for this story moment: ${t.pages[page].text}');
+      // Keep the prompt inside the gateway's screened-prompt budget even for
+      // long pages (the gateway truncates too; this keeps intent intact).
+      final moment = t.pages[page].text.length > 180 ? t.pages[page].text.substring(0, 180) : t.pages[page].text;
+      final pic = await ref.read(apiProvider).generateImage('A gentle picture-book illustration for this story moment: $moment');
       if (mounted) setState(() => art[page] = pic);
     } catch (_) { if (mounted) setState(() => err = 'The picture could not be drawn. The story still works.'); } finally { if (mounted) setState(() => artBusy = false); }
   }

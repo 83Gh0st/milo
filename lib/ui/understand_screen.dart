@@ -187,7 +187,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
           ]);
       case _S.photo:
         body = Container(color: const Color(0xFF454B66), child: Column(children: [
-          Expanded(child: Padding(padding: const EdgeInsets.all(20), child: _image == null ? const SizedBox() : Container(decoration: BoxDecoration(border: Border.all(color: T.amber, width: 3)), child: Image.memory(_image!, fit: BoxFit.contain)))),
+          Expanded(child: Padding(padding: const EdgeInsets.all(20), child: _image == null ? const SizedBox() : Container(decoration: BoxDecoration(border: Border.all(color: T.amber, width: 3)), child: Image.memory(_image!, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image_outlined, color: Colors.white, size: 40)))))),
           Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF2B3050), borderRadius: BorderRadius.circular(16)), child: const Text('Resized, EXIF and location removed on this phone', style: TextStyle(color: Colors.white, fontSize: 12))),
           Padding(padding: const EdgeInsets.all(18), child: Column(mainAxisSize: MainAxisSize.min, children: [
             Row(children: [Expanded(child: BigButton('Retake', () => _photo(ImageSource.camera), kind: BK.outline)), const SizedBox(width: 12), Expanded(child: BigButton('Use photo', () { _remember(); setState(() => step = _S.reading); if (cloud) { _explain('default'); } }))]),
@@ -218,7 +218,7 @@ class _UState extends ConsumerState<UnderstandScreen> {
         final pop = picked == null ? null : u.vocab.where((v) => v['word']!.toLowerCase() == picked!.toLowerCase().replaceAll(RegExp(r'[^A-Za-z]'), '')).firstOrNull;
         final concept = _concept(), png = concept == null ? null : visuals[concept];
         body = ListView(padding: const EdgeInsets.all(16), children: [
-          if (png != null) ...[ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.memory(png, height: 180, fit: BoxFit.cover)), const SizedBox(height: 8),
+          if (png != null) ...[ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.memory(png, height: 180, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(height: 120, decoration: BoxDecoration(color: const Color(0xFFCFE6FA), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.image_outlined, size: 44, color: Color(0xFF4B7FB5))))), const SizedBox(height: 8),
             Center(child: Text('A picture of $concept', style: const TextStyle(fontSize: 12, color: T.mute))), const SizedBox(height: 6)]
           else if (styles.contains('Pictures') && concept != null && cloud) ...[BigButton('Show a picture of $concept', () => d.onShowImage?.call(concept), kind: BK.soft), const SizedBox(height: 14)]
           else ...[Container(height: 120, decoration: BoxDecoration(color: const Color(0xFFCFE6FA), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.image_outlined, size: 44, color: Color(0xFF4B7FB5))), const SizedBox(height: 14)],
@@ -275,16 +275,26 @@ class _PhotoSegmentsState extends ConsumerState<PhotoSegments> {
   @override
   void dispose() { phrase.dispose(); super.dispose(); }
 
+  int maskCount = 0;
+  String segRoute = '';
+
   Future<void> _find() async {
     if (phrase.text.trim().length < 2 || busy) return;
-    setState(() { busy = true; err = ''; sel = null; searched = false; });
+    setState(() { busy = true; err = ''; sel = null; searched = false; maskCount = 0; segRoute = ''; });
     try {
-      final found = validateRegions(await ref.read(apiProvider).segment(widget.image, phrase.text.trim()));
-      if (mounted) setState(() { regions = found; searched = true; });
+      final res = await ref.read(apiProvider).segmentDetailed(widget.image, phrase.text.trim());
+      final found = validateRegions(res.regions);
+      if (mounted) setState(() { regions = found; searched = true; maskCount = res.masks.length; segRoute = res.route; });
     } catch (e) {
-      if (mounted) setState(() => err = e is ApiError && (e.code == 'offline' || e.code == 'timeout')
-          ? 'Finding things needs the internet. Your photo is still here.'
-          : 'Milo could not outline that. Please try another word.');
+      if (mounted) {
+        setState(() => err = switch (e) {
+              _ when e is ApiError && (e.code == 'offline' || e.code == 'timeout') => 'Finding things needs the internet. Your photo is still here.',
+              _ when e is ApiError && e.code == 'unsupported_capability' => 'Object outlines are not turned on for this Milo yet. A grown-up can check AI connections.',
+              _ when e is ApiError && e.code == 'demo_quota_exceeded' => 'Demo outline limit reached for today. Your photo is still here.',
+              _ when e is ApiError && e.code == 'demo_disabled' => 'Hosted outlines are turned off right now. Your photo is still here.',
+              _ => 'Milo could not outline that. Please try another word.',
+            });
+      }
     } finally { if (mounted) setState(() => busy = false); }
   }
 
@@ -309,6 +319,8 @@ class _PhotoSegmentsState extends ConsumerState<PhotoSegments> {
         // screens and dwarf wide ones; phones keep their natural size.
         Center(child: ConstrainedBox(constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.45),
             child: SegmentOverlay(imageBytes: widget.image, imageAspect: aspect, regions: regions, selectedId: sel, onRegionTap: (id) => setState(() => sel = id)))),
+        const SizedBox(height: 6),
+        Text(maskCount > 0 ? 'Found ${regions.length} with precise outlines (masks)${segRoute.isNotEmpty ? ' via $segRoute' : ''}. Tap one, then Explain.' : 'Found ${regions.length}. Tap one, then Explain.', style: const TextStyle(color: T.mute, fontSize: 13)),
         const SizedBox(height: 8),
         BigButton(label == null ? 'Tap an outlined box' : 'Explain “$label”', label == null ? null : () => widget.onExplain(label)),
       ],

@@ -13,6 +13,29 @@ import '../data/secure_store.dart';
 class CloudDisabled implements Exception {}
 class ApiError implements Exception { final String code; final Map<String, dynamic>? detail; ApiError(this.code, [this.detail]); @override String toString() => 'ApiError($code)'; }
 
+/// True only for PNG/JPEG bytes. A text/HTML/error body is never stored or
+/// rendered as a picture. Pure: unit-tested.
+bool isPngOrJpeg(Uint8List b) =>
+    (b.length >= 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) ||
+    (b.length >= 2 && b[0] == 0xFF && b[1] == 0xD8);
+
+/// Enforces [isPngOrJpeg] on gateway picture bytes.
+Uint8List checkedImageBytes(List<int> raw) {
+  final b = Uint8List.fromList(raw);
+  if (!isPngOrJpeg(b)) throw ApiError('bad_image_response');
+  return b;
+}
+
+/// Plain words for demo/hosted failures. Pure: unit-tested. Demo quota and
+/// the admin demo switch each say their thing; offline still works.
+String demoErrorWords(String code) => switch (code) {
+      'demo_quota_exceeded' => 'Demo limit reached for today. Milo still works offline - your board, saved stories and typing are fine.',
+      'demo_busy' => 'Milo is busy with other visitors. Wait a moment and try again.',
+      'demo_disabled' => 'Hosted AI is turned off right now. Milo still works offline.',
+      'budget_exhausted' => 'The thinking cloud is resting (daily budget used). Everything on this phone still works.',
+      _ => '',
+    };
+
 class StoryPage {
   const StoryPage(this.heading, this.text);
   final String heading, text;
@@ -147,8 +170,9 @@ class MiloApi {
       final s = e.response?.statusCode;
       final raw = e.response?.data;
       final detail = raw is Map ? Map<String, dynamic>.from(raw) : null;
-      if (s == 429) return ApiError('rate_limited', detail);
-      if (s == 503) return ApiError(detail?['error'] == 'budget_exhausted' ? 'budget_exhausted' : 'http_503', detail); // daily spend guard vs provider outage: same status, different words
+      final err = detail?['error'];
+      if (s == 429) return ApiError(err == 'demo_quota_exceeded' || err == 'demo_busy' ? err : 'rate_limited', detail);
+      if (s == 503) return ApiError(err == 'budget_exhausted' ? 'budget_exhausted' : err == 'demo_disabled' ? 'demo_disabled' : 'http_503', detail); // daily spend guard vs demo switch vs provider outage: same status, different words
       if (s == 504) return ApiError('timeout', detail); // the model took too long: retryable, not a budget problem
       return s != null ? ApiError('http_$s', detail) : ApiError('offline');
     }
@@ -237,20 +261,29 @@ class MiloApi {
   /// Visual grounding (SAM 3.1 via the gateway): outline every [phrase] in the
   /// photo. Returns raw region maps for [validateRegions] (the client-side
   /// gate); empty list = "nothing found", still success. Explicit tap only.
-  Future<List<Map<String, dynamic>>> segment(Uint8List image, String phrase) async {
+  Future<List<Map<String, dynamic>>> segment(Uint8List image, String phrase) async =>
+      (await segmentDetailed(image, phrase)).regions;
+
+  /// Full grounding result: validated region maps plus SAM mask metadata
+  /// (object id + dimensions + encoding, never mask bytes) and the route
+  /// that actually served it, for honest status words.
+  Future<({List<Map<String, dynamic>> regions, List<Map<String, dynamic>> masks, String model, String provider, String route})> segmentDetailed(Uint8List image, String phrase) async {
     final body = {'image_b64': base64Encode(image), 'phrase': phrase};
     await _ledger('/v1/segment', 'segment', body);
     final r = await _send<Map<String, dynamic>>('POST', '/v1/segment', body: body, receive: const Duration(seconds: 90));
     final regs = r.data!['regions'];
     if (regs is! List) throw ApiError('bad_grounding');
-    return [for (final e in regs) if (e is Map) Map<String, dynamic>.from(e)];
+    final masks = r.data!['masks'];
+    return (regions: [for (final e in regs) if (e is Map) Map<String, dynamic>.from(e)],
+        masks: masks is List ? [for (final e in masks) if (e is Map) Map<String, dynamic>.from(e)] : const [],
+        model: '${r.data!['model'] ?? ''}', provider: '${r.data!['provider'] ?? ''}', route: '${r.data!['route'] ?? ''}');
   }
 
   Future<Uint8List> visual(String concept) async {
     final body = {'concept': concept};
     await _ledger('/v1/visual', 'picture', body);
     final r = await _send<List<int>>('POST', '/v1/visual', body: body, rt: ResponseType.bytes);
-    return Uint8List.fromList(r.data!);
+    return checkedImageBytes(r.data!);
   }
 
   /// AI-drawn picture (Muse Image via the gateway): explicit tap only, never
@@ -260,7 +293,7 @@ class MiloApi {
     final body = {'prompt': prompt};
     await _ledger('/v1/image', 'picture', body);
     final r = await _send<List<int>>('POST', '/v1/image', body: body, rt: ResponseType.bytes);
-    return Uint8List.fromList(r.data!);
+    return checkedImageBytes(r.data!);
   }
 
   Future<bool> healthy() async { try { final r = await _dio.get('/v1/health'); return r.data['status'] == 'ok' && r.data['budget_ok'] == true; } catch (_) { return false; } }
@@ -352,9 +385,13 @@ class MiloApi {
     try {
       final h = await healthDetails();
       final reasoning = h['reasoning_provider'] is String && (h['reasoning_provider'] as String).isNotEmpty ? h['reasoning_provider'] as String : null;
+      final caps = h['capabilities'];
+      final demo = h['demo'];
       return ConnStatus(apiBase: Env.apiBase, ok: h['status'] == 'ok' && h['budget_ok'] == true,
           provider: reasoning ?? (h['provider'] is String ? h['provider'] as String : null),
           brainMode: h['brain_mode'] is String ? h['brain_mode'] as String : null, budgetOk: h['budget_ok'] == true,
+          capabilities: caps is Map ? {for (final e in caps.entries) '${e.key}': e.value is Map ? {for (final f in (e.value as Map).entries) '${f.key}': '${f.value}'} : const {}} : const {},
+          demoEnabled: demo is Map ? demo['enabled'] == true : null,
           words: connectionWords(health: h, error: null));
     } on ApiError catch (e) { return ConnStatus(apiBase: Env.apiBase, ok: false, words: connectionWords(health: null, error: e.code)); } catch (_) {
       return ConnStatus(apiBase: Env.apiBase, ok: false, words: connectionWords(health: null, error: 'error'));
@@ -368,7 +405,24 @@ class ConnStatus {
   final bool ok;
   final String? provider, brainMode;
   final bool? budgetOk;
-  const ConnStatus({required this.apiBase, required this.words, required this.ok, this.provider, this.brainMode, this.budgetOk});
+  final Map<String, Map<String, String>> capabilities; // cap -> {provider, model, route, status}
+  final bool? demoEnabled;
+  const ConnStatus({required this.apiBase, required this.words, required this.ok, this.provider, this.brainMode, this.budgetOk, this.capabilities = const {}, this.demoEnabled});
+}
+
+/// One-line status for a capability row: status + route, no secrets, no
+/// model-id lecture. Pure: unit-tested.
+String capabilityLine(String cap, Map<String, String>? info) {
+  if (info == null) return '$cap: not reported by this server yet';
+  final status = info['status'] ?? 'unavailable';
+  final route = info['route'] ?? '';
+  final via = switch (route) { 'byok' => 'your key', 'open-weight' => 'Milo hosted (open model)', 'demo' => 'hosted demo', _ => route };
+  return switch (status) {
+    'available' => '$cap: ready${via.isEmpty ? '' : ' via $via'}',
+    'unverified' => '$cap: connected, not yet proven with a real try${via.isEmpty ? '' : ' via $via'}',
+    'disabled' => '$cap: turned off by a grown-up right now',
+    _ => '$cap: unavailable right now',
+  };
 }
 
 /// Maps a health payload or an ApiError code to one honest sentence. Pure: unit-tested.
@@ -384,6 +438,9 @@ String connectionWords({required Map<String, dynamic>? health, required String? 
     'offline' => 'Can’t reach the server. Check the gateway is running and this phone can open the address above.',
     'timeout' => 'The server took too long to answer. Try again.',
     'rate_limited' => 'Too many checks at once. Wait a minute and try again.',
+    'demo_quota_exceeded' => 'Demo limit reached for today. Milo still works offline.',
+    'demo_busy' => 'Milo is busy with other visitors. Wait a moment and try again.',
+    'demo_disabled' => 'Hosted AI is turned off right now. Milo still works offline.',
     'budget_exhausted' => 'The thinking cloud is resting (daily budget used). Everything on this phone still works.',
     final c? when c.startsWith('http_') => 'The server answered with an error (${c.substring(5)}). Try again later.',
     _ => 'Something went wrong checking the connection.',
