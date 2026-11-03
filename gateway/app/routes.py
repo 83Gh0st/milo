@@ -94,14 +94,19 @@ async def health(request: Request):
         if s.provider == "mock":
             status = "available"  # offline practice provider, no credential involved
         else:
-            status = "available" if (demo_on and hosted_key and verified) else \
-                "unverified" if (demo_on and hosted_key) else \
+            # Open-weight text needs the Modal endpoint, not the Meta key.
+            credentialed = hosted_key or (provider == "modal" and bool(s.modal_models_url.strip() and s.modal_models_key.strip()))
+            status = "available" if (demo_on and credentialed and verified) else \
+                "unverified" if (demo_on and credentialed) else \
                 "disabled" if not demo_on else "unavailable"
         return {"provider": provider, "model": model, "route": route, "status": status}
 
     text_route = "open-weight" if modal_text else "demo"
     text_provider = "modal" if modal_text else ("meta" if s.provider == "meta" else "mock")
     text_model = s.modal_model if modal_text else (s.spark_model if s.provider == "meta" else "mock")
+    # Text is served by the open-weight endpoint when configured, even with
+    # no Meta key: report that honestly instead of "unavailable".
+    text_ready = modal_text or hosted_key
     return {"status": "ok", "provider": s.provider, "models": {"reasoning": s.spark_model, "voice": s.voice_model, "image": s.image_model},
             "budget_ok": await st.budget.ok(), "budget_month_ok": await st.budget.month_ok(), "brain_mode": s.brain_mode,
             "reasoning_provider": text_provider,
@@ -112,8 +117,13 @@ async def health(request: Request):
                      "limits": {"requests_per_day": s.demo_requests_per_day, "image_per_day": s.demo_image_per_day,
                                 "segment_per_day": s.demo_segment_per_day, "voice_minutes_per_day": s.demo_voice_minutes_per_day}},
             "capabilities": {
-                "chat": cap(text_provider, text_model, text_route, True),
-                "understand": cap(text_provider, text_model, text_route, True),
+                "chat": cap(text_provider, text_model, text_route, text_ready),
+                # Understand carries photos (vision): multimodal, so it is
+                # served by Meta Spark - hosted demo key or BYOK - never by
+                # the text-only open-weight model sharing this gateway.
+                "understand": cap("meta" if s.provider == "meta" else text_provider,
+                                  s.spark_model if s.provider == "meta" else text_model,
+                                  "demo" if s.provider == "meta" else text_route, hosted_key),
                 "image": cap("meta" if s.provider == "meta" else s.provider, s.image_model, "demo", False),
                 "voice": cap("meta" if s.provider == "meta" else s.provider, s.voice_model, "demo", False),
                 "segment": cap("meta" if s.provider == "meta" else s.provider, s.sam_model, "demo", bool(s.sam_verified)),

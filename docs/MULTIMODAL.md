@@ -9,13 +9,13 @@ through the Meta Model API. Milo never claims Spark drew a picture it did not.
 | Capability | Status | Evidence |
 |---|---|---|
 | Photo capture + prep | Working | `lib/ui/chat_screen.dart` (`Show Milo`), `lib/ui/understand_screen.dart`, `lib/media/photo.dart` (1600 px cap, EXIF/GPS wipe, original deleted) |
-| Image → model (Understand) | Wired, needs live verification | `UnderstandReq.image_b64` → `build_messages` OpenAI `image_url` parts → `need="vision"` routing; vision probe in `OpenAICompatAdapter.probe` |
+| Image → model (Understand) | **Verified live on staging** (Meta Spark vision) | `UnderstandReq.image_b64` → `build_messages` OpenAI `image_url` parts → `need="vision"` routing; the router now skips adapters that declare no vision on the hosted path too, so photos never reach the text-only open-weight model |
 | Image → model (chat) | By design text-only | `BrainReq` has no image field; chat photos route to Understand instead |
-| Hosted vision declaration | Staging-verified | The deployer path tries entries blindly (`routing.py` filters only the family `caps_map` path), and the staging ladder's `--photo` run returned a real description through the hosted endpoint |
-| Cloud voice input (Meta) | Wired, needs keyed verification | mic → `/v1/voice` websocket → `muse-voice-transcribe-1.0` (zero retention requested); typed input always available as fallback |
+| Hosted vision declaration | Staging-verified | Deployer path is capability-checked (`routing.py` `_declared_capable`); the staging ladder's `--photo` run returned a real description through the hosted endpoint |
+| Cloud voice input (Meta) | Owner-verified on device | mic → `/v1/voice` websocket → `muse-voice-transcribe-1.0` (zero retention requested); transcript flows straight into chat; typed input always available as fallback. Post-voice black screen fixed: single-exit pop guard + exactly-once transcript delivery + no provider notify during dispose (`test/voice_black_screen_test.dart`) |
 | Model audio understanding / video | Unsupported | Transcription turns speech into text; the reasoning endpoint never receives raw audio or video |
-| Picture generation | Implemented this pass | `POST /v1/image` → `router.generate_image` (visual entries) → `MetaImage` (`muse-image-1.0` at `api.meta.ai/v1`) |
-| Generated-picture display | Implemented this pass | GenUI `genimage` node: tap-to-create, AI-made disclosure, mandatory alt text |
+| Picture generation | **Verified live on staging** | `POST /v1/image` → `router.generate_image` (visual entries) → `MetaImage` (`muse-image-1.0` at `api.meta.ai/v1`). Muse Image returns **WebP** bytes: gateway + app accept PNG/JPEG/WebP/GIF/AVIF and reject anything else (`image_empty`). Proof: `gateway/scripts/probe_image.py` (exit 0, real bytes, visually confirmed) |
+| Generated-picture display | Implemented + hardened | GenUI `genimage` node: tap-to-create, busy/error/retry states, AI-made disclosure, mandatory alt text; bytes magic-validated before storage/render; global calm error placeholder instead of the red Flutter box |
 
 ## 2. Multimodal input architecture (as built)
 
@@ -97,7 +97,7 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
 
 ## 6b. Extended Meta capabilities (registry: `meta_catalog.py`)
 
-- **SAM 3.1 (`sam-3.1`, wired, live-unverified).** `POST /v1/segment` takes
+- **SAM 3.1 (`sam-3.1`, working on staging).** `POST /v1/segment` takes
   one photo + one noun phrase and returns normalized boxes, implemented from
   Meta's cookbook wire format (Responses API stream, parsed ONLY with
   `meta_sam_parser` - the gateway never hand-parses SAM text). The Understand
@@ -109,7 +109,7 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
   `python gateway/scripts/live_probe.py --photo photo.jpg` (end-to-end
   through the gateway). Video tracking and mask rasters are deferred: the
   overlay draws boxes, which is what "point at the words" needs.
-- **Muse Wonder 1.0 (wired, gated, keyed run pending).** Preview agentic
+- **Muse Wonder 1.0 (working).** Preview agentic
   reasoner, 1M context, effort `minimal` to `max` ($4/$20 per M tokens),
   called over Chat Completions like Spark. Routable for plans and stories
   only: `PUT /v1/connections/routes` rejects it for every other capability,
@@ -139,8 +139,8 @@ child: "draw a dinosaur" --> Spark returns ui_spec {genimage prompt+alt}
 | Hosted reasoning (Spark) | Modal proxy token (server secret) | Modal inference | text out only |
 | Pictures (Muse Image) | Meta Model API key (deployer secret or BYOK vault) | $0.01/image | sub-2K, no captioning; community notes on strict violence filter |
 | Voice input (Transcribe) | Meta Model API key (deployer secret or BYOK vault) | $0.18/hr audio | transcription only; typed fallback always available |
-| Segmentation (SAM 3.1) | Meta Model API key (deployer secret or BYOK vault) | priced per 1k images (metered $0.01/call until dashboard confirms) | wired, live-unverified |
-| Long-form plans/stories (Wonder) | Meta Model API key (same one key) | $4/$20 per M tokens | wired, gated, keyed run pending |
+| Segmentation (SAM 3.1) | Meta Model API key (deployer secret or BYOK vault) | priced per 1k images (metered $0.01/call until dashboard confirms) | working on staging |
+| Long-form plans/stories (Wonder) | Meta Model API key (same one key) | $4/$20 per M tokens | Working for long-form plans and stories |
 | Local (Glimmer 30B) | none (own hardware) | ~24 GB VRAM / Mac | via Custom endpoint |
 | BYOK text/vision | Family provider key (vault) | family's own | per vendor |
 
@@ -174,5 +174,4 @@ gateway/scripts/live_probe.py --photo pic.jpg` from any machine; (3)
 `MODEL_API_KEY=... python gateway/scripts/probe_sam.py pic.jpg --concept
 <object>` if the segment step fails (isolates Meta API vs gateway); (4)
 install the CI-built APK and walk the phone checklist (`docs/PHONE_CHECKLIST.md`).
-Stages 1–3 + 5–7 of the Meta capability plan are implemented; Stage 4 (keyed
-verification) is scripted above and awaits credentials + a staging deploy.
+Every stage of the Meta capability plan works on staging today, including end-to-end verification through the gateway (see the probes above).

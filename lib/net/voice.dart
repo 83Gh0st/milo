@@ -39,6 +39,7 @@ class VoiceClient {
   bool active = false;
   int _sentBytes = 0;
   bool _gotSpeech = false;
+  bool _finalDelivered = false; // a transcript is delivered exactly once per session
   Completer<void>? _finalWait;
   Future<bool> requestPermission() => _rec.hasPermission(); // shows the system prompt the first time
 
@@ -46,6 +47,7 @@ class VoiceClient {
     if (active) return;
     _sentBytes = 0;
     _gotSpeech = false;
+    _finalDelivered = false;
     _finalWait = Completer<void>();
     try {
       if (!await _rec.hasPermission()) { onError('mic_denied'); return; }
@@ -63,6 +65,8 @@ class VoiceClient {
             onPartial('${d['text']}');
           case 'final':
             {
+              if (_finalDelivered) return; // duplicate finals must not re-exit the screen or re-ask
+              _finalDelivered = true;
               final t = '${d['text']}'.trim();
               if (t.isNotEmpty) _gotSpeech = true;
               if (!(_finalWait?.isCompleted ?? true)) _finalWait?.complete();
@@ -71,6 +75,8 @@ class VoiceClient {
             }
           case 'error':
             {
+              if (_finalDelivered) return;
+              _finalDelivered = true;
               if (!(_finalWait?.isCompleted ?? true)) _finalWait?.complete();
               onError('${d['code']}');
               stop();
@@ -79,7 +85,20 @@ class VoiceClient {
       }, onError: (_) { onError('offline'); stop(); }, onDone: () {
         if (!(_finalWait?.isCompleted ?? true)) _finalWait?.complete();
       });
-      final s = await _rec.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 24000, numChannels: 1));
+      Stream<Uint8List> s;
+      try {
+        s = await _rec.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 24000, numChannels: 1));
+      } catch (_) {
+        // Some Android recorders refuse raw PCM streaming: fall back to WAV
+        // chunks (the gateway strips the header) before giving up.
+        try {
+          s = await _rec.startStream(const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 24000, numChannels: 1));
+        } catch (_) {
+          onError('recorder_failed');
+          await stop();
+          return;
+        }
+      }
       _a = s.listen((b) {
         _sentBytes += b.length;
         _ch?.sink.add(b);

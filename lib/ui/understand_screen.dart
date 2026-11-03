@@ -293,6 +293,7 @@ class _PhotoSegmentsState extends ConsumerState<PhotoSegments> {
               _ when e is ApiError && e.code == 'unsupported_capability' => 'Object outlines are not turned on for this Milo yet. A grown-up can check AI connections.',
               _ when e is ApiError && e.code == 'demo_quota_exceeded' => 'Demo outline limit reached for today. Your photo is still here.',
               _ when e is ApiError && e.code == 'demo_disabled' => 'Hosted outlines are turned off right now. Your photo is still here.',
+              _ when e is ApiError && e.code == 'not_configured' => 'Outlines are not set up on Milo\'s server yet (server Meta key missing). Your photo is still here.',
               _ => 'Milo could not outline that. Please try another word.',
             });
       }

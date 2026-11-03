@@ -56,7 +56,7 @@ rate limit, unreachable) do not, so a flaky test never bricks routing.
 Pictures, voice, and outlines resolve to their suite models automatically
 when the family saved no explicit routes; Muse Wonder can only be routed
 to plans and stories (`PUT /routes` rejects it everywhere else), and it is
-never a default. Replacing the Meta key updates every Meta capability at
+available for plan and story jobs on request. Replacing the Meta key updates every Meta capability at
 once; removing the Meta connection disables all of them.
 
 ## Explicit-failure rules (tested in `test_gateway.py`)

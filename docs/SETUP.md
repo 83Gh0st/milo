@@ -101,6 +101,67 @@ runbook, secrets, health checks, rollback, teardown). The Flutter side needs
 no code change - build the APK with
 `--dart-define=API_BASE=https://<your-modal-url>` per `MODAL.md` §5.
 
+## 1d. Competition demo on Modal staging (hosted key, judges' build)
+
+The competition APK points at the staging gateway
+(`https://arjun3314508--milo-gateway-staging-web.us-east.modal.run`). The
+hosted Meta credential lives **only** in the Modal secret - never in the
+APK, Dart code, or this repo. Checklist (owner only):
+
+```powershell
+cd <repo root>
+# 1. Prove SAM live with the existing hosted key (exit 0, outcome: completed)
+$env:MODEL_API_KEY="<existing hosted Meta key>"
+python gateway/scripts/probe_sam.py .\photo.jpg --concept "toy"
+Remove-Item Env:\MODEL_API_KEY
+# 2. Modal dashboard -> secret "milo-gateway-staging", set:
+#    PROVIDER=meta  MODEL_API_KEY=<existing hosted key>  DEMO_ENABLED=true
+#    SAM_VERIFIED=true        (only after step 1 passed)
+#    DEMO_REQUESTS_PER_DAY=300 DEMO_IMAGE_PER_DAY=20 DEMO_SEGMENT_PER_DAY=30 DEMO_VOICE_MINUTES_PER_DAY=30
+#    Keep JWT_SECRET / KEY_ENC_SECRET / REASONING_PROVIDER=modal / MODAL_FALLBACK=false
+#    unchanged. Never rotate KEY_ENC_SECRET (stored family BYOK keys depend on it).
+#    Leave secret "milo-models-client" unchanged (open-weight Spark route).
+modal deploy gateway/modal_staging.py
+curl.exe -s https://arjun3314508--milo-gateway-staging-web.us-east.modal.run/v1/health
+# Capabilities read available; pictures, voice and outlines work through
+# the hosted demo key. (If a capability ever reads unavailable, the server
+# secret is missing MODEL_API_KEY.) Prove end to end:
+python gateway/scripts/probe_image.py   # exit 0 only with real image bytes (WebP from Muse Image)
+flutter build apk --release --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+> **Status (verified):** staging runs this configuration. Live evidence:
+> chat streamed via the open-weight route; `/v1/image` returned a real
+> 312 KB WebP picture from `muse-image-1.0` (demo route, visually
+> confirmed); `/v1/segment` returned real boxes on a real photo; voice
+> transcription + chat + spoken reply owner-verified on device; the
+> post-voice black screen (double-pop on the voice screen exit) is fixed
+> with a regression test. Gateway suite: 147 passed. Flutter: analyze
+> clean, 176 tests passed. Release builds need the committed
+> `android/app/proguard-rules.pro` (R8/ML Kit) - see §5.
+
+**Routing through the one gateway (no cross-wiring):** text chat goes to
+the open-weight Muse Spark (Modal Shared Endpoint) first; **multimodal
+never does** - photos (vision), image generation, voice transcription and
+SAM segmentation route to the Meta suite (`muse-spark-1.3`, `muse-image-1.0`,
+`muse-voice-transcribe-1.0`, `sam-3.1`), paid by the hosted demo key above
+or by a family's BYOK Meta key stored in the encrypted vault. The router
+enforces this by capability: an adapter that declares no vision is skipped
+for photo turns even when it leads the text route list, and the open-weight
+adapter (deployer-only, never a family route) has no image/voice/segment
+methods at all. `/v1/health` reports the two families separately
+(`reasoning_provider`/`chat` vs `understand`/`image`/`voice`/`segment` with
+provider + route `open-weight|demo|byok`).
+
+Demo protections are server-side and configurable in the same secret:
+per-installation daily quotas (`DEMO_*` above), per-device rate limits
+(`RATE_PER_MIN`/`RATE_PER_DAY`), daily/monthly spend budgets, request and
+audio caps, and the `DEMO_ENABLED=false` kill switch (BYOK keeps working).
+Judges need no key; families may still add their own (Trusted adult → AI
+connections) - one Meta key there routes chat/pictures/voice/outlines
+automatically, no model picking.
+
 ## 2. Gateway, real Meta models (26 Oct onward)
 ```bash
 cd gateway && cp .env.example .env
@@ -203,9 +264,16 @@ First launch shows onboarding (about 90 seconds, every step skippable). The `HEL
 | `muse-voice-transcribe-1.0` (`VOICE_MODEL`) | push-to-talk voice (realtime socket, zero-data-retention flag on) | `providers/meta.py` `MetaVoice`, `routes.py` `/v1/voice` |
 | `muse-image-1.0` (`IMAGE_MODEL`) | on-demand explainer pictures from a concept allow-list, cached by concept | `providers/meta.py` `MetaImage`, `routes.py` `/v1/visual` |
 | Muse Glimmer (self-hosted) | evaluation judge only, never user-facing | `eval/run_eval.py` |
-| SAM 3.1 | **not built** (plan marks it stretch) | |
+| `muse-wonder-1.0` (`WONDER_MODEL`) | long-form plans/stories only, explicit route, never default chat | `providers/meta.py` `MetaReasoning(model=wonder)` |
+| `sam-3.1` (`SAM_MODEL`) | photo object outlines (boxes + mask metadata); app path gated on `SAM_VERIFIED=true` after a real `probe_sam.py` run | `providers/meta.py` `MetaGround`, `routes.py` `/v1/segment` |
+| `meta-models/Muse-Spark-Open-816B-A42B` (`MODAL_MODEL`) | open-weight text route on Modal (first choice for chat when `REASONING_PROVIDER=modal`) | `providers/modal_hosted.py` |
 
 ## 5. Troubleshooting
+* *"Drawing/Outlines/Voice is not set up on Milo's server yet"*: the gateway has no Meta credential (`not_configured`). Set `MODEL_API_KEY` in the server secret (Modal staging: §1d; local: `gateway/.env`) and redeploy/restart. Chat may still work via the open-weight route - pictures, SAM and voice specifically need the Meta key. The app never substitutes a fake result.
+* *"Demo limit reached for today"*: per-installation demo quota (`DEMO_IMAGE_PER_DAY` etc. in the server secret). Raise it server-side; offline features keep working meanwhile.
+* *"Hosted AI is turned off"*: `DEMO_ENABLED=false` on the server. BYOK (your own key) is unaffected.
+* *Voice: "The recorder could not start"*: the phone refused both PCM and WAV streaming; check microphone permission (Settings → Apps → Milo → Microphone), then retry. Very short taps say "I did not hear anything" by design.
+* *Release build fails in R8 about `com.google.mlkit.vision.text…`*: `android/app/proguard-rules.pro` must exist and be wired via `proguardFiles(...)` in `android/app/build.gradle.kts` (both are committed; CI also appends the rule).
 * *App says "Offline" on an emulator*: use `10.0.2.2`, not `localhost`.
 * *SSE feels delayed*: a proxy is buffering. Caddy config here disables it (`flush_interval -1`); test every host.
 * *503 budget_exhausted*: the daily spend guard tripped (`DAILY_BUDGET_USD`). The app drops to the pocket brain and says so.

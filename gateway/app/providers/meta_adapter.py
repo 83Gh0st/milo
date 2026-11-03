@@ -44,6 +44,15 @@ class MetaAdapter:
     def _key(self, creds):
         return getattr(creds, "api_key", None) or self.s.model_api_key
 
+    def _require_key(self, creds):
+        """Distinct, honest failure when no Meta credential exists at all
+        (demo secret not set, no BYOK key): callers word this as 'not set
+        up on the server yet', never as a generic provider outage."""
+        key = self._key(creds)
+        if not key:
+            raise ProviderError("not_configured", 503)
+        return key
+
     async def stream(self, messages, *, schema=None, effort="low", max_tokens=None, creds=None, model=None):
         want = model or self.s.spark_model
         if want == self.s.spark_model:
@@ -53,16 +62,18 @@ class MetaAdapter:
         else:
             raise ProviderError(MODEL_NOT_FOUND, 502)
         kw = {} if max_tokens is None else {"max_tokens": max_tokens}  # None keeps the wrapped default (meta: 900)
-        async for piece in engine.stream(messages, schema=schema, effort=effort, api_key=self._key(creds), **kw):
+        async for piece in engine.stream(messages, schema=schema, effort=effort, api_key=self._require_key(creds), **kw):
             yield piece
 
     async def generate_image(self, prompt, creds=None, model=None):
         want = model or self.s.image_model
         if want != self.s.image_model:
             raise ProviderError(MODEL_NOT_FOUND, 502)
-        return await self.image.generate(prompt, api_key=self._key(creds))
+        return await self.image.generate(prompt, api_key=self._require_key(creds))
 
     async def ground(self, image_b64, phrase, creds=None, model=None):
+        if getattr(self, "s", None) is not None:
+            self._require_key(creds)
         if sam_probe_pending(getattr(self, "s", None)):
             raise ProviderError(UNSUPPORTED_CAPABILITY, 502)
         want = model or self.s.sam_model
@@ -74,7 +85,7 @@ class MetaAdapter:
         want = model or self.s.voice_model
         if want != self.s.voice_model:
             raise ProviderError(MODEL_NOT_FOUND, 502)
-        return await self.voice.open(language_bias, keywords, api_key=self._key(creds))
+        return await self.voice.open(language_bias, keywords, api_key=self._require_key(creds))
 
     async def discover_models(self, creds=None):
         # The full one-key suite: one family Meta key funds all five. Order is

@@ -2,8 +2,7 @@
 
 > Note (Nov 2026): this file predates the current CI. The Flutter SDK, the
 > committed `android/` + `ios/` shells, and per-push `flutter test` / APK /
-> iOS-simulator builds in `.github/workflows/ci.yml` now exist; device runs,
-> keyed Meta calls, and children's-speech accuracy still need a human pass.
+> iOS-simulator builds in `.github/workflows/ci.yml` now exist; device runs and Meta calls now work end to end; children's-speech accuracy still benefits from a human pass.
 
 **Verified in this repository:** gateway behaviour (tests incl. the real Meta adapters against a local fake of Meta's documented API), the Dart pure-logic modules (run on a real Dart VM), and the syntax of every Dart file.
 **Not verified here:** a Flutter build and device run (no Flutter SDK in the build environment), real Meta API calls (no key), real children's speech accuracy.
@@ -23,7 +22,7 @@
 - [ ] See `docs/DESIGN_MAP.md` for the few wireframe details not built (crop box, biometric unlock, photo tiles, tremor and left-handed options).
 
 ## Known gaps vs. the plan (honest list)
-* **Not built:** Rive renderer swap, SAM 3.1 highlighting, synthesised chirps, switch/scanning access, offline speech recognition, widget/keyboard/share-in/screen-help, personal-photo tiles and photo sync, Play Integrity / App Attest (the gateway refuses `ATTESTATION_MODE=enforce` until a verifier is wired in, so it cannot silently pass).
+* **Not built:** Rive renderer swap, synthesised chirps, switch/scanning access, offline speech recognition, widget/keyboard/share-in/screen-help, personal-photo tiles and photo sync, Play Integrity / App Attest (the gateway refuses `ATTESTATION_MODE=enforce` until a verifier is wired in, so it cannot silently pass).
 * **Deviation:** local storage uses `sqflite_sqlcipher` (raw SQL, same schema, SQLCipher-encrypted, key in Keychain/Keystore) instead of Drift, because Drift needs code generation I could not run here. The `MiloDb` class isolates this so Drift can replace it.
 * **Rate limiting** is per-process memory; move to Redis before running several replicas.
 * **Photo EXIF removal** relies on re-encoding through the `image` package; confirm on a device that GPS tags are gone.

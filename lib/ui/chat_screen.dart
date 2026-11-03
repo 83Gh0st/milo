@@ -96,6 +96,7 @@ String genImageErrorWords(ApiError e) {
   if (e.code == 'demo_quota_exceeded') return 'Demo picture limit reached for today. Your board still works offline.';
   if (e.code == 'demo_busy') return 'Milo is busy drawing for other visitors. Try again in a moment.';
   if (e.code == 'demo_disabled') return 'Hosted drawing is turned off right now. Your board still works offline.';
+  if (e.code == 'not_configured') return 'Drawing is not set up on Milo\'s server yet. A grown-up needs to finish setup (server Meta key missing).';
   if (e.code == 'bad_image_response' || e.code == 'image_empty') return 'The picture did not come back properly. We can try again.';
   if (e.code == 'http_422') return 'That request did not work. Try different words?';
   if (e.code == 'auth_failed' || e.code == 'http_401' || e.code == 'http_403') return 'Drawing needs a grown-up to set up picture access first.';
@@ -111,6 +112,8 @@ String voiceErrorWords(String code) => switch (code) {
       'no_speech' => 'I could not hear words in that. Try again closer to the phone, or type instead.',
       'demo_quota_exceeded' => 'Demo voice limit reached for today. You can still type.',
       'demo_disabled' => 'Hosted voice is turned off right now. You can still type.',
+      'not_configured' => 'Voice is not set up on Milo\'s server yet. You can still type.',
+      'recorder_failed' => 'The recorder could not start on this phone. You can still type.',
       'budget_exhausted' => 'The thinking cloud is resting. You can still type.',
       'offline' => 'Voice needs the internet. You can still type.',
       _ => 'Voice is not available right now. You can type instead.',
@@ -216,19 +219,40 @@ class VoiceListenScreen extends ConsumerStatefulWidget { const VoiceListenScreen
 class _VoiceState extends ConsumerState<VoiceListenScreen> {
   String text = '';
   String? error;
+  bool _left = false; // single-exit guard: gateway final, deliberate stop and typed fallback race; only the first may pop
   final c = TextEditingController();
   VoidCallback? _onExit; // captured where ref is legal: ref.read in dispose() throws (widget defunct)
+
+  /// The ONLY way off this screen with words to send. Popping twice (final
+  /// transcript plus the stop-tap continuation) removes the route underneath
+  /// as well - on Android that leaves a black screen. Guarded synchronously.
+  void _leave(String heard) {
+    if (_left || !mounted) return;
+    _left = true;
+    final d = ref.read(directorProvider);
+    d.setListening(false);
+    Navigator.pop(context);
+    final h = heard.trim();
+    if (h.isNotEmpty) {
+      ref.read(chatProvider.notifier).user(h);
+      d.ask(h);
+    }
+  }
+
   @override
   void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => _start()); }
   Future<void> _start() async {
-    final v = ref.read(voiceProvider), d = ref.read(directorProvider), chat = ref.read(chatProvider.notifier);
-    _onExit = () { try { v.stop(); d.setListening(false); } catch (_) {} }; // best-effort: the providers may already be gone on a fast pop
+    final v = ref.read(voiceProvider), d = ref.read(directorProvider);
+    _onExit = () { // runs from dispose(): never notify providers synchronously there (Riverpod forbids provider changes during dispose; on device it can break the pop transition)
+      try { v.stop(); } catch (_) {}
+      Future(() { try { d.setListening(false); } catch (_) {} });
+    };
     d.setListening(true);
     await v.start(lang: kLangNames[d.lang] ?? 'English',
       onLevel: (l) => d.micLevel = l, // field only: the frame clock repaints, no rebuilds
-      onPartial: (t) { d.notePartial(); if (mounted) setState(() { text = t; c.text = t; }); },
-      onFinal: (t) { d.setListening(false); if (!mounted) return; Navigator.pop(context); final heard = t.trim(); if (heard.isNotEmpty) { chat.user(heard); d.ask(heard); } },
-      onError: (e) { d.setListening(false); if (mounted) setState(() => error = voiceErrorWords(e)); });
+      onPartial: (t) { if (_left) return; d.notePartial(); if (mounted) setState(() { text = t; c.text = t; }); },
+      onFinal: (t) => _leave(t),
+      onError: (e) { if (_left) return; d.setListening(false); if (mounted) setState(() => error = voiceErrorWords(e)); });
   }
   @override
   void dispose() { _onExit?.call(); c.dispose(); super.dispose(); }
@@ -241,7 +265,7 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
       const MiloStage(),
       Wrap(spacing: 8, runSpacing: 8, children: [for (final w in words.length > 6 ? words.sublist(words.length - 6) : words) Chip(label: Text(w, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)), backgroundColor: Colors.white, side: const BorderSide(color: T.pri))]),
       Text(error ?? 'You can edit what I heard.', style: const TextStyle(color: T.mute)),
-      if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: c, autofocus: true, onSubmitted: (t) { Navigator.pop(context); ref.read(chatProvider.notifier).user(t); d.ask(t); }, decoration: const InputDecoration(hintText: 'Type here'))),
+      if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: TextField(controller: c, autofocus: true, onSubmitted: _leave, decoration: const InputDecoration(hintText: 'Type here'))),
       const Spacer(),
       SizedBox(height: 60, child: AnimatedBuilder(animation: d.frame, builder: (_, __) {
         final live = d.attenLive, lvl = live ? (.2 + .8 * d.micLevel.clamp(0.0, 1.0)) : .2;
@@ -250,18 +274,12 @@ class _VoiceState extends ConsumerState<VoiceListenScreen> {
       const SizedBox(height: 16),
       GestureDetector(onTap: () async {
             final heard = text.trim();
-            await ref.read(voiceProvider).stop(); // waits briefly for the final transcript; onFinal pops + asks on success
-            if (!mounted) return;
+            await ref.read(voiceProvider).stop(); // waits briefly for the final transcript; _leave pops + asks on success
+            if (_left || !mounted) return; // the final already took us off this screen during the wait
             if (error != null) return; // failure words + type fallback stay on screen
-            if (heard.isNotEmpty) {
-              // Deliberate stop with only a partial: the words on screen are
-              // what Milo heard - send them, never lose them.
-              Navigator.pop(context);
-              ref.read(chatProvider.notifier).user(heard);
-              d.ask(heard);
-            } else {
-              Navigator.pop(context);
-            }
+            // Deliberate stop with only a partial: the words on screen are
+            // what Milo heard - send them, never lose them.
+            _leave(heard);
           },
           child: Container(width: 84, height: 84, decoration: const BoxDecoration(color: T.coral, shape: BoxShape.circle), child: const Icon(Icons.stop, color: Colors.white, size: 40))),
       const SizedBox(height: 8), const Text('Tap to stop', style: TextStyle(color: T.mute)),

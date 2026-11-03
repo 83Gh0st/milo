@@ -54,6 +54,23 @@ def test_image_bytes_magic():
     assert not meta.is_image_bytes(b"") and not meta.is_image_bytes(b"\x89PNG")
 
 
+def test_image_field_decoding_data_url_and_formats():
+    meta = pytest.importorskip("app.providers.meta")
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
+    import base64 as b64
+    raw = b64.b64encode(png).decode()
+    assert meta.decode_image_field(raw) == png
+    assert meta.decode_image_field("data:image/png;base64," + raw) == png  # data-URL form
+    assert meta.decode_image_field("data:image/png;base64, " + raw + "\n") == png
+    assert meta.decode_image_field("https://signed.example/x.png") == b""  # URLs fetch separately, never decode as b64
+    assert meta.decode_image_field("") == b"" and meta.decode_image_field(None) == b""
+    webp = b"RIFF" + b"\x24\x00\x00\x00" + b"WEBPVP8 " + b"\x00" * 8
+    gif = b"GIF89a" + b"\x00" * 10
+    avif = b"\x00\x00\x00\x18" + b"ftyp" + b"avif" + b"\x00" * 8
+    assert meta.is_image_bytes(webp) and meta.is_image_bytes(gif) and meta.is_image_bytes(avif)
+    assert not meta.is_image_bytes(b"RIFF" + b"\x00" * 20)  # RIFF alone (e.g. WAV) is not a picture
+
+
 def test_summarize_masks_metadata_only():
     meta = pytest.importorskip("app.providers.meta")
     mask = SimpleNamespace(width=640, height=480, encoding="rle")
@@ -61,6 +78,57 @@ def test_summarize_masks_metadata_only():
             SimpleNamespace(kind="box", object_id="7", left=0, top=0, right=10, bottom=10),
             SimpleNamespace(kind="text", text="hi")]
     assert meta.summarize_masks(recs) == [{"object_id": "7", "width": 640, "height": 480, "encoding": "rle"}]
+
+
+def test_meta_without_key_is_not_configured_not_generic_failure():
+    import asyncio
+    from types import SimpleNamespace as NS
+    from app.providers.base import ProviderError
+    from app.providers.meta_adapter import MetaAdapter
+
+    async def _img(prompt, api_key=None):
+        raise AssertionError("must refuse before any vendor call")
+
+    s = NS(spark_model="muse-spark-1.3", wonder_model="muse-wonder-1.0", image_model="muse-image-1.0",
+           voice_model="muse-voice-transcribe-1.0", sam_model="sam-3.1", model_api_key="", sam_verified=True)
+    a = MetaAdapter.__new__(MetaAdapter)
+    a.s, a.image = s, NS(generate=_img)
+    with pytest.raises(ProviderError) as e:
+        asyncio.run(a.generate_image("a kite"))
+    assert e.value.code == "not_configured" and e.value.status == 503
+
+
+def test_vision_turns_skip_openweight_to_meta_suite():
+    """Same gateway, separate routes: a photo (vision) turn must fail over
+    past the text-only open-weight model to the Meta suite, while plain
+    text still uses the open-weight model first."""
+    import asyncio
+    from app.providers.capabilities import Capabilities
+    from app.providers.registry import RouteEntry
+    from app.routing import Router
+
+    class Fake:
+        def __init__(self, name, caps):
+            self.name, self._caps = name, caps
+
+        def capabilities(self):
+            return self._caps
+
+        async def stream(self, messages, **kw):
+            yield self.name
+
+    async def pick(need):
+        r = Router({"modal": Fake("modal", Capabilities(text_stream=True, json_schema=True)),
+                    "meta": Fake("meta", Capabilities(text_stream=True, json_schema=True, vision=True))},
+                   {"understand": [RouteEntry("modal", "open"), RouteEntry("meta", "muse-spark-1.3")]})
+        prov, model, _, pieces = await r.select_and_stream(
+            "understand", None, {"modal": object(), "meta": object()},
+            [{"role": "user", "content": "hi"}], need=need, timeout=5)
+        first = await pieces.__anext__()
+        return prov, first
+
+    assert asyncio.run(pick("vision")) == ("meta", "meta")  # photo -> Meta
+    assert asyncio.run(pick("text_stream")) == ("modal", "modal")  # text -> open-weight
 
 
 def test_sam_gate_follows_settings_not_import_env():

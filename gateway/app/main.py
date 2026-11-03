@@ -87,8 +87,13 @@ def create_app(settings: Settings | None = None, *, reasoning=None, image=None, 
                                     "visual": [RouteEntry("meta", s.image_model)], "segment": [RouteEntry("meta", s.sam_model)],
                                     "stt": [RouteEntry("meta", s.voice_model)], "tts": []}
     if s.reasoning_provider == "modal" and modal_ready:
-        # Hosted Muse Spark serves the text capabilities; image/voice stay on the
-        # suite. Fallback to the suite entry is configurable: staging sets
+        # Open-weight Muse Spark serves TEXT capabilities only. Multimodal
+        # work never routes here: pictures (visual), voice (stt) and outlines
+        # (segment) keep their Meta-suite routes below, funded by the hosted
+        # demo key or a family's BYOK key through this same gateway; photo
+        # (vision) understand turns also fail over to Meta Spark because the
+        # router skips adapters that declare no vision (routing.py).
+        # Fallback to the suite entry is configurable: staging sets
         # MODAL_FALLBACK=false so hosted outages fail loudly instead of
         # silently testing the suite.
         first = [RouteEntry("modal", s.modal_model)]

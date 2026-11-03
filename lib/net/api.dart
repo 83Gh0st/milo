@@ -13,16 +13,25 @@ import '../data/secure_store.dart';
 class CloudDisabled implements Exception {}
 class ApiError implements Exception { final String code; final Map<String, dynamic>? detail; ApiError(this.code, [this.detail]); @override String toString() => 'ApiError($code)'; }
 
-/// True only for PNG/JPEG bytes. A text/HTML/error body is never stored or
-/// rendered as a picture. Pure: unit-tested.
-bool isPngOrJpeg(Uint8List b) =>
-    (b.length >= 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) ||
-    (b.length >= 2 && b[0] == 0xFF && b[1] == 0xD8);
+/// True only for image bytes Flutter renders natively (PNG/JPEG/WebP/GIF/
+/// AVIF). A text/HTML/error body is never stored or rendered as a picture.
+/// Pure: unit-tested.
+bool isRenderableImage(Uint8List b) {
+  if (b.length >= 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return true; // PNG
+  if (b.length >= 2 && b[0] == 0xFF && b[1] == 0xD8) return true; // JPEG
+  if (b.length >= 6 && b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) return true; // GIF
+  if (b.length >= 12 && b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) return true; // WebP
+  if (b.length >= 12 && b[4] == 0x66 && b[5] == 0x74 && b[6] == 0x79 && b[7] == 0x70 && (String.fromCharCodes(b.sublist(8, 12)) == 'avif' || String.fromCharCodes(b.sublist(8, 12)) == 'avis')) return true; // AVIF
+  return false;
+}
 
-/// Enforces [isPngOrJpeg] on gateway picture bytes.
+/// Back-compat alias (older tests/callers).
+bool isPngOrJpeg(Uint8List b) => isRenderableImage(b);
+
+/// Enforces [isRenderableImage] on gateway picture bytes.
 Uint8List checkedImageBytes(List<int> raw) {
   final b = Uint8List.fromList(raw);
-  if (!isPngOrJpeg(b)) throw ApiError('bad_image_response');
+  if (!isRenderableImage(b)) throw ApiError('bad_image_response');
   return b;
 }
 
@@ -172,7 +181,7 @@ class MiloApi {
       final detail = raw is Map ? Map<String, dynamic>.from(raw) : null;
       final err = detail?['error'];
       if (s == 429) return ApiError(err == 'demo_quota_exceeded' || err == 'demo_busy' ? err : 'rate_limited', detail);
-      if (s == 503) return ApiError(err == 'budget_exhausted' ? 'budget_exhausted' : err == 'demo_disabled' ? 'demo_disabled' : 'http_503', detail); // daily spend guard vs demo switch vs provider outage: same status, different words
+      if (s == 503) return ApiError(err == 'budget_exhausted' ? 'budget_exhausted' : err == 'demo_disabled' ? 'demo_disabled' : err == 'not_configured' ? 'not_configured' : 'http_503', detail); // spend guard vs demo switch vs missing server key vs outage: same status, different words
       if (s == 504) return ApiError('timeout', detail); // the model took too long: retryable, not a budget problem
       return s != null ? ApiError('http_$s', detail) : ApiError('offline');
     }

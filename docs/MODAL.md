@@ -352,13 +352,23 @@ Dashboard path (no CLI needed for the endpoint itself):
      (must end `/v1`), `MODAL_MODELS_KEY` = the complete proxy token
      (`id.secret`, exactly as issued), `MODAL_MODEL` =
      `meta-models/Muse-Spark-Open-816B-A42B`.
-   - `milo-gateway-staging`: `ENV=dev`, `PROVIDER=mock`,
+   - `milo-gateway-staging`: `ENV=dev`, `PROVIDER=meta` for the
+     competition demo (`PROVIDER=mock` only for offline practice runs),
+     `MODEL_API_KEY` = the hosted Meta credential (server-side only;
+     funds demo multimodal: Muse Image, Voice Transcribe, SAM, Spark
+     vision), `DEMO_ENABLED=true`, `SAM_VERIFIED=true` (after
+     `probe_sam.py` passes), `DEMO_REQUESTS_PER_DAY=300`,
+     `DEMO_IMAGE_PER_DAY=20`, `DEMO_SEGMENT_PER_DAY=30`,
+     `DEMO_VOICE_MINUTES_PER_DAY=30`,
      `REASONING_PROVIDER=modal`, `MODAL_FALLBACK=false`,
      `INFERENCE_TIMEOUT_S=20` (Spark needs room; prod keeps the 8 s default),
      `JWT_SECRET` (48+ random), `KEY_ENC_SECRET` (48+ random),
      `SPEND_BACKEND=modal_dict`, `SPEND_DICT_NAME=milo-spend-staging`,
      `DATABASE_URL=` (leave empty to exercise database-optional chat,
      or a throwaway Postgres URL to also test vault/sync).
+     Deploy with `python -m modal deploy gateway/modal_staging.py`
+     (set `PYTHONUTF8=1` on Windows; the CLI lives in `.venv-test` when
+     not on PATH). Verify: `/v1/health` + `python gateway/scripts/probe_image.py`.
    - `milo-gateway-switches` (prod only): `REASONING_PROVIDER=modal`,
      `MODAL_FALLBACK=true`. Keeps the `milo-gateway` secret
      byte-identical - create this before the first production deploy

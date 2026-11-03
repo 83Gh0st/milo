@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:milo/companion/director.dart';
+import 'package:milo/contracts/brain_contract.dart';
 import 'package:milo/net/api.dart';
 import 'package:milo/ui/chat_screen.dart';
 
@@ -37,6 +39,23 @@ void main() {
       for (final c in ['mic_denied', 'too_short', 'offline', 'asr_error']) {
         expect(voiceErrorWords(c), contains('type'), reason: c);
       }
+    });
+  });
+
+  group('not-configured server (missing Meta key) wording', () {
+    test('image, outlines and voice say setup is missing, never fake success', () {
+      expect(genImageErrorWords(ApiError('not_configured')), contains('not set up'));
+      expect(voiceErrorWords('not_configured'), contains('not set up'));
+      expect(voiceErrorWords('recorder_failed'), contains('recorder'));
+    });
+  });
+
+  group('conversation context', () {
+    test('a performed reply is remembered in full, not as one caption', () async {
+      final d = Director()..quiet = true;
+      await d.perform(const BrainTurn(emotion: 'happy', say: ['First part.', 'Second part matters too.']));
+      expect(d.lastReplyText, 'First part. Second part matters too.');
+      d.dispose();
     });
   });
 
