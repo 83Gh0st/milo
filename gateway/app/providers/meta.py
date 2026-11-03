@@ -135,6 +135,30 @@ def norm_boxes(records, w: int, h: int, limit: int = 20) -> list:
     return out
 
 
+async def coerce_sam_events(stream):
+    """Plain-dict events + synthesized output_text.done, mirroring
+    scripts/probe_sam.py: the API streams content_part.done but not
+    output_text.done, which is what closes a lane. Keep the two in sync."""
+    done = set()
+    async for ev in stream:
+        d = ev.model_dump() if hasattr(ev, "model_dump") else dict(ev)
+        lane = (d.get("item_id"), d.get("output_index"), d.get("content_index"))
+        if d.get("type") == "response.output_text.done":
+            if lane not in done:
+                done.add(lane)
+                yield d
+            continue
+        yield d
+        part = d.get("part")
+        if (d.get("type") == "response.content_part.done" and lane not in done
+                and isinstance(part, dict) and part.get("type") == "output_text"
+                and isinstance(part.get("text"), str)):
+            done.add(lane)
+            yield {"type": "response.output_text.done", "item_id": d.get("item_id"),
+                   "output_index": d.get("output_index"),
+                   "content_index": d.get("content_index"), "text": part["text"]}
+
+
 class MetaGround:
     """SAM 3.1 visual grounding over the Responses API, exactly per Meta's
     cookbook (07_sam/01_api_basics): one noun phrase + image data URL,
@@ -169,7 +193,7 @@ class MetaGround:
                 "type": "message", "role": "user", "content": [
                     {"type": "input_text", "text": phrase.strip()},
                     {"type": "input_image", "image_url": f"data:{mime};base64,{image_b64}"}]}])
-            result = await parse_responses_stream(stream, image_segmentation_format()).final_result()
+            result = await parse_responses_stream(coerce_sam_events(stream), image_segmentation_format()).final_result()
         except APITimeoutError:
             raise ProviderError("timeout", 504)
         except APIStatusError as e:

@@ -134,3 +134,24 @@ async def test_meta_entitlements_and_wonder_routing(meta_server):
         async for _ in a.stream([{"role": "user", "content": "hi"}], model="gpt-4o"):
             pass
     assert e.value.code == "model_not_found"
+
+
+async def test_meta_discovery_lists_full_one_key_suite():
+    from app.config import Settings
+    from app.providers.meta_adapter import MetaAdapter
+    s = Settings()
+    a = MetaAdapter(s)  # construct-only: no I/O
+    assert await a.discover_models() == [s.spark_model, s.wonder_model, s.image_model, s.voice_model, s.sam_model]
+
+
+async def test_sam_coercion_closes_lanes_without_dupes():
+    from app.providers.meta import coerce_sam_events
+
+    async def src():
+        yield {"type": "response.content_part.done", "item_id": "i", "output_index": 0, "content_index": 0,
+               "part": {"type": "output_text", "text": "BOX"}}
+        yield {"type": "response.output_text.done", "item_id": "i", "output_index": 0, "content_index": 0, "text": "BOX"}
+
+    out = [e async for e in coerce_sam_events(src())]
+    assert [e["type"] for e in out] == ["response.content_part.done", "response.output_text.done"]
+    assert out[1]["text"] == "BOX"  # synthesized close carries the lane text; the real dup is swallowed

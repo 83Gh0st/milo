@@ -154,19 +154,43 @@ class VaultCtx:
     unreadable: list = field(default_factory=list)  # providers whose key no longer decrypts
 
 
+# Probe failures that must NOT gate routing: the next attempt may succeed,
+# so the router still tries and the serve-time error (if any) surfaces
+# honestly. Every other fail:* reason (not_entitled, bad key, bad model,
+# bad grammar) gates the need until a later probe passes.
+_TRANSIENT_FAILS = {"timeout", "unreachable", "rate_limited", "quota", "provider_error"}
+
+
+def _need_ok(checks: dict, *names: str) -> bool:
+    """First present check decides; absent checks stay allowed (unprobed)."""
+    for n in names:
+        v = checks.get(n, "")
+        if not isinstance(v, str) or not v:
+            continue
+        if v.startswith("fail:") and v[5:] not in _TRANSIENT_FAILS:
+            return False
+        return True
+    return True
+
+
 def _caps_for(conn: dict) -> dict:
     """Builds the (provider, model) caps entries from one connection row.
-    A need is False only when a probe explicitly failed it; unprobed needs
-    stay allowed (the provider's own error then surfaces honestly)."""
+    A need is False only when a probe explicitly and deterministically
+    failed it; unprobed needs stay allowed (the provider's own error then
+    surfaces honestly). Non-chat Meta probes carry entitlement checks
+    instead of a chat check, which is why text_stream falls back to the
+    wonder entitlement and visual_ground to the SAM one."""
     out = {}
     for model, info in (conn.get("caps") or {}).items():
         if not isinstance(info, dict) or "checks" not in info:
             continue
         checks = info["checks"]
-        entry = {"strategy": info.get("strategy", "lines")}
-        for need, check in (("text_stream", "chat"), ("vision", "vision")):
-            v = checks.get(check, "")
-            entry[need] = not (isinstance(v, str) and v.startswith("fail"))
+        entry = {"strategy": info.get("strategy", "lines"),
+                 "text_stream": _need_ok(checks, "chat", "wonder_entitled"),
+                 "vision": _need_ok(checks, "vision"),
+                 "image_gen": _need_ok(checks, "image_entitled"),
+                 "audio_in": _need_ok(checks, "voice_entitled"),
+                 "visual_ground": _need_ok(checks, "visual_ground", "sam_entitled")}
         out[model] = entry
     return out
 
@@ -202,15 +226,32 @@ async def vault_ctx_for(vid: str, key: str, engine, s) -> VaultCtx:
     elif s.provider != "mock":
         # A family that saved keys but never saved per-capability routes
         # still gets working turns: each configured provider+model becomes
-        # the default entry for every capability, and the router + probed
-        # caps skip what a provider cannot serve (honest errors, never
-        # deployer fallback - family requests only ever see family creds).
-        own = [RouteEntry(c["provider"], c["default_model"], "auto")
-               for c in conns if c.get("default_model") and c["provider"] in creds]
-        if own:
-            from .providers.registry import CAPABILITIES_NEEDED
-            for cap in CAPABILITIES_NEEDED:
-                routes.setdefault(cap, list(own))
+        # the default entry for every capability it can serve, and the
+        # router + probed caps skip the rest (honest errors, never deployer
+        # fallback - family requests only ever see family creds). One Meta
+        # key funds the whole suite, so a Meta connection expands to the
+        # capability-correct suite models instead of pointing every
+        # capability at the default chat model; saved routes always win.
+        from .providers.registry import CAPABILITIES_NEEDED
+        per_cap: dict[str, list] = {cap: [] for cap in CAPABILITIES_NEEDED}
+        for c in conns:
+            if not c.get("default_model") or c["provider"] not in creds:
+                continue
+            if c["provider"] == "meta":
+                dm = c["default_model"]
+                for cap in ("brain", "understand", "plan", "compose", "story"):
+                    if dm == s.wonder_model and cap not in ("plan", "story"):
+                        continue  # Wonder stays out of ordinary turns unless explicitly routed
+                    per_cap[cap].append(RouteEntry("meta", dm, "auto"))
+                per_cap["visual"].append(RouteEntry("meta", s.image_model, "auto"))
+                per_cap["stt"].append(RouteEntry("meta", s.voice_model, "auto"))
+                per_cap["segment"].append(RouteEntry("meta", s.sam_model, "auto"))
+            else:
+                for cap in CAPABILITIES_NEEDED:
+                    per_cap[cap].append(RouteEntry(c["provider"], c["default_model"], "auto"))
+        for cap, entries in per_cap.items():
+            if entries:
+                routes.setdefault(cap, entries)
     return VaultCtx(vid=vid, creds=creds, routes=routes, caps=caps, unreadable=bad)
 
 

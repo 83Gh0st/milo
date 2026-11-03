@@ -322,6 +322,42 @@ void main() {
     c.dispose();
   });
 
+  testWidgets('route rows cover plans, stories and outlines with role-matched Meta options', (t) async {
+    final db = FakeDb();
+    final api = FakeApi(db, SecureStore());
+    api.savedConns.add({'provider': 'meta', 'base_url': '', 'hint': '…1234', 'default_model': 'fake-spark', 'policy': {}});
+    final c = connContainer(db, api, FakeSync(db, api, SecureStore()));
+    await pumpConn(t, c);
+    final list = find.byType(ListView).first;
+    for (final label in ['Step-by-step plans', 'Stories', 'Object outlines']) {
+      await dragToBuild(t, find.text(label, skipOffstage: false), list);
+      expect(find.text(label, skipOffstage: false), findsOneWidget);
+    }
+    Finder firstChoice(String label) {
+      final card = find.ancestor(of: find.text(label, skipOffstage: false), matching: find.byType(Card, skipOffstage: false));
+      return find.descendant(of: card, matching: find.byType(DropdownButtonFormField<String>)).first;
+    }
+    // Plans offers the chat-role suite model alongside the provider default...
+    await t.scrollUntilVisible(firstChoice('Step-by-step plans'), 50);
+    await t.ensureVisible(firstChoice('Step-by-step plans'));
+    await t.pump();
+    await t.tap(firstChoice('Step-by-step plans'));
+    await settle(t);
+    expect(find.text('meta/fake-model-a (Fake Model A)', skipOffstage: false), findsOneWidget);
+    expect(find.text('meta/fake-spark', skipOffstage: false), findsOneWidget); // default still offered
+    await t.tap(find.text('Step-by-step plans', skipOffstage: false).first); // dismiss the menu
+    await settle(t);
+    // ...but Pictures does not offer a chat-role model for an image job.
+    await t.scrollUntilVisible(firstChoice('Pictures'), 50);
+    await t.ensureVisible(firstChoice('Pictures'));
+    await t.pump();
+    await t.tap(firstChoice('Pictures'));
+    await settle(t);
+    expect(find.text('meta/fake-model-a (Fake Model A)', skipOffstage: false), findsNothing);
+    expect(t.takeException(), isNull);
+    c.dispose();
+  });
+
   test('prettyModelId mirrors the server rules', () {
     expect(prettyModelId('gpt-4o-mini'), 'GPT 4o Mini');
     expect(prettyModelId('meta-models/Muse-Spark-Open-816B-A42B'), 'Muse Spark Open 816B A42B');

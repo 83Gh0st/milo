@@ -20,10 +20,11 @@ the in-app Test connection or a keyed staging check.
    `vault_connections`; pre-Phase-3 `vault_keys` rows migrate lazily without
    data loss). List endpoints return provider + `…last4` hint only; keys are
    never returned, logged, or sent to any client.
-4. Per capability (thinking, reading help, pictures, voice in) the family
-   picks a first choice and a fallback (`PUT /v1/connections/routes`); the
-   server fails over on timeout/429/5xx/unreachable only, never on auth or
-   content-filter errors, and never silently changes provider.
+4. Per capability (thinking, reading help, plans, stories, pictures,
+   voice in, object outlines) the family picks a first choice and a fallback
+   (`PUT /v1/connections/routes`); the server fails over on
+   timeout/429/5xx/unreachable only, never on auth or content-filter errors,
+   and never silently changes provider.
 5. When the `ai.family_key` switch is on and sync is on, every inference
    call carries vault headers (`MiloApi.vaultAuth`, voice first frame) and
    the gateway serves that turn from the family's routes
@@ -35,11 +36,28 @@ the in-app Test connection or a keyed staging check.
    the vendors' own pages on 2026-10-29 (no training on API data); Meta's
    standard-model retention is still unverified, so Meta still needs the
    acknowledgement. Re-check terms before every release.
-7. A saved key is never shown as working: only a passed Test connection
-   stamps `tested_at`, and the app shows `Tested <date>` vs `Saved - not
-   tested yet`. A family that saved keys but never saved routes still gets
-   working turns: the server synthesises defaults from the family's own
-   providers (never the deployer's) - see `sync.py` `vault_ctx_for`.
+7. A saved key is never shown as working: every completed Test connection
+   stamps `tested_at` with its checks, and the app shows `Tested <date>`
+   (green/red per check) vs `Saved - not tested yet`. A family that saved
+   keys but never saved routes still gets working turns: the server
+   synthesises defaults from the family's own providers (never the
+   deployer's) - see `sync.py` `vault_ctx_for`.
+
+## One Meta key for the whole suite
+
+One Meta API key funds all five Meta models; the family pastes it once and
+the vault keeps a single Meta credential. Each model is still verified
+separately: Test connection on a model runs the chat/shape checks for Spark
+or a cheap `/v1/models` entitlement check for Image, Voice, SAM, and Wonder
+(no generation spend), and the results are stored per model. Deterministic
+failures (not entitled, rejected key, unknown model) gate that capability
+in the router until a later probe passes; transient failures (timeout,
+rate limit, unreachable) do not, so a flaky test never bricks routing.
+Pictures, voice, and outlines resolve to their suite models automatically
+when the family saved no explicit routes; Muse Wonder can only be routed
+to plans and stories (`PUT /routes` rejects it everywhere else), and it is
+never a default. Replacing the Meta key updates every Meta capability at
+once; removing the Meta connection disables all of them.
 
 ## Explicit-failure rules (tested in `test_gateway.py`)
 
@@ -50,9 +68,11 @@ the in-app Test connection or a keyed staging check.
 - A family key the provider rejects surfaces as `family_key_rejected` (Meta
   path) or `auth_failed` (registry adapters) instead of looking like a
   deployer outage; auth errors never fail over to another provider silently.
-- A model whose probe failed a needed capability (e.g. pictures on a
-  text-only model) is skipped before any network I/O and surfaces as
-  `unsupported_capability` - Milo says what it cannot do instead of trying.
+- A model whose probe deterministically failed a needed capability (not
+  entitled, rejected key, text-only model asked for pictures) is skipped
+  before any network I/O and surfaces as `unsupported_capability` - Milo
+  says what it cannot do instead of trying. Transient probe failures
+  (timeout, rate limit) never gate: the next real attempt still goes out.
 - Removing the key, turning the switch off, turning sync off, or deleting the
   vault all stop family billing; the app falls back to the shared key or to
   the on-device pocket brain and says so.

@@ -113,13 +113,10 @@ Say things with pictures, words, or typing.
 Tap picture tiles to build a message, then speak it aloud with large listener-facing text. Fixed tile positions, recents, an urgent Help row, Phrases/Symbols/Keyboard tabs, and "Say it better" for polishing wording stay predictable under stress.
 
 <p align="center">
-  <img src="docs/images/screenshots/communication-board.jpeg" width="220" alt="Communication board with symbol tiles">
-  <img src="docs/images/screenshots/communication-composed.jpeg" width="220" alt="Composed message I need Help with Speak button">
-  <img src="docs/images/screenshots/communication-keyboard.jpeg" width="220" alt="Keyboard tab with on-device word prediction">
-</p>
-
-<p align="center">
-  <img src="docs/images/screenshots/speaking-view.jpeg" width="240" alt="Speaking view with large text I am hurt and Again and Done buttons">
+  <img src="docs/images/screenshots/communication-board.jpeg" width="200" alt="Communication board with symbol tiles">
+  <img src="docs/images/screenshots/communication-composed.jpeg" width="200" alt="Composed message I need Help with Speak button">
+  <img src="docs/images/screenshots/communication-keyboard.jpeg" width="200" alt="Keyboard tab with on-device word prediction">
+  <img src="docs/images/screenshots/speaking-view.jpeg" width="200" alt="Speaking view with large text I am hurt and Again and Done buttons">
 </p>
 
 <p align="center"><em>Express: board, composed message with recents, keyboard with on-device prediction, and the large-text speaking view.</em></p>
@@ -206,7 +203,7 @@ Provider keys are sealed server-side, travel per-request over TLS, and never app
 
 ## How Milo uses Meta models
 
-Two serving paths, kept separate: the deployer's **Modal-hosted Muse Spark Open** endpoint answers Milo's own turns, while **family-provided API keys** (Meta, OpenAI, Anthropic, Gemini-compatible, custom) are sealed in the vault and spend the family's quota. Statuses come from `gateway/app/providers/meta_catalog.py`, which tests keep honest.
+Two serving paths, kept separate: the deployer's **Modal-hosted Muse Spark Open** endpoint answers Milo's own turns, while **family-provided API keys** (Meta, OpenAI, Anthropic, Gemini-compatible, custom) are sealed in the vault and spend the family's quota. One Meta key funds all five Meta models; each is verified separately and a key accepted for one is never assumed for the others. Statuses come from `gateway/app/providers/meta_catalog.py`, which tests keep honest.
 
 | What Milo does | Model or component | Route | Status |
 |---|---|---|---|
@@ -214,12 +211,12 @@ Two serving paths, kept separate: the deployer's **Modal-hosted Muse Spark Open*
 | Suite reasoning fallback | muse-spark-1.3 | Meta Model API | Same wire, keyed run pending |
 | Story and tile illustrations | muse-image-1.0 | Meta Model API | Wired, keyed run pending |
 | Voice input transcription | muse-voice-transcribe-1.0 | Meta Model API (realtime socket) | Wired, device plus keyed run pending |
-| Tap-a-box object regions | SAM 3.1 | Meta Model API | Wired, `probe_sam.py` with a real key pending (mock boxes until then) |
-| Long-form agentic work | muse-wonder-1.0 | Meta Model API | Evaluated, not routed (allowlisted only) |
+| Tap-a-box object regions | SAM 3.1 | Meta Model API | Wired; app path refuses until `probe_sam.py` passes with a real key (mock suite labels its boxes `mock`) |
+| Long-form plans and stories | muse-wonder-1.0 | Meta Model API | Wired, routable to plans/stories only (server-gated, never a default); keyed run pending |
 | Operator-side eval judge | muse-glimmer:30b | Self-hosted (Ollama), never a hosted API | Manual, operator hardware only |
 | Speech output | Platform TTS via `flutter_tts` | On-device | Local, no model involved |
 
-Notes: speech-to-text (Muse Voice Transcribe) and text-to-speech (platform TTS) are separate systems; nothing auto-generates pictures (every image needs an explicit Create tap); Wonder stays out of every route by design; Glimmer is open-weight and self-hosted, so it is never presented as on-device intelligence or reached through an ordinary API key.
+Notes: speech-to-text (Muse Voice Transcribe) and text-to-speech (platform TTS) are separate systems; nothing auto-generates pictures (every image needs an explicit Create tap); Wonder serves long-form plans and stories only and stays out of ordinary chat, reading, pictures, voice, and outlines by server-side rule; Glimmer is open-weight and self-hosted, so it is never presented as on-device intelligence or reached through an ordinary API key.
 
 ## System architecture
 
@@ -305,7 +302,7 @@ Current limitations, stated plainly:
 - The staging ladder is green for health, stories, image bytes, and understanding, but the ladder's image step does not pin which provider served the bytes, so keyed Meta Image, Voice, and SAM runs stay recorded as pending.
 - The brain-turn step still flakes (empty spoken text roughly one run in eight); the cause is being narrowed from probe timing (see `live_probe.py` comments).
 - No device captures yet for Understand, Learn, Chat, or Calm in this pass.
-- Wonder is allowlisted but unrouted; Glimmer has only ever run as an operator-side eval judge.
+- Wonder is wired and gated to plans/stories but has no keyed run yet; Glimmer runs only as the optional operator-side eval judge (no local Ollama here to verify against).
 - `android/app` still uses the template `com.example` application id; `ios/Runner` has no bundle id set. Both must change before any store submission.
 
 ## Development and contribution

@@ -467,11 +467,92 @@ async def test_models_endpoint_shape_and_roles(client):
     r = await client.get("/v1/connections/meta/models", headers=V)
     assert r.status_code == 200 and r.json()["source"] == "configured" and KEY not in r.text
     by_id = {m["id"]: m for m in r.json()["models"]}
-    assert set(by_id) == {s.spark_model, s.voice_model, s.image_model}
+    assert set(by_id) == {s.spark_model, s.wonder_model, s.image_model, s.voice_model, s.sam_model}
     assert by_id[s.spark_model]["recommended"] is True and by_id[s.spark_model]["role"] == "chat"
     assert by_id[s.image_model]["role"] == "image" and by_id[s.voice_model]["role"] == "voice"
+    assert by_id[s.sam_model]["role"] == "segment" and by_id[s.wonder_model]["role"] == "longform"
     assert by_id[s.spark_model]["name"] == friendly_model_name(s.spark_model)
     assert (await client.get("/v1/connections/openai/models", headers=V)).status_code == 404  # no saved connection
+
+
+async def test_routes_gate_wonder_modal_and_unknown_providers(client):
+    """Wonder serves long-form plans/stories only; the deployer-only modal
+    path and unknown provider ids are rejected at save time, not serve time."""
+    V = await _vault(client)
+    KEY = "[REDACTED]"
+    s = client.app.state.settings
+    assert (await client.post("/v1/connections/meta", headers=V, json={"api_key": KEY, "default_model": s.spark_model, "ack_data_policy": True})).status_code == 200
+    w = s.wonder_model
+    bad = [({"brain": [{"provider": "meta", "model": w}]}, "wonder in ordinary chat"),
+           ({"understand": [{"provider": "meta", "model": w}]}, "wonder in reading help"),
+           ({"visual": [{"provider": "meta", "model": w}]}, "wonder for pictures"),
+           ({"brain": [{"provider": "modal", "model": "muse-x"}]}, "deployer path as family route"),
+           ({"brain": [{"provider": "nope", "model": "m"}]}, "unknown provider")]
+    for routes, why in bad:
+        r = await client.put("/v1/connections/routes", headers=V, json={"routes": routes})
+        assert r.status_code == 422, (why, r.text)
+    for cap in ("plan", "story"):
+        r = await client.put("/v1/connections/routes", headers=V, json={"routes": {cap: [{"provider": "meta", "model": w}]}})
+        assert r.status_code == 200, (cap, r.text)
+
+
+async def test_failed_probe_records_caps_for_honest_status(tmp_path):
+    """A completed-but-failed probe still stamps tested_at + checks, so the
+    app shows Tested <date> with red checks instead of 'not tested yet'."""
+    app = mk(tmp_path, allow_lan_providers=True)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+            V = await _vault(c)
+            body = {"base_url": "http://127.0.0.1:9", "api_key": "[REDACTED]", "default_model": "m", "ack_data_policy": True}
+            assert (await c.post("/v1/connections/custom", headers=V, json=body)).status_code == 200
+            r = await c.post("/v1/connections/custom/test", headers=V, json={})
+            assert r.status_code == 200 and not r.json()["ok"]
+            caps = (await c.get("/v1/connections", headers=V)).json()["connections"][0]["caps"]
+            assert caps["m"]["checks"]["chat"] == "fail:unreachable" and len(caps["m"]["tested_at"]) >= 10
+
+
+def test_caps_for_gates_deterministic_fails_only():
+    from app.sync import _caps_for
+    assert _caps_for({"caps": {"m": {"checks": {"chat": "fail:not_entitled"}}}})["m"]["text_stream"] is False
+    assert _caps_for({"caps": {"m": {"checks": {"chat": "fail:auth_failed"}}}})["m"]["text_stream"] is False
+    assert _caps_for({"caps": {"m": {"checks": {"chat": "fail:timeout"}}}})["m"]["text_stream"] is True  # transient: serve-time retry
+    assert _caps_for({"caps": {"m": {"checks": {"chat": "fail:unreachable"}}}})["m"]["text_stream"] is True
+    assert _caps_for({"caps": {"m": {"checks": {"vision": "fail:no"}}}})["m"]["vision"] is False
+    img = _caps_for({"caps": {"i": {"checks": {"image_entitled": "fail:not_entitled", "voice_entitled": "pass"}}}})["i"]
+    assert img["image_gen"] is False and img["audio_in"] is True and img["text_stream"] is True
+    w = _caps_for({"caps": {"w": {"checks": {"wonder_entitled": "fail:not_entitled"}}}})["w"]
+    assert w["text_stream"] is False  # non-chat probes gate through their entitlement check
+    g = _caps_for({"caps": {"g": {"checks": {"visual_ground": "pass"}}}})["g"]
+    assert g["visual_ground"] is True
+    g2 = _caps_for({"caps": {"g": {"checks": {"sam_entitled": "fail:not_entitled"}}}})["g"]
+    assert g2["visual_ground"] is False
+
+
+async def test_meta_autoroutes_expand_one_key_suite(tmp_path):
+    """No saved routes + one Meta key: text caps use the default chat model,
+    pictures/voice/outlines use their suite models under the same key."""
+    from app.sync import vault_ctx_for
+    app = mk(tmp_path, provider="meta", model_api_key="deployer-unused-here")
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+            c.app = app
+            V = await _vault(c)
+            s = app.state.settings
+            body = {"api_key": "[REDACTED]", "default_model": s.spark_model, "ack_data_policy": True}
+            assert (await c.post("/v1/connections/meta", headers=V, json=body)).status_code == 200
+            ctx = await vault_ctx_for(V["X-Vault-Id"], V["X-Vault-Key"], app.state.engine, s)
+            one = lambda cap: [(e.provider, e.model) for e in ctx.routes[cap]]  # noqa: E731
+            assert one("brain") == [("meta", s.spark_model)]
+            assert one("visual") == [("meta", s.image_model)]
+            assert one("stt") == [("meta", s.voice_model)]
+            assert one("segment") == [("meta", s.sam_model)]
+            assert set(ctx.creds) == {"meta"}  # one Meta credential funds every Meta cap
+            body["default_model"] = s.wonder_model
+            assert (await c.post("/v1/connections/meta", headers=V, json=body)).status_code == 200
+            ctx = await vault_ctx_for(V["X-Vault-Id"], V["X-Vault-Key"], app.state.engine, s)
+            assert "brain" not in ctx.routes and "understand" not in ctx.routes  # wonder default never auto-serves ordinary turns
+            assert [(e.provider, e.model) for e in ctx.routes["plan"]] == [("meta", s.wonder_model)]
+            assert [(e.provider, e.model) for e in ctx.routes["story"]] == [("meta", s.wonder_model)]
 
 
 def test_friendly_model_names():

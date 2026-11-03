@@ -190,8 +190,20 @@ schema, vision checks), activate per capability. Keys are sealed at rest with
 appear in logs, bundles, analytics, or crash reports. Family turns spend the
 family's quota and skip the deployer budget; there is no deployer fallback on
 family requests. Status shows configured / tested / active separately - a
-saved key alone never reads "connected". Trust model:
-[`docs/BYOK.md`](docs/BYOK.md).
+saved key alone never reads "connected". Every completed probe is recorded
+with its checks, so a failed test reads `Tested <date>` with red checks
+instead of "not tested yet"; deterministic failures (not entitled, rejected
+key) gate that capability in the router, while transient ones (timeout,
+rate limit) never do. Trust model: [`docs/BYOK.md`](docs/BYOK.md).
+
+One Meta key funds the whole suite: a Meta connection stores a single vault
+credential, discovery lists all five suite models, per-capability Test runs
+chat checks for Spark or cheap entitlement checks for the rest, and families
+with no saved routes get capability-correct suite models automatically
+(pictures → Image, voice → Transcribe, outlines → SAM). Muse Wonder is the
+gated exception: `PUT /routes` accepts it for plans and stories only, the
+app offers it on those two rows alone, and no default route anywhere names
+it - long-form work stays an explicit choice, never ordinary chat.
 
 First-party Meta surface (endpoint, model, creds, cost, honesty status per
 capability) is data, not prose: `gateway/app/providers/meta_catalog.py`

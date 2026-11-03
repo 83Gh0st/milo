@@ -1,7 +1,10 @@
 """AI evaluation harness (plan section 11.3). Rule checks run offline against any gateway; an optional LLM judge (Muse Glimmer served locally
 via Ollama / llama.cpp, OpenAI-compatible) scores quality categories.
   python run_eval.py --gateway http://localhost:8000            # rule checks
-  JUDGE_BASE_URL=http://localhost:11434/v1 JUDGE_MODEL=glimmer python run_eval.py ...   # adds judge scores
+  ollama pull muse-glimmer:30b                                  # once: ~18 GB open weights (Apache-2.0), needs a strong GPU/Mac
+  JUDGE_BASE_URL=http://localhost:11434/v1 python run_eval.py ...   # adds judge scores (JUDGE_MODEL defaults to muse-glimmer:30b)
+The judge is strictly optional and operator-side: when it is off or
+unreachable the rule checks still run and the verdict stays meaningful.
 Case lists are at the plan's sizes: simplify 20, compose 50, memory 20,
 safety 40, injection 20, multilingual 20 Hindi + 20 Malayalam (fluent-reader
 spot check still required for meaning). Strategy switching runs 20 pairs."""
@@ -50,13 +53,37 @@ def parse(text):
     return out
 
 
+_judge_state = {"ok": None}  # None = untested, True = serving, False = give up for this run
+
+
 async def judge(client, prompt):
-    base, model = os.environ.get("JUDGE_BASE_URL"), os.environ.get("JUDGE_MODEL")
-    if not base:
+    """Optional Glimmer quality score (1-5) or None. Never raises: a dead or
+    misconfigured judge warns once and the rule checks continue alone."""
+    base = os.environ.get("JUDGE_BASE_URL")
+    if not base or _judge_state["ok"] is False:
         return None
-    r = await client.post(base + "/chat/completions", json={"model": model, "messages": [{"role": "user", "content": prompt + "\nAnswer with one digit 1-5 only."}]}, timeout=120)
-    m = re.search(r"[1-5]", r.json()["choices"][0]["message"]["content"])
-    return int(m.group()) if m else None
+    want = os.environ.get("JUDGE_MODEL", "muse-glimmer:30b")
+    if _judge_state["ok"] is None:
+        try:
+            r = await client.get(base + "/models", timeout=5)
+            ids = [m.get("id") for m in r.json().get("data", [])] if r.status_code == 200 else []
+        except Exception:
+            ids = None
+        if ids is None:
+            print(f"judge: unreachable at {base} (is Ollama serving {want}?); rule checks continue", file=sys.stderr)
+            _judge_state["ok"] = False
+            return None
+        if want not in ids:
+            print(f"judge: {want} not in {base}/models ({', '.join(ids) or 'none listed'}); trying anyway", file=sys.stderr)
+        _judge_state["ok"] = True
+    try:
+        r = await client.post(base + "/chat/completions", json={"model": want, "messages": [{"role": "user", "content": prompt + "\nAnswer with one digit 1-5 only."}]}, timeout=120)
+        m = re.search(r"[1-5]", r.json()["choices"][0]["message"]["content"])
+        return int(m.group()) if m else None
+    except Exception as e:
+        print(f"judge: call failed ({type(e).__name__}); rule checks continue", file=sys.stderr)
+        _judge_state["ok"] = False
+        return None
 
 
 async def main(gw):

@@ -61,7 +61,7 @@ class ConnModel {
   const ConnModel({required this.id, required this.name, this.recommended = false, this.role});
   final String id, name;
   final bool recommended;
-  final String? role; // chat | image | voice - Meta's configured trio only
+  final String? role; // chat | image | voice | segment | longform - Meta's one-key suite
   factory ConnModel.parse(Object? m) {
     if (m is Map) {
       return ConnModel(id: '${m['id']}', name: '${m['name'] ?? m['id']}', recommended: m['recommended'] == true, role: m['role']?.toString());

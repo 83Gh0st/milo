@@ -56,10 +56,10 @@ META_CAPABILITIES = (
         latency="tens of seconds at high effort",
         offline="pocket brain; Wonder never on the critical path",
         retention="same Model API terms as Spark suite",
-        status="absent", verified_live=False,
-        notes="Allowlisted (SPARK_MODEL override) but unrouted: Milo turns are small and "
-              "structured and Spark already clears the bar. Enable for plan/compose only "
-              "with explicit deployer action; never silently."),
+        status="wired", verified_live=False,
+        notes="Routable for plan + story only: PUT /routes rejects it for every "
+              "other capability, the AI Connections screen offers it on the Plans "
+              "and Stories rows, and it is never a default. Needs a keyed run."),
     MetaCapability(
         id="image", models=("muse-image-1.0",),
         endpoint="https://api.meta.ai/v1 (Model API, conversational image calls)",
