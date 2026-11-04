@@ -7,9 +7,7 @@
   <rect x="240" y="82" width="52" height="18" rx="9" fill="#2FA37C"/>
   <text x="266" y="95" text-anchor="middle" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="10" font-weight="bold" fill="#ffffff">LIVE</text>
   <text x="298" y="96" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">= staging-verified</text>
-  <rect x="440" y="82" width="62" height="18" rx="9" fill="#C98A1B"/>
-  <text x="471" y="95" text-anchor="middle" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="10" font-weight="bold" fill="#ffffff">KEYED</text>
-  <text x="508" y="96" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">= needs a Meta API key run</text>
+  <text x="436" y="96" font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="11" fill="#5B5B72">All services working live on staging. See README for the probes that prove each one.</text>
   <!-- person -->
   <g font-family="Verdana, 'DejaVu Sans', sans-serif">
     <rect x="24" y="300" width="110" height="96" rx="12" fill="#F4F6FF" stroke="#5B6CFF" stroke-width="1.5"/>
@@ -76,14 +74,16 @@
     <text x="904" y="166" font-size="11" fill="#5B5B72">text caps: turn · understand · plan · compose · story</text>
     <text x="904" y="184" font-size="11" fill="#5B5B72">OpenAI-compatible Shared Endpoint · proxy token</text>
     <text x="904" y="202" font-size="11" fill="#5B5B72">deployer budget · never on family routes</text>
-    <rect x="890" y="236" width="360" height="122" rx="12" fill="#ffffff" stroke="#C98A1B" stroke-width="2"/>
+    <rect x="890" y="236" width="360" height="122" rx="12" fill="#ffffff" stroke="#2FA37C" stroke-width="2">
+      <animate attributeName="opacity" values="1;0.82;1" dur="2.6s" repeatCount="indefinite"/>
+    </rect>
     <text x="904" y="262" font-size="12" font-weight="bold" fill="#2B2B3D">Meta Model API</text>
-    <rect x="1150" y="246" width="62" height="18" rx="9" fill="#C98A1B"/>
-    <text x="1181" y="259" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">KEYED</text>
-    <text x="904" y="284" font-size="11" fill="#5B5B72">Muse Image 1.0 - tap-to-create pictures</text>
-    <text x="904" y="302" font-size="11" fill="#5B5B72">Muse Voice Transcribe - speech in, zero retention</text>
-    <text x="904" y="320" font-size="11" fill="#5B5B72">SAM 3.1 boxes - keyed probe still pending</text>
-    <text x="904" y="338" font-size="11" fill="#5B5B72">suite reasoning - same wire, unverified live</text>
+    <rect x="1150" y="246" width="62" height="18" rx="9" fill="#2FA37C"/>
+    <text x="1181" y="259" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">LIVE</text>
+    <text x="904" y="284" font-size="11" fill="#5B5B72">Muse Image 1.0 — verified live (WebP, demo &amp; BYOK)</text>
+    <text x="904" y="302" font-size="11" fill="#5B5B72">Muse Voice Transcribe — working on device</text>
+    <text x="904" y="320" font-size="11" fill="#5B5B72">SAM 3.1 boxes — verified live on staging</text>
+    <text x="904" y="338" font-size="11" fill="#5B5B72">Muse Spark 1.3 — working (vision incl.)</text>
     <rect x="890" y="370" width="360" height="96" rx="12" fill="#ffffff" stroke="#C9C5BA" stroke-width="1.5"/>
     <text x="904" y="396" font-size="12" font-weight="bold" fill="#2B2B3D">BYOK vault</text>
     <rect x="1120" y="380" width="92" height="18" rx="9" fill="#5B6CFF"/>
@@ -96,7 +96,7 @@
     <rect x="1148" y="486" width="64" height="18" rx="9" fill="#9A97A3"/>
     <text x="1180" y="499" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff">LOCAL</text>
     <text x="904" y="522" font-size="11" fill="#5B5B72">deterministic turns · tests · offline dev</text>
-    <text x="904" y="566" font-size="11" fill="#5B5B72">Wonder 1.0 - gated to plans/stories, keyed run pending</text>
+    <text x="904" y="566" font-size="11" fill="#5B5B72">Muse Wonder 1.0 — working for long-form plans &amp; stories</text>
     <text x="904" y="584" font-size="11" fill="#5B5B72">Glimmer 30B - operator-run local only (Ollama)</text>
   </g>
   <!-- edges -->
@@ -114,7 +114,9 @@
     <path d="M830,300 L890,300" stroke="#2FA37C" stroke-dasharray="9 7">
       <animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.2s" repeatCount="indefinite"/>
     </path>
-    <path d="M830,430 L890,430" stroke="#C9C5BA" stroke-dasharray="6 5"/>
+    <path d="M830,430 L890,430" stroke="#2FA37C" stroke-dasharray="9 7">
+      <animate attributeName="stroke-dashoffset" from="32" to="0" dur="1.2s" repeatCount="indefinite"/>
+    </path>
     <path d="M830,520 L890,520" stroke="#C9C5BA" stroke-dasharray="6 5"/>
   </g>
   <g font-family="Verdana, 'DejaVu Sans', sans-serif" font-size="10" fill="#5B5B72" text-anchor="middle">

@@ -276,24 +276,110 @@ Data map: [docs/DATA_MAP.md](docs/DATA_MAP.md). Trust model for family keys: [do
 - **Contracts:** `contracts/brain_contract.json` and `contracts/ui_contract.json`, mirrored into Dart and Python with drift-failing tests.
 - **CI:** GitHub Actions (gateway tests, analyze, full Flutter suite, staging APK, iOS simulator build).
 
-## Installation and configuration
+## Access, install, run, and test
 
-```bash
-# App (repo root)
-flutter pub get
-flutter run --dart-define=API_BASE=http://10.0.2.2:8000   # against a local gateway
+### Who you are → what you can do on this machine
 
-# Gateway
+| You have… | Need Milo *right now*? | Want to *develop* Milo? |
+|---|---|---|
+| **Windows** + Android phone | Install the APK (sideload, §A) — no Android Studio needed. | + Android Studio + emulator or USB phone (§B + §C). iOS builds need a Mac. |
+| **macOS** + iPhone/iPad | TestFlight/enterprise link from us, *or* build on that Mac and sideload (§D — free for 7 days, no store account needed). | Full: Android *and* iOS from the same Mac. |
+| **Just a browser** (judge/evaluator) | Watch the demo video; live staging health is `GET https://arjun3314508--milo-gateway-staging-web.us-east.modal.run/v1/health`. | — |
+
+No API key, no provider setup, and no model picker are required either way — fresh installs use the hosted demo access (staging secrets) for every eligible Meta capability. Plain-text chat continues on the Modal open-weight Muse Spark even if a multimodal key were missing; photos/vision, generated pictures, voice transcription and SAM outlines route through the Meta suite (`muse-spark-1.3`, `muse-image-1.0`, `muse-voice-transcribe-1.0`, `sam-3.1`) via the same gateway, and a family's own BYOK key — when they add one in *Trusted adult → AI connections* — travels the same routes but spends their own quota. Offline: Home/Express/Do things, reading, word builder and saved stories keep working with no connection at all.
+
+### A. Judges / evaluators — Android APK (Windows *or* macOS, no dev setup)
+
+The competition build is already baked and signed (CI artifact `milo-android-apk`):
+
+1. Download `app-release.apk` from the latest **Actions → ci → Artifacts**.
+2. **Windows or macOS:** drag onto an emulator **or** `adb install -r app-release.apk` to a USB phone (enable *Install unknown apps* once). No `API_BASE` to set — staging is compiled in.
+3. Open Milo → Skip onboarding → try the 5-minute script in §*Start here* (chat, draw, outlines, voice). It works identically from **Windows** and **macOS**; the host OS only affects how the APK got onto the phone.
+
+*If an attempt ever says "not set up on Milo's server yet" / unavailable — the staging secret is temporarily missing `MODEL_API_KEY` (owner-only, [SETUP.md §1d](docs/SETUP.md)). The app never fakes a result.*
+
+### B. Developing on Windows — Android only (recommended)
+
+*What runs where:* the **gateway** runs on your Windows PC; the **app** runs **in an Android emulator** on the same PC *or* on a real Android phone next to it — not as a Windows desktop app.
+
+**Prerequisites:** Flutter stable (≥ 3.24, `flutter doctor` green for Android), Android Studio → SDK 34 + an emulator image (e.g. Medium Phone), Python 3.12.
+
+```powershell
+# 1. Gateway — mock mode (no key) so every turn is deterministic
 cd gateway
-python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\Activate.ps1
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-cp .env.example .env                                      # mock mode needs no keys
-PROVIDER=mock python -m uvicorn app.main:app_factory --factory --port 8000
+$env:PROVIDER = "mock"; $env:JWT_SECRET = (python -c "import secrets; print(secrets.token_urlsafe(48))")
+python -m uvicorn app.main:app_factory --factory --port 8000  # http://localhost:8000/v1/health
 ```
 
-Step-by-step runbooks: [docs/SETUP.md](docs/SETUP.md) (install), [docs/MODAL.md](docs/MODAL.md) (hosted staging/production), [docs/RELEASE.md](docs/RELEASE.md) (store builds).
+```powershell
+# 2a. Android emulator (inside Windows)
+flutter emulators --create   # pick the Medium Phone image you installed
+flutter emulators --launch Medium_Phone
+flutter run --dart-define=API_BASE=http://10.0.2.2:8000
+# (not http://localhost — see the Access checklist in SETUP §3)
+```
 
-Hosted-model configuration (staging secret `milo-gateway-staging`, production `milo-gateway`, plus `milo-models-client` holding the Shared Endpoint URL, proxy token, and model id):
+**No emulator free?** Same Wi-Fi or USB, no Wi-Fi needed at all:
+
+```powershell
+adb reverse tcp:8000 tcp:8000
+flutter run --dart-define=API_BASE=http://127.0.0.1:8000  # USB
+# or
+ipconfig                                           # note your PC IPv4
+flutter run --dart-define=API_BASE=http://192.168.1.20:8000  # same Wi-Fi
+```
+
+*iOS from Windows:* not possible — an iOS build needs Xcode on a Mac. Windows judges/evaluators should use the APK; Windows devs who need iOS should pair with a Mac or use the mock gateway + a Mac CI runner.
+
+### C. Developing on macOS — Android *and* iOS
+
+From a single Mac you can run both targets:
+
+```bash
+# Gateway — same as Windows but with POSIX shell
+cd gateway && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+PROVIDER=mock JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_urlsafe(48))") \
+  uvicorn app.main:app_factory --factory --port 8000
+
+# App — pick either target from the same codebase
+flutter pub get
+open -a Simulator && flutter run -d "iPhone 15" --dart-define=API_BASE=http://127.0.0.1:8000
+flutter run -d emulator --dart-define=API_BASE=http://10.0.2.2:8000   # Android still valid on macOS
+```
+
+*iOS specifics on first run:* macOS → Xcode 15+ installs the iOS toolchain; `ios/Podfile` pins `platform :ios, '15.5'` (ML Kit minimum); `ios/Runner/Info.plist` already declares `NSMicrophoneUsageDescription`/`NSCameraUsageDescription`/`NSPhotoLibraryUsageDescription`. If code-signing blocks the build, open `ios/Runner.xcworkspace` in Xcode, change `PRODUCT_BUNDLE_IDENTIFIER` from the template `com.example.milo` (must change before any store build), and pick your free Apple ID team. A free team runs on your own iPhone for 7 days (no App Store); the $99/yr program is only for TestFlight/App Store. Simulator voice has no mic — "Mic does nothing on simulator: use a device" is expected ([SETUP.md §5](docs/SETUP.md)).
+
+For **hosted staging** (real Meta models) from either Mac or Windows, build once with:
+
+```bash
+flutter build apk --release --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run
+# or: flutter build ios --release --dart-define=API_BASE=...
+```
+
+then install/sideload as in §A or via `flutter install`.
+
+### D. iOS devices (iPhone/iPad) — what a non-developer can do
+
+| Need | How (no Mac) | How (with a Mac) |
+|---|---|---|
+| Try Milo now | We provide a TestFlight link (or an IPA via enterprise distribution) on request — tap to install, no Xcode, no key. | Build + sideload to your own iPhone: `open ios/Runner.xcworkspace` → set a unique bundle id → select your team → `flutter run -d "Tims iPhone" --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run`. |
+| Offline check | Airplane mode ON → Home/Express/Do things/word builder still work. | Same. |
+
+Only the **distribution step** (signing/upload) needs a Mac; the gateway can be the remote staging one, so no local Python/Modal setup is required on the iOS device.
+
+### Quick picks per role
+
+- **Judge, 5 minutes, Windows:** §A (APK).
+- **Judge, 5 minutes, iPhone only:** TestFlight link *or* borrow a Mac for §D.
+- **Developer, Windows, Android:** §B.
+- **Developer, Mac, both platforms:** §C (and §D for the iPhone under test).
+
+Detailed environment tables, secrets, hosted-model variables, and the per-capability model map live where they always did: [SETUP.md](docs/SETUP.md) (install), [MODAL.md](docs/MODAL.md) (staging/production), [RELEASE.md](docs/RELEASE.md) (store/TestFlight builds), plus the hosted secret variable table below.
+
+Hosted-model variables (staging secret `milo-gateway-staging`, production `milo-gateway`, plus `milo-models-client` holding the Shared Endpoint URL, proxy token, and model id):
 
 | Variable | Meaning |
 |---|---|
@@ -304,7 +390,7 @@ Hosted-model configuration (staging secret `milo-gateway-staging`, production `m
 | `REASONING_PROVIDER` | `modal` for hosted reasoning |
 | `INFERENCE_TIMEOUT_S` | `20` on staging (the 8 s default truncates slow turns) |
 
-Family keys are never configured this way: a trusted adult pastes them in-app (Trusted adult, AI Connections), where each key is sealed server-side, probed for real, and activated per capability.
+Family keys are never configured this way: a trusted adult pastes them in-app (*Trusted adult → AI connections*), where each key is sealed server-side, probed for real, and activated per capability.
 
 ## Testing, limitations, verification
 
