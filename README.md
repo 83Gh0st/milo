@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="docs/images/milo-character.png" width="200" alt="Milo, a round blue companion character with a green sprout">
-</p>
+
 
 <p align="center">
   <img src="docs/images/milo-logo.svg" width="440" alt="Milo logo lockup: companion mark, wordmark, and tagline">
@@ -29,7 +27,7 @@ General-purpose chatbots assume fluent reading, typing, and self-direction. Milo
 
 The model decides what to say; deterministic app code decides what happens. Every model output is validated against closed contracts before anything reaches the screen, the speaker, storage, or the network, and every cloud call is written to an on-device ledger *before* it is sent.
 
-Built for the **Meta Global AI Developer Hackathon** (October-November 2026 build window) by Arjun.
+Built for the **Meta Global AI Developer Hackathon** (October-November 2026 build window).
 
 Honest note on timing: the architecture and build-plan PDF (`Milo_Architecture_and_Build_Plan.pdf`) was drafted before the hackathon build window. The app, gateway, deployment, and everything verified in this README were built and tested during the hackathon.
 
@@ -37,21 +35,21 @@ Honest note on timing: the architecture and build-plan PDF (`Milo_Architecture_a
 
 **Install the APK** (Android, no account, no API key, no model picking):
 
-1. Download `app-release.apk` (CI artifact `milo-android-apk`, or build it: `flutter build apk --release --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run`).
-2. Install: `adb install -r app-release.apk` (or open the file on the phone and allow installs). The APK contains **no keys** - the hosted Meta credential lives only on the gateway server.
+1. Download `app-release.apk` from the verified CI run ([workflow run](https://github.com/83Gh0st/milo/actions/runs/41795285623)) or the direct artifact ([milo-android-apk](https://github.com/83Gh0st/milo/actions/runs/41795285623/artifacts/13304988831)), or build it locally: `flutter build apk --release --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run`.
+2. Install: `adb install -r app-release.apk` (or open the file on the phone and allow installs). The APK contains **no keys**. The hosted Meta credential lives only on the gateway server.
 3. Open Milo, finish the short onboarding, and try, in order:
-   * **Chat:** ask "Hello, tell me a joke" - a real model answers (hosted demo / open-weight route).
-   * **Draw:** Explore → *Draw a picture* → ask Milo to draw something → tap **Tap to create this picture** - a real generated image appears (labelled AI-made).
-   * **Outlines:** Explore → Understand → take a photo → *Find things in this photo* → type `toy` (or the object) → tap an outlined box → **Explain**.
-   * **Voice:** tap the microphone, say "Hello", tap stop - the transcript goes straight into chat and Milo replies (and speaks it if voice is on).
-   * **No key needed:** More → Trusted adult (set a PIN) → *AI connections* shows "Competition demo access: on" plus per-capability status. Your own key (BYOK) is optional there and never overwritten by the demo key.
-4. Hosted AI needs internet. With Wi-Fi off, the board, saved stories, read-aloud and routines keep working - that is intentional.
+   * **Chat:** ask "Hello, tell me a joke". A real model answers through the hosted demo route or the open weight route.
+   * **Draw:** Explore, then Draw a picture, then ask Milo to draw something, then tap Tap to create this picture. A real generated image appears, labelled AI made.
+   * **Outlines:** Explore, then Understand, then take a photo, then Find things in this photo, then type `toy` (or the object), then tap an outlined box, then tap Explain.
+   * **Voice:** tap the microphone, say "Hello", tap stop. The transcript goes straight into chat and Milo replies, and speaks it if voice is on.
+   * **No key needed:** More, then Trusted adult (set a PIN), then AI connections shows Competition demo access: on plus per capability status. Your own key (BYOK) is optional there and never overwritten by the demo key.
+4. Hosted AI needs internet. With WiFi off, the board, saved stories, read aloud and routines keep working. That is intentional.
 
-**Verified on staging (live probes, not just code):** image generation returns real WebP pictures from `muse-image-1.0` (`gateway/scripts/probe_image.py` exit 0, picture read back and confirmed), SAM returns real boxes/masks on real photos, chat streams via the open-weight route, and voice (speak -> transcript -> chat -> spoken reply) is owner-verified on device; the post-voice black screen is fixed (single-exit voice screen + regression test). Plain-text chat runs on the deployed open-weight Muse Spark (Modal) with the Meta suite as fallback. **All multimodal work - photo understanding (vision), picture generation, voice transcription and SAM outlines - always uses the Meta models** (`muse-spark-1.3` vision, `muse-image-1.0`, `muse-voice-transcribe-1.0`, `sam-3.1`), funded by the hosted demo key or by a family's own BYOK key. Both kinds of traffic pass through the same gateway, but the routes are separate and capability-checked: the text-only open-weight model is never handed a photo, an image request, audio, or a segmentation job (the router skips adapters that declare no such capability). Multimodal needs the server-side Meta key: if an attempt says "not set up on Milo's server yet", the staging secret is missing `MODEL_API_KEY` (setup checklist in `docs/SETUP.md` §1d) - the app never fakes a result. SAM additionally needs `SAM_VERIFIED=true` after a real `probe_sam.py` run.
+**Verified on staging (live probes, not just code):** image generation returns real WebP pictures from `muse-image-1.0` (`gateway/scripts/probe_image.py` exit 0, picture read back and confirmed), SAM returns real boxes and masks on real photos, chat streams through the open weight route, and voice (speak to transcript to chat to spoken reply) is owner verified on device. The post voice black screen is fixed with a single exit voice screen plus a regression test. Plain text chat runs on the deployed open weight Muse Spark on Modal with the Meta suite as fallback. **All multimodal work, photo understanding (vision), picture generation, voice transcription and SAM outlines, always uses the Meta models** (`muse-spark-1.3` vision, `muse-image-1.0`, `muse-voice-transcribe-1.0`, `sam-3.1`), funded by the hosted demo key or by a family's own BYOK key. Both kinds of traffic pass through the same gateway, but the routes are separate and capability checked. The text only open weight model is never handed a photo, an image request, audio, or a segmentation job (the router skips adapters that declare no such capability). Multimodal needs the server side Meta key. If an attempt says "not set up on Milo's server yet", the staging secret is missing `MODEL_API_KEY` (setup checklist in `docs/SETUP.md` section 1d). The app never fakes a result. SAM additionally needs `SAM_VERIFIED=true` after a real `probe_sam.py` run.
 
-**Run it on your laptop instead** (VS Code / any IDE): see `docs/SETUP.md` - gateway in mock mode (no key) or Meta mode, plus `flutter run --dart-define=API_BASE=…` for emulator, USB phone, or same-Wi-Fi phone.
+**Run it on your laptop instead** (VS Code or any IDE): see `docs/SETUP.md`. Gateway in mock mode needs no key. Meta mode needs a key, plus `flutter run` with `API_BASE` for emulator, USB phone, or same WiFi phone. No macOS or iOS install step is needed to test the Android demo. For macOS or iOS, see [Access, install, run, and test](#access-install-run-and-test) below.
 
-**Context and memory (how Milo "remembers"):** every chat request carries the last 6 turns (full replies, persisted on-device across restarts), up to 5 approved memories (only what the person confirmed in plain words), the visible context chips, support profile, and activity-panel state - inspectable any time in Chat → *What Milo knows* and More → Trusted adult → *Cloud and privacy*. Nothing is remembered silently; "Forget everything" in chat erases long-term memory, and conversation history never leaves the phone except as the `recent` field of the next request.
+**Context and memory (how Milo remembers):** every chat request carries the last 6 turns (full replies, persisted on device across restarts), up to 5 approved memories (only what the person confirmed in plain words), the visible context chips, support profile, and activity panel state. Inspectable any time in Chat to What Milo knows and More to Trusted adult to Cloud and privacy. Nothing is remembered silently. Forget everything in chat erases long term memory, and conversation history never leaves the phone except as the recent field of the next request.
 
 ## Demo video
 
@@ -282,30 +280,30 @@ Data map: [docs/DATA_MAP.md](docs/DATA_MAP.md). Trust model for family keys: [do
 
 | You have… | Need Milo *right now*? | Want to *develop* Milo? |
 |---|---|---|
-| **Windows** + Android phone | Install the APK (sideload, §A) — no Android Studio needed. | + Android Studio + emulator or USB phone (§B + §C). iOS builds need a Mac. |
-| **macOS** + iPhone/iPad | TestFlight/enterprise link from us, *or* build on that Mac and sideload (§D — free for 7 days, no store account needed). | Full: Android *and* iOS from the same Mac. |
-| **Just a browser** (judge/evaluator) | Watch the demo video; live staging health is `GET https://arjun3314508--milo-gateway-staging-web.us-east.modal.run/v1/health`. | — |
+| **Windows** + Android phone | Install the APK (sideload, §A) - no Android Studio needed. | + Android Studio + emulator or USB phone (§B + §C). iOS builds need a Mac. |
+| **macOS** + iPhone/iPad | TestFlight/enterprise link from us, *or* build on that Mac and sideload (§D - free for 7 days, no store account needed). | Full: Android *and* iOS from the same Mac. |
+| **Just a browser** (judge/evaluator) | Watch the demo video; live staging health is `GET https://arjun3314508--milo-gateway-staging-web.us-east.modal.run/v1/health`. | - |
 
-No API key, no provider setup, and no model picker are required either way — fresh installs use the hosted demo access (staging secrets) for every eligible Meta capability. Plain-text chat continues on the Modal open-weight Muse Spark even if a multimodal key were missing; photos/vision, generated pictures, voice transcription and SAM outlines route through the Meta suite (`muse-spark-1.3`, `muse-image-1.0`, `muse-voice-transcribe-1.0`, `sam-3.1`) via the same gateway, and a family's own BYOK key — when they add one in *Trusted adult → AI connections* — travels the same routes but spends their own quota. Offline: Home/Express/Do things, reading, word builder and saved stories keep working with no connection at all.
+No API key, no provider setup, and no model picker are required either way - fresh installs use the hosted demo access (staging secrets) for every eligible Meta capability. Plain-text chat continues on the Modal open-weight Muse Spark even if a multimodal key were missing; photos/vision, generated pictures, voice transcription and SAM outlines route through the Meta suite (`muse-spark-1.3`, `muse-image-1.0`, `muse-voice-transcribe-1.0`, `sam-3.1`) via the same gateway, and a family's own BYOK key - when they add one in *Trusted adult → AI connections* - travels the same routes but spends their own quota. Offline: Home/Express/Do things, reading, word builder and saved stories keep working with no connection at all.
 
-### A. Judges / evaluators — Android APK (Windows *or* macOS, no dev setup)
+### A. Judges / evaluators - Android APK (Windows *or* macOS, no dev setup)
 
 The competition build is already baked and signed (CI artifact `milo-android-apk`):
 
-1. Download `app-release.apk` from the latest **Actions → ci → Artifacts**.
-2. **Windows or macOS:** drag onto an emulator **or** `adb install -r app-release.apk` to a USB phone (enable *Install unknown apps* once). No `API_BASE` to set — staging is compiled in.
-3. Open Milo → Skip onboarding → try the 5-minute script in §*Start here* (chat, draw, outlines, voice). It works identically from **Windows** and **macOS**; the host OS only affects how the APK got onto the phone.
+1. Download `app-release.apk` from the verified CI run ([workflow run](https://github.com/83Gh0st/milo/actions/runs/41795285623)) or the direct artifact ([milo-android-apk](https://github.com/83Gh0st/milo/actions/runs/41795285623/artifacts/13304988831)).
+2. **Windows or macOS:** drag onto an emulator **or** `adb install -r app-release.apk` to a USB phone (enable *Install unknown apps* once). No `API_BASE` to set. Staging is compiled in.
+3. Open Milo, then Skip onboarding, then try the 5 minute script in Start here (chat, draw, outlines, voice). It works identically from Windows and macOS. The host OS only affects how the APK got onto the phone.
 
-*If an attempt ever says "not set up on Milo's server yet" / unavailable — the staging secret is temporarily missing `MODEL_API_KEY` (owner-only, [SETUP.md §1d](docs/SETUP.md)). The app never fakes a result.*
+*If an attempt ever says not set up on Milo's server yet or unavailable, the staging secret is temporarily missing `MODEL_API_KEY` (owner only, [SETUP.md section 1d](docs/SETUP.md)). The app never fakes a result.*
 
-### B. Developing on Windows — Android only (recommended)
+### B. Developing on Windows - Android only (recommended)
 
-*What runs where:* the **gateway** runs on your Windows PC; the **app** runs **in an Android emulator** on the same PC *or* on a real Android phone next to it — not as a Windows desktop app.
+*What runs where:* the **gateway** runs on your Windows PC; the **app** runs **in an Android emulator** on the same PC *or* on a real Android phone next to it - not as a Windows desktop app.
 
 **Prerequisites:** Flutter stable (≥ 3.24, `flutter doctor` green for Android), Android Studio → SDK 34 + an emulator image (e.g. Medium Phone), Python 3.12.
 
 ```powershell
-# 1. Gateway — mock mode (no key) so every turn is deterministic
+# 1. Gateway - mock mode (no key) so every turn is deterministic
 cd gateway
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
@@ -318,7 +316,7 @@ python -m uvicorn app.main:app_factory --factory --port 8000  # http://localhost
 flutter emulators --create   # pick the Medium Phone image you installed
 flutter emulators --launch Medium_Phone
 flutter run --dart-define=API_BASE=http://10.0.2.2:8000
-# (not http://localhost — see the Access checklist in SETUP §3)
+# (not http://localhost - see the Access checklist in SETUP §3)
 ```
 
 **No emulator free?** Same Wi-Fi or USB, no Wi-Fi needed at all:
@@ -331,26 +329,26 @@ ipconfig                                           # note your PC IPv4
 flutter run --dart-define=API_BASE=http://192.168.1.20:8000  # same Wi-Fi
 ```
 
-*iOS from Windows:* not possible — an iOS build needs Xcode on a Mac. Windows judges/evaluators should use the APK; Windows devs who need iOS should pair with a Mac or use the mock gateway + a Mac CI runner.
+*iOS from Windows:* not possible - an iOS build needs Xcode on a Mac. Windows judges/evaluators should use the APK; Windows devs who need iOS should pair with a Mac or use the mock gateway + a Mac CI runner.
 
-### C. Developing on macOS — Android *and* iOS
+### C. Developing on macOS - Android *and* iOS
 
 From a single Mac you can run both targets:
 
 ```bash
-# Gateway — same as Windows but with POSIX shell
+# Gateway - same as Windows but with POSIX shell
 cd gateway && python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 PROVIDER=mock JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_urlsafe(48))") \
   uvicorn app.main:app_factory --factory --port 8000
 
-# App — pick either target from the same codebase
+# App - pick either target from the same codebase
 flutter pub get
 open -a Simulator && flutter run -d "iPhone 15" --dart-define=API_BASE=http://127.0.0.1:8000
 flutter run -d emulator --dart-define=API_BASE=http://10.0.2.2:8000   # Android still valid on macOS
 ```
 
-*iOS specifics on first run:* macOS → Xcode 15+ installs the iOS toolchain; `ios/Podfile` pins `platform :ios, '15.5'` (ML Kit minimum); `ios/Runner/Info.plist` already declares `NSMicrophoneUsageDescription`/`NSCameraUsageDescription`/`NSPhotoLibraryUsageDescription`. If code-signing blocks the build, open `ios/Runner.xcworkspace` in Xcode, change `PRODUCT_BUNDLE_IDENTIFIER` from the template `com.example.milo` (must change before any store build), and pick your free Apple ID team. A free team runs on your own iPhone for 7 days (no App Store); the $99/yr program is only for TestFlight/App Store. Simulator voice has no mic — "Mic does nothing on simulator: use a device" is expected ([SETUP.md §5](docs/SETUP.md)).
+*iOS specifics on first run:* macOS → Xcode 15+ installs the iOS toolchain; `ios/Podfile` pins `platform :ios, '15.5'` (ML Kit minimum); `ios/Runner/Info.plist` already declares `NSMicrophoneUsageDescription`/`NSCameraUsageDescription`/`NSPhotoLibraryUsageDescription`. If code-signing blocks the build, open `ios/Runner.xcworkspace` in Xcode, change `PRODUCT_BUNDLE_IDENTIFIER` from the template `com.example.milo` (must change before any store build), and pick your free Apple ID team. A free team runs on your own iPhone for 7 days (no App Store); the $99/yr program is only for TestFlight/App Store. Simulator voice has no mic - "Mic does nothing on simulator: use a device" is expected ([SETUP.md §5](docs/SETUP.md)).
 
 For **hosted staging** (real Meta models) from either Mac or Windows, build once with:
 
@@ -361,11 +359,11 @@ flutter build apk --release --dart-define=API_BASE=https://arjun3314508--milo-ga
 
 then install/sideload as in §A or via `flutter install`.
 
-### D. iOS devices (iPhone/iPad) — what a non-developer can do
+### D. iOS devices (iPhone/iPad) - what a non-developer can do
 
 | Need | How (no Mac) | How (with a Mac) |
 |---|---|---|
-| Try Milo now | We provide a TestFlight link (or an IPA via enterprise distribution) on request — tap to install, no Xcode, no key. | Build + sideload to your own iPhone: `open ios/Runner.xcworkspace` → set a unique bundle id → select your team → `flutter run -d "Tims iPhone" --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run`. |
+| Try Milo now | We provide a TestFlight link (or an IPA via enterprise distribution) on request - tap to install, no Xcode, no key. | Build + sideload to your own iPhone: `open ios/Runner.xcworkspace` → set a unique bundle id → select your team → `flutter run -d "Tims iPhone" --dart-define=API_BASE=https://arjun3314508--milo-gateway-staging-web.us-east.modal.run`. |
 | Offline check | Airplane mode ON → Home/Express/Do things/word builder still work. | Same. |
 
 Only the **distribution step** (signing/upload) needs a Mac; the gateway can be the remote staging one, so no local Python/Modal setup is required on the iOS device.
