@@ -8,6 +8,8 @@
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-stable-02569B?logo=flutter&logoColor=white" alt="Built with Flutter"></a>
   <a href="https://dev.meta.ai"><img src="https://img.shields.io/badge/Meta-Muse-0467DF?logo=meta&logoColor=white" alt="Powered by Meta Muse"></a>
   <a href="https://modal.com"><img src="https://img.shields.io/badge/Hosted_on-Modal-AAEEC4?logoColor=black" alt="Hosted on Modal"></a>
+  <a href="https://youtu.be/96NygsvKZII"><img src="https://img.shields.io/badge/Demo_video-YouTube-FF0000?logo=youtube&logoColor=white" alt="Watch the demo on YouTube"></a>
+  <a href="https://github.com/83Gh0st/milo/actions/runs/41795285623/artifacts/13304988831"><img src="https://img.shields.io/badge/APK-milo--android--apk-2EA44F?logo=android&logoColor=white" alt="Download the APK"></a>
 </p>
 
 <p align="center"><strong>A little help, when words are not enough.</strong></p>
@@ -59,7 +61,11 @@ If you have only Windows, use the Android APK above and skip the iOS build. It n
 
 ## Demo video
 
-> **Three-minute demo video: coming soon.** Planned walkthrough: onboard in under 90 seconds, build and speak a board message offline, photograph a worksheet and hear it explained, generate and listen to a story, then open the trusted-adult area to show the ledger and AI connections. This section will hold the embedded video link.
+> **Three-minute walkthrough** — onboarding in under 90 seconds, offline board message, photo read-aloud, story generation, and the trusted-adult area.
+
+[![Watch the Milo demo on YouTube](https://img.youtube.com/vi/96NygsvKZII/maxresdefault.jpg)](https://youtu.be/96NygsvKZII)
+
+<p align="center"><a href="https://youtu.be/96NygsvKZII"><strong>Watch on YouTube — youtu.be/96NygsvKZII</strong></a> · <a href="https://github.com/83Gh0st/milo/actions/runs/41795285623/artifacts/13304988831">Download the APK (milo-android-apk)</a> · <a href="https://github.com/83Gh0st/milo/actions/runs/41795285623">Workflow run with screenshots</a></p>
 
 ## Product overview
 
